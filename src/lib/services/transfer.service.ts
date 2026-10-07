@@ -1,8 +1,31 @@
+// ─── B4 releases as transfer slices (RENA-010, RENA-087) ─────────────────────
+//
+// Single owner of every cleaner payout. Separate charges and transfers: the
+// platform charge (and each top-up charge) funds Stripe transfers to the
+// cleaner's connected account, grouped by transfer_group = bookingId.
+//
+// Every transfer found or created is a TransferSlice row:
+//   ANCHORED  source_transaction = one of the booking's charges, at most that
+//             charge's own amount (the original, and each succeeded top-up
+//             charge on its own: RENA-087)
+//   EXCESS    the rest, funded from the platform balance (M2: cleaner earnings
+//             are sacred, a promo never reduces them)
+//   ADOPTED   a legacy transfer migrated from Booking.stripeTransferId
+// RELEASED iff Σ slice amountPence >= the transfer amount.
+//
+// A release waits while moneyHoldReasons(booking) is non-empty (dispute,
+// shortfall, chargeback; they coexist). Failure writes are guarded on
+// RELEASING so a late writer cannot stomp a state another path moved on.
+
 import { prisma } from '@/lib/db/prisma';
+import { log } from '@/lib/log';
+import { isUnknownStripeOutcome, nextRetryAt, toPence } from '@/lib/money/ledger';
+import { holdReasonsFor } from '@/lib/money/ledger-db';
 import stripe from '@/lib/stripe';
 
 import { AuditService } from './audit.service';
 import { EnhancedNotificationService } from './enhanced-notification.service';
+import { TOPUP_WITHOUT_ASSIGNMENT } from './topup-flag';
 import { getTransferAmountPence } from './transfer-amount';
 import { enqueueXeroPush } from './xero-push.service';
 
@@ -15,18 +38,15 @@ export interface ReleaseResult {
 }
 
 // SECURITY (S5): who/what asked for this release — recorded on every executed
-// transfer (mirrors the refund audit pattern). `actorId` is the acting admin on
-// manual/dispute paths; scheduler runs have no actor.
+// transfer. `actorId` is the acting admin on manual/dispute paths.
 export interface ReleaseAudit {
   trigger: 'SCHEDULER' | 'ADMIN' | 'DISPUTE_RESOLUTION' | 'SYSTEM';
   actorId?: string;
 }
 
-/** Audit an EXECUTED transfer (money moved). Never throws — audit failure must
- *  not fail a release that already happened on Stripe. */
 async function auditFundsReleased(
   bookingId: string,
-  transferId: string,
+  transferIds: string[],
   amountPence: number,
   audit: ReleaseAudit,
   adoptedFromReconciliation = false
@@ -37,7 +57,7 @@ async function auditFundsReleased(
     entityType: 'Booking',
     entityId: bookingId,
     metadata: {
-      transferId,
+      transferId: transferIds.join(','),
       amountPence,
       trigger: audit.trigger,
       ...(adoptedFromReconciliation ? { adoptedFromReconciliation: true } : {}),
@@ -45,26 +65,17 @@ async function auditFundsReleased(
   }).catch(() => {});
 }
 
-// ─── Error Classification ─────────────────────────────────
-//
-// Unknown-outcome (MUST NOT bump transferAttempt — preserves idempotency key):
-//   StripeConnectionError — ETIMEDOUT, ECONNRESET, DNS failures
-//   StripeAPIError        — Stripe 500/502/503/504; server may have processed
-//
-// Definitive (safe to bump transferAttempt — new idempotency key on next retry):
-//   StripeInvalidRequestError — bad parameters, invalid account
-//   StripeCardError           — declined (unlikely for transfers)
-//   StripeAuthenticationError — bad API key
-//   StripePermissionError     — insufficient permissions
-//   StripeRateLimitError      — request rejected before processing
-//   StripeIdempotencyError    — idempotency key conflict
+interface AnchorCharge {
+  chargeId: string;
+  capturedPence: number;
+  /** null for the original charge; the top-up record id otherwise. */
+  topupRecordId: string | null;
+}
 
-function isUnknownOutcome(err: unknown): boolean {
-  if (err && typeof err === 'object' && 'type' in err) {
-    const stripeErr = err as { type: string };
-    return stripeErr.type === 'StripeConnectionError' || stripeErr.type === 'StripeAPIError';
-  }
-  return false;
+function sourceOf(t: { source_transaction?: string | { id: string } | null }): string | null {
+  const src = t.source_transaction;
+  if (!src) return null;
+  return typeof src === 'string' ? src : src.id;
 }
 
 // ─── Service ───────────────────────────────────────────────
@@ -87,38 +98,49 @@ export async function releaseBookingFunds(
           },
         },
       },
+      topupRecords: {
+        where: { status: 'SUCCEEDED', stripePaymentIntentId: { not: null } },
+        orderBy: { createdAt: 'asc' },
+      },
     },
   });
+  if (!booking) return { status: 'FAILED', reason: 'Booking not found' };
 
-  if (!booking) {
-    return { status: 'FAILED', reason: 'Booking not found' };
-  }
-
-  // Terminal states
   if (booking.transferStatus === 'RELEASED') {
     return { status: 'ALREADY_RELEASED', transferId: booking.stripeTransferId ?? undefined };
   }
-  if (booking.transferStatus === 'PAUSED' || booking.transferStatus === 'REFUNDED') {
+  if (['PAUSED', 'REFUNDED', 'REFUNDING'].includes(booking.transferStatus)) {
     return { status: 'SKIPPED', reason: `Transfer is ${booking.transferStatus}` };
   }
 
+  // Holds first (N7): a held booking pauses instead of releasing.
+  const holds = await holdReasonsFor(prisma, bookingId);
+  if (holds.length > 0) {
+    await prisma.booking.updateMany({
+      where: { id: bookingId, transferStatus: { in: ['PENDING', 'FAILED'] } },
+      data: { transferStatus: 'PAUSED' },
+    });
+    await AuditService.log({
+      userId: audit.actorId,
+      action: 'RELEASE_HELD',
+      entityType: 'Booking',
+      entityId: bookingId,
+      metadata: { holds },
+    }).catch(() => {});
+    return { status: 'SKIPPED', reason: `Held: ${holds.join(', ')}` };
+  }
+
   // ── Concurrency claim ──────────────────────────────────
-  // Atomic transition: only one worker can move from a claimable state to RELEASING.
-  // RELEASING is claimable too — covers crash-after-success where the previous
-  // worker created the Stripe transfer but crashed before writing stripeTransferId.
+  // RELEASING is claimable too: covers crash-after-success, which the
+  // transfer_group reconciliation below makes convergent.
   const claimed = await prisma.booking.updateMany({
-    where: {
-      id: bookingId,
-      transferStatus: { in: ['PENDING', 'UNKNOWN', 'FAILED', 'RELEASING'] },
-    },
+    where: { id: bookingId, transferStatus: { in: ['PENDING', 'UNKNOWN', 'FAILED', 'RELEASING'] } },
     data: { transferStatus: 'RELEASING' },
   });
-
   if (claimed.count === 0) {
     return { status: 'SKIPPED', reason: 'Another worker is already processing this transfer' };
   }
 
-  // ── Validation (under our ownership) ───────────────────
   if (!booking.stripeChargeId) {
     return setFailed(
       bookingId,
@@ -126,7 +148,6 @@ export async function releaseBookingFunds(
       'No charge ID on booking — payment may not have succeeded'
     );
   }
-
   const profile = booking.cleaner?.cleanerProfile;
   if (!profile?.stripeAccountId) {
     return setFailed(bookingId, booking.transferAttempt, 'Cleaner has no Stripe Connect account');
@@ -138,7 +159,6 @@ export async function releaseBookingFunds(
       'Cleaner Connect account not ready: charges or payouts not enabled'
     );
   }
-
   const transferPence = getTransferAmountPence(Number(booking.cleanerEarnings));
   if (transferPence <= 0) {
     return setFailed(
@@ -148,198 +168,271 @@ export async function releaseBookingFunds(
     );
   }
 
-  // M2: cleaner earnings are SACRED — a promo discount never reduces them, so
-  // on deeply-discounted bookings the transfer can legitimately EXCEED the
-  // captured charge (Rena funds the gap from its own balance). Stripe hard-caps
-  // source_transaction transfers at the charge amount, so the release is
-  // planned as up to TWO slices:
-  //   anchored = min(remaining, charge headroom) — funded by the charge
-  //              (source_transaction, settles even before payout availability)
-  //   excess   = the rest — a SEPARATE transfer funded from the platform's
-  //              available balance (no source_transaction). Mechanism chosen:
-  //              split transfer (not "top up the charge") — see gate notes.
-  // NOTE: the excess slice requires available platform balance; if the balance
-  // is short Stripe rejects it, the release goes FAILED with a clear reason,
-  // and the standard retry path (scheduler / admin release-funds) picks it up.
-  // B3 R2: a flagged top-up (taken without its assignment) never moves the
-  // cleaner side, so the headroom reads the captured total net of it.
-  const { flaggedTopupPounds } = await import('./topup-flag');
-  const chargePence = Math.round(
-    (Number(booking.totalAmountCharged ?? booking.totalPrice) -
-      (await flaggedTopupPounds(bookingId))) *
-      100
-  );
+  // ── The booking's charges (RENA-087) ────────────────────
+  // The original's own amount is the captured total less every succeeded
+  // top-up. A flagged TOPUP_WITHOUT_ASSIGNMENT top-up never funds this
+  // cleaner's payout (B3 R2), so it anchors nothing.
+  const topupTotal = booking.topupRecords.reduce((s, t) => s + toPence(t.amount), 0);
+  const charges: AnchorCharge[] = [
+    {
+      chargeId: booking.stripeChargeId,
+      capturedPence: Math.max(
+        0,
+        toPence(booking.totalAmountCharged ?? booking.totalPrice) - topupTotal
+      ),
+      topupRecordId: null,
+    },
+  ];
+  for (const t of booking.topupRecords) {
+    if ((t.failureReason ?? '').startsWith(TOPUP_WITHOUT_ASSIGNMENT)) continue;
+    let chargeId = t.stripeChargeId;
+    if (!chargeId && t.stripePaymentIntentId) {
+      // Older top-ups never stored their charge: read it once and keep it.
+      try {
+        const pi = await stripe.paymentIntents.retrieve(t.stripePaymentIntentId);
+        chargeId =
+          typeof pi.latest_charge === 'string' ? pi.latest_charge : (pi.latest_charge?.id ?? null);
+        if (chargeId) {
+          await prisma.topupRecord.update({
+            where: { id: t.id },
+            data: { stripeChargeId: chargeId },
+          });
+        }
+      } catch (err) {
+        const reason = err instanceof Error ? err.message : 'payment intent read failed';
+        return setUnknown(bookingId, `Top-up charge lookup failed: ${reason}`);
+      }
+    }
+    if (chargeId) charges.push({ chargeId, capturedPence: toPence(t.amount), topupRecordId: t.id });
+  }
 
   // ── Reconcile FIRST, always ─────────────────────────────
-  // Previously gated on UNKNOWN/RELEASING; now unconditional because a split
-  // release can partially succeed (slice A on Stripe, slice B failed) from a
-  // FAILED state too. Listing the transfer_group and planning only the
-  // SHORTFALL makes every retry convergent and double-pay impossible.
+  // Every transfer in the group becomes (or already is) a slice; only the
+  // shortfall is planned, so every retry converges and double pay is impossible.
   let alreadyPence = 0;
-  let anchoredAlreadyPence = 0;
+  const anchoredAlready = new Map<string, number>();
   const existingIds: string[] = [];
   try {
     const existing = await stripe.transfers.list({ transfer_group: bookingId, limit: 100 });
     for (const t of existing.data) {
       alreadyPence += t.amount;
       existingIds.push(t.id);
-      const src =
-        typeof t.source_transaction === 'string' ? t.source_transaction : t.source_transaction?.id;
-      if (src && src === booking.stripeChargeId) anchoredAlreadyPence += t.amount;
+      const src = sourceOf(t);
+      if (src) anchoredAlready.set(src, (anchoredAlready.get(src) ?? 0) + t.amount);
+      await upsertSlice(bookingId, {
+        stripeTransferId: t.id,
+        amountPence: t.amount,
+        reversedPence: t.amount_reversed ?? 0,
+        kind: src ? 'ANCHORED' : 'EXCESS',
+        sourceChargeId: src,
+      });
     }
   } catch (err) {
-    // Can't see Stripe — do NOT create blind. Leave claim for a clean retry.
     const reason = err instanceof Error ? err.message : 'transfer list failed';
     return setUnknown(bookingId, `Reconciliation list failed: ${reason}`);
   }
 
   if (alreadyPence >= transferPence) {
-    // Fully covered by existing transfer(s) — adopt them.
-    const joined = existingIds.join(',');
-    await prisma.booking.update({
-      where: { id: bookingId },
-      data: { stripeTransferId: joined, transferStatus: 'RELEASED', transferFailureReason: null },
-    });
-    await enqueueXeroPush({
+    return markReleased(
       bookingId,
-      event: 'PAYOUT',
-      occurredAt: new Date().toISOString(),
-    }).catch(() => {});
-    await auditFundsReleased(bookingId, joined, transferPence, audit, true);
-    // 1.0.1 cargo (James-sealed): the money-release push — fires AFTER the
-    // money has moved and the row is RELEASED; additive and fail-soft, never
-    // touches the transfer itself. Inert until a device registers a token.
-    await EnhancedNotificationService.sendMoneyReleasePush(bookingId).catch(() => {});
-    return { status: 'RELEASED', transferId: joined };
+      existingIds,
+      booking.transferAttempt,
+      transferPence,
+      audit,
+      true
+    );
   }
 
-  // ── Plan the shortfall as slices ────────────────────────
-  const remainingPence = transferPence - alreadyPence;
-  const anchoredHeadroom = Math.max(0, chargePence - anchoredAlreadyPence);
-  const anchoredPence = Math.min(remainingPence, anchoredHeadroom);
-  const excessPence = remainingPence - anchoredPence;
-
+  // ── Plan the shortfall: one anchored slice per charge, then the excess ──
   const attempt = booking.transferAttempt + 1;
-  const slices: { amountPence: number; anchored: boolean; idempotencyKey: string }[] = [];
-  if (anchoredPence > 0) {
-    // Legacy key format for the anchored slice — in-flight retries from before
-    // the split mechanism keep their idempotency.
-    slices.push({
-      amountPence: anchoredPence,
-      anchored: true,
-      idempotencyKey: `release_${bookingId}_v${attempt}`,
+  let remaining = transferPence - alreadyPence;
+  const plan: { amountPence: number; source: string | null; key: string }[] = [];
+  for (const c of charges) {
+    if (remaining <= 0) break;
+    const headroom = Math.max(0, c.capturedPence - (anchoredAlready.get(c.chargeId) ?? 0));
+    const take = Math.min(remaining, headroom);
+    if (take <= 0) continue;
+    plan.push({
+      amountPence: take,
+      source: c.chargeId,
+      // The original's key keeps its legacy shape for in-flight retries.
+      key: c.topupRecordId
+        ? `release_${bookingId}_t${c.topupRecordId}_v${attempt}`
+        : `release_${bookingId}_v${attempt}`,
     });
+    remaining -= take;
   }
-  if (excessPence > 0) {
-    slices.push({
-      amountPence: excessPence,
-      anchored: false,
-      idempotencyKey: `release_${bookingId}_v${attempt}_x`,
-    });
+  if (remaining > 0) {
+    plan.push({ amountPence: remaining, source: null, key: `release_${bookingId}_v${attempt}_x` });
   }
 
-  // ── Execute slices ──────────────────────────────────────
   const createdIds: string[] = [];
-  for (const slice of slices) {
+  for (const slice of plan) {
     const params = {
       amount: slice.amountPence,
       currency: 'gbp' as const,
       destination: profile.stripeAccountId,
-      ...(slice.anchored ? { source_transaction: booking.stripeChargeId } : {}),
+      ...(slice.source ? { source_transaction: slice.source } : {}),
       transfer_group: bookingId,
-      metadata: { bookingId, renaFunded: slice.anchored ? 'false' : 'true' },
+      metadata: { bookingId, renaFunded: slice.source ? 'false' : 'true' },
     };
+    let t: { id: string; amount: number } | null = null;
     try {
-      const t = await stripe.transfers.create(params, { idempotencyKey: slice.idempotencyKey });
-      createdIds.push(t.id);
-    } catch (err: unknown) {
-      if (isUnknownOutcome(err)) {
-        // One same-key retry; Stripe returns the original if it went through.
+      t = await stripe.transfers.create(params, { idempotencyKey: slice.key });
+    } catch (err) {
+      if (isUnknownStripeOutcome(err)) {
         try {
-          const t = await stripe.transfers.create(params, {
-            idempotencyKey: slice.idempotencyKey,
-          });
-          createdIds.push(t.id);
-          continue;
-        } catch (retryErr: unknown) {
-          // Still unknown — do NOT bump attempt; next run reconciles first and
-          // creates only whatever genuinely didn't land.
+          // One same-key retry; Stripe returns the original if it went through.
+          t = await stripe.transfers.create(params, { idempotencyKey: slice.key });
+        } catch (retryErr) {
           const reason = retryErr instanceof Error ? retryErr.message : 'Network retry failed';
+          // Do not bump the attempt: the next run reconciles the group first.
           return setUnknown(bookingId, `Network error + retry failed: ${reason}`);
         }
+      } else {
+        const reason = err instanceof Error ? err.message : 'Unknown Stripe error';
+        return setFailed(
+          bookingId,
+          attempt,
+          slice.source ? reason : `Rena-funded excess slice failed (platform balance?): ${reason}`
+        );
       }
-      // Definitive error. Anything already created this run is safe: the next
-      // retry reconciles the group and plans only the shortfall.
-      const reason = err instanceof Error ? err.message : 'Unknown Stripe error';
-      const context = slice.anchored
-        ? reason
-        : `Rena-funded excess slice failed (platform balance?): ${reason}`;
-      return setFailed(bookingId, attempt, context);
     }
+    if (!t) continue;
+    createdIds.push(t.id);
+    await upsertSlice(bookingId, {
+      stripeTransferId: t.id,
+      amountPence: t.amount,
+      reversedPence: 0,
+      kind: slice.source ? 'ANCHORED' : 'EXCESS',
+      sourceChargeId: slice.source,
+      idempotencyKey: slice.key,
+      attempt,
+    });
   }
 
-  const allIds = [...existingIds, ...createdIds].join(',');
-  await prisma.booking.update({
-    where: { id: bookingId },
+  return markReleased(
+    bookingId,
+    [...existingIds, ...createdIds],
+    attempt,
+    transferPence,
+    audit,
+    existingIds.length > 0
+  );
+}
+
+async function upsertSlice(
+  bookingId: string,
+  t: {
+    stripeTransferId: string;
+    amountPence: number;
+    reversedPence: number;
+    kind: string;
+    sourceChargeId: string | null;
+    idempotencyKey?: string;
+    attempt?: number;
+  }
+): Promise<void> {
+  const status =
+    t.reversedPence >= t.amountPence && t.amountPence > 0
+      ? 'REVERSED'
+      : t.reversedPence > 0
+        ? 'PARTIALLY_REVERSED'
+        : 'CREATED';
+  await prisma.transferSlice.upsert({
+    where: { stripeTransferId: t.stripeTransferId },
+    create: {
+      bookingId,
+      stripeTransferId: t.stripeTransferId,
+      amountPence: t.amountPence,
+      reversedPence: t.reversedPence,
+      kind: t.kind,
+      sourceChargeId: t.sourceChargeId,
+      status,
+      idempotencyKey: t.idempotencyKey ?? null,
+      attempt: t.attempt ?? 0,
+      lastReconciledAt: new Date(),
+    },
+    update: {
+      amountPence: t.amountPence,
+      reversedPence: t.reversedPence,
+      sourceChargeId: t.sourceChargeId,
+      status,
+      lastReconciledAt: new Date(),
+    },
+  });
+}
+
+async function markReleased(
+  bookingId: string,
+  transferIds: string[],
+  attempt: number,
+  transferPence: number,
+  audit: ReleaseAudit,
+  adopted: boolean
+): Promise<ReleaseResult> {
+  // Booking.stripeTransferId mirrors the first slice for one batch (B9 drops it).
+  const moved = await prisma.booking.updateMany({
+    where: { id: bookingId, transferStatus: 'RELEASING' },
     data: {
-      stripeTransferId: allIds,
+      stripeTransferId: transferIds[0] ?? null,
       transferStatus: 'RELEASED',
       transferAttempt: attempt,
       transferFailureReason: null,
     },
   });
-
-  await enqueueXeroPush({
-    bookingId,
-    event: 'PAYOUT',
-    occurredAt: new Date().toISOString(),
-  }).catch(() => {});
-  await auditFundsReleased(bookingId, allIds, transferPence, audit, existingIds.length > 0);
-  // 1.0.1 cargo (James-sealed): the money-release push — after the money
-  // moved. Additive, fail-soft; inert until a device registers a token.
+  if (moved.count !== 1) {
+    return { status: 'SKIPPED', reason: 'The booking left RELEASING while the payout ran' };
+  }
+  // A chargeback that arrived while the payout was in flight is now after release.
+  await prisma.chargebackHold.updateMany({
+    where: { bookingId, status: 'OPEN' },
+    data: { status: 'AFTER_RELEASE' },
+  });
+  await enqueueXeroPush({ bookingId, event: 'PAYOUT', occurredAt: new Date().toISOString() }).catch(
+    () => {}
+  );
+  await auditFundsReleased(bookingId, transferIds, transferPence, audit, adopted);
+  // 1.0.1 cargo (James-sealed): the money-release push, after the money moved.
   await EnhancedNotificationService.sendMoneyReleasePush(bookingId).catch(() => {});
-  return { status: 'RELEASED', transferId: allIds };
+  return { status: 'RELEASED', transferId: transferIds[0] };
 }
 
-// Definitive failure: bump transferAttempt so next retry gets a new idempotency key.
+// Definitive failure: bump transferAttempt so the next retry gets a new key.
+// Guarded: only the worker that holds RELEASING may write it.
 async function setFailed(
   bookingId: string,
   attempt: number,
   reason: string
 ): Promise<ReleaseResult> {
-  await prisma.booking.update({
-    where: { id: bookingId },
-    data: {
-      transferStatus: 'FAILED',
-      transferAttempt: attempt,
-      transferFailureReason: reason,
-    },
+  await prisma.booking.updateMany({
+    where: { id: bookingId, transferStatus: 'RELEASING' },
+    data: { transferStatus: 'FAILED', transferAttempt: attempt, transferFailureReason: reason },
   });
+  log.warn('transfer', 'release_failed', { bookingId });
   return { status: 'FAILED', reason };
 }
 
-// Unknown outcome: do NOT bump transferAttempt — preserves the idempotency key
-// so the next attempt either gets the original response or creates fresh.
+// Unknown outcome: keep the attempt (and so the idempotency key). Guarded.
 async function setUnknown(bookingId: string, reason: string): Promise<ReleaseResult> {
-  await prisma.booking.update({
-    where: { id: bookingId },
-    data: {
-      transferStatus: 'UNKNOWN',
-      transferFailureReason: reason,
-    },
+  await prisma.booking.updateMany({
+    where: { id: bookingId, transferStatus: 'RELEASING' },
+    data: { transferStatus: 'UNKNOWN', transferFailureReason: reason },
   });
+  log.error('transfer', 'release_unknown', { bookingId });
   return { status: 'UNKNOWN', reason };
 }
 
 /**
- * Resume a paused release: atomically move PAUSED → PENDING, then call
- * releaseBookingFunds which handles PENDING → RELEASING → RELEASED.
- * Used by dispute resolution (release-to-cleaner / split outcomes).
+ * Resume a paused release: PAUSED → PENDING, then release. Refused while any
+ * hold remains (dispute, shortfall, chargeback).
  */
 export async function resumePausedRelease(
   bookingId: string,
   audit: ReleaseAudit = { trigger: 'SYSTEM' }
 ): Promise<ReleaseResult> {
+  const holds = await holdReasonsFor(prisma, bookingId);
+  if (holds.length > 0) return { status: 'SKIPPED', reason: `Held: ${holds.join(', ')}` };
   const claimed = await prisma.booking.updateMany({
     where: { id: bookingId, transferStatus: 'PAUSED' },
     data: { transferStatus: 'PENDING' },
@@ -348,6 +441,75 @@ export async function resumePausedRelease(
     return { status: 'SKIPPED', reason: 'Transfer is not PAUSED — cannot resume' };
   }
   return releaseBookingFunds(bookingId, audit);
+}
+
+/** Stuck-money: a COMPLETED booking whose release clock was never set (override). */
+export async function setReleaseClock(bookingId: string, actorId: string): Promise<boolean> {
+  const r = await prisma.booking.updateMany({
+    where: { id: bookingId, status: 'COMPLETED', transferStatus: 'PENDING', releaseDueAt: null },
+    data: { releaseDueAt: new Date() },
+  });
+  if (r.count === 1) {
+    await AuditService.log({
+      userId: actorId,
+      action: 'RELEASE_CLOCK_SET',
+      entityType: 'Booking',
+      entityId: bookingId,
+    }).catch(() => {});
+  }
+  return r.count === 1;
+}
+
+/**
+ * Scheduler (B4.10 step 3): fill NEEDS_RECONCILE slices from Stripe, read only,
+ * 50 per tick with backoff. Never creates or moves money.
+ */
+export async function reconcileTransferSlices(limit = 50): Promise<{ processed: number }> {
+  const now = new Date();
+  const due = await prisma.transferSlice.findMany({
+    where: {
+      status: 'NEEDS_RECONCILE',
+      OR: [{ nextRetryAt: null }, { nextRetryAt: { lte: now } }],
+    },
+    take: limit,
+  });
+  let processed = 0;
+  for (const s of due) {
+    try {
+      const t = await stripe.transfers.retrieve(s.stripeTransferId);
+      const src = sourceOf(t);
+      const reversed = t.amount_reversed ?? 0;
+      await prisma.transferSlice.update({
+        where: { id: s.id },
+        data: {
+          amountPence: t.amount,
+          reversedPence: reversed,
+          kind: s.kind === 'ADOPTED' ? (src ? 'ANCHORED' : 'EXCESS') : s.kind,
+          sourceChargeId: src,
+          status:
+            reversed >= t.amount && t.amount > 0
+              ? 'REVERSED'
+              : reversed > 0
+                ? 'PARTIALLY_REVERSED'
+                : 'CREATED',
+          lastReconciledAt: now,
+          lastReconcileResult: 'filled from stripe.transfers.retrieve',
+        },
+      });
+      processed++;
+    } catch (err) {
+      await prisma.transferSlice.update({
+        where: { id: s.id },
+        data: {
+          retryCount: s.retryCount + 1,
+          nextRetryAt: nextRetryAt(now, s.retryCount + 1),
+          lastReconciledAt: now,
+          lastReconcileResult: `stripe read failed: ${err instanceof Error ? err.message : 'error'}`,
+        },
+      });
+    }
+  }
+  return { processed };
 }
 
 export { getTransferAmountPence } from './transfer-amount';

@@ -83,16 +83,19 @@ export async function processPaymentSuccess(
     console.error('[payment-success] unexpected currency', { bookingId, currency: pi.currency });
     return 'IGNORED_CURRENCY';
   }
-  // Amount check is alert-only (not blocking) so top-up/rounding edge cases
-  // can't strand a real payment; a shortfall here signals a bug or tampering.
+  // B4 (RENA-017): a shortfall keeps the customer's confirmation (the paid
+  // transition still happens) but holds the money: the claim below writes
+  // amountShortfallPence and transferStatus PAUSED in the same update, so
+  // auto-release never runs until an admin clears it after checking Stripe.
   const expectedPence = Math.round(Number(booking.totalAmountCharged ?? booking.totalPrice) * 100);
-  if (typeof pi.amountReceived === 'number' && pi.amountReceived < expectedPence) {
-    // eslint-disable-next-line no-console
-    console.error('[payment-success] amount below booking total', {
-      bookingId,
-      amountReceived: pi.amountReceived,
-      expectedPence,
-    });
+  const shortfallPence =
+    typeof pi.amountReceived === 'number' && pi.amountReceived < expectedPence
+      ? expectedPence - pi.amountReceived
+      : 0;
+  const shortfallData =
+    shortfallPence > 0 ? { amountShortfallPence: shortfallPence, transferStatus: 'PAUSED' } : {};
+  if (shortfallPence > 0) {
+    log.error('payment_success', 'amount_shortfall', { bookingId, shortfallPence });
   }
 
   // ── R1-B: OCCURRENCE branch — a paid SCHEDULED occurrence becomes the
@@ -115,6 +118,7 @@ export async function processPaymentSuccess(
         paymentStatus: 'SUCCEEDED',
         status: 'ACCEPTED',
         ...(pi.chargeId ? { stripeChargeId: pi.chargeId } : {}),
+        ...shortfallData,
       },
     });
     if (!claimed.ok) {
@@ -122,6 +126,7 @@ export async function processPaymentSuccess(
       // as below; route it to the refund handler rather than dropping it.
       return handleLateOccurrencePayment(bookingId, pi);
     }
+    if (shortfallPence > 0) await auditShortfall(bookingId, shortfallPence);
 
     await enqueueXeroPush({
       bookingId,
@@ -198,6 +203,7 @@ export async function processPaymentSuccess(
   const claimData = {
     paymentStatus: 'SUCCEEDED' as const,
     status: 'AWAITING_CLEANER' as const,
+    ...shortfallData,
     ...(pi.chargeId ? { stripeChargeId: pi.chargeId } : {}),
     ...(cascadeData
       ? {
@@ -246,6 +252,7 @@ export async function processPaymentSuccess(
   // handler, which auto-refunds with the honest email. Genuine duplicate
   // success events still fall out as SKIPPED_ALREADY inside its gate.
   if (!claimed.ok) return handleLateOccurrencePayment(bookingId, pi);
+  if (shortfallPence > 0) await auditShortfall(bookingId, shortfallPence);
   if (primaryLostSlot) {
     log.warn('payment_success', 'primary_lost_slot', { bookingId, cleanerId: booking.cleanerId });
     await advanceFromPrimaryAfterPayment(bookingId).catch((e) => {
@@ -550,4 +557,14 @@ export async function sweepStrandedPayments(): Promise<{ scanned: number; proces
   }
 
   return { scanned: candidates.length, processed };
+}
+
+async function auditShortfall(bookingId: string, shortfallPence: number): Promise<void> {
+  const { AuditService } = await import('./audit.service');
+  await AuditService.log({
+    action: 'PAYMENT_SHORTFALL',
+    entityType: 'Booking',
+    entityId: bookingId,
+    metadata: { shortfallPence },
+  }).catch(() => {});
 }

@@ -110,6 +110,10 @@ enum DisputeStatus {
   UNDER_REVIEW
   RESOLVED
   DISMISSED
+  // B4 (RENA-013, 092): the money step of a resolution is in flight or failed
+  // and is retried by the scheduler; RESOLVED is written only after it lands.
+  RESOLVING_REFUND
+  RESOLVING_RELEASE
 }
 
 enum NotificationType {
@@ -622,6 +626,23 @@ model Booking {
   releaseDueAt          DateTime?
   completionConfirmedAt DateTime?
 
+  // ─── B4 money ledger ─────
+  // RENA-017: amount_received fell short of the expected charge; release is
+  // held (a money hold reason) until an admin clears it after checking Stripe.
+  amountShortfallPence     Int?
+  // RENA-095 (N9): the recurring off-session charge's deterministic stored
+  // idempotency key, and the moment its outcome became unknown (a connection
+  // or API error survived one same-key retry). While unknown no new charge of
+  // any key is attempted; the stranded-payment sweep reconciles it.
+  chargeIdempotencyKey     String?
+  chargeOutcomeUnknownAt   DateTime?
+  chargeReconcileCount     Int              @default(0)
+  chargeNextReconcileAt    DateTime?
+  // B3 park (James-ruled): a refused admin revert waits here for an admin.
+  reassignRevertConflictAt DateTime?
+  transferSlices           TransferSlice[]
+  chargebackHolds          ChargebackHold[]
+
   // ─── Backup cleaners ─────
   // Ordered list of backup cleaner User.ids (same id type as cleanerId).
   // If the primary cleaner declines, cascade logic (A5) can activate the next backup.
@@ -924,23 +945,36 @@ model Payment {
 }
 
 model RefundRecord {
-  id             String   @id @default(cuid())
-  bookingId      String
-  stripeRefundId String?  @unique
-  amount         Decimal  @db.Decimal(10, 2)
-  reason         String
-  triggeredBy    String?
-  status         String   @default("PENDING")
-  attempt        Int      @default(0)
-  failureReason  String?
+  id                     String    @id @default(cuid())
+  bookingId              String
+  stripeRefundId         String?   @unique
+  amount                 Decimal   @db.Decimal(10, 2)
+  // B4 (RENA-011): what was asked and what Stripe actually executed, in pence.
+  // executedPence is derived from the record's RefundSlice rows (ledger.ts).
+  requestedPence         Int?
+  executedPence          Int       @default(0)
+  // What the record was asked to do (transfer state before, post-release,
+  // earnings adjustment, the caller's booking override), so finalisation can
+  // run later when an unknown outcome resolves. finalizedExecutedPence is the
+  // executed money already accounted for (earnings, messages, Xero): each
+  // finalisation handles only the difference, exactly once.
+  context                Json?
+  finalizedExecutedPence Int       @default(0)
+  finalizedAt            DateTime?
+  reason                 String
+  triggeredBy            String?
+  status                 String    @default("PENDING")
+  attempt                Int       @default(0)
+  failureReason          String?
   // M5: which Stripe charge(s) this refund actually hit — LIFO allocation slices
   // [{ pi, refundId, amountPence }]. Null on records predating top-up-aware
   // refunds (those were all against the original PI).
-  allocation     Json?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  allocation             Json?
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
 
-  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  booking Booking       @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  slices  RefundSlice[]
 
   @@index([bookingId])
   @@index([status])
@@ -950,6 +984,9 @@ model TopupRecord {
   id                    String   @id @default(cuid())
   bookingId             String
   stripePaymentIntentId String?  @unique
+  // B4 (RENA-087): the top-up's own charge, so a release can anchor a
+  // transfer slice to it up to its amount.
+  stripeChargeId        String?  @unique
   amount                Decimal  @db.Decimal(10, 2)
   reason                String
   status                String   @default("PENDING")
@@ -980,18 +1017,29 @@ model PromoCode {
 }
 
 model Dispute {
-  id          String        @id @default(cuid())
-  bookingId   String        @unique
+  id                    String        @id @default(cuid())
+  bookingId             String        @unique
   // H41 guest parity: null when a GUEST (tokened, no account) filed the
   // dispute — the booking's guestName/guestEmail identify them.
-  raisedById  String?
-  reason      String
-  description String        @db.Text
-  status      DisputeStatus @default(OPEN)
-  resolution  String?       @db.Text
-  createdAt   DateTime      @default(now())
-  resolvedAt  DateTime?
-  updatedAt   DateTime      @updatedAt
+  raisedById            String?
+  reason                String
+  description           String        @db.Text
+  status                DisputeStatus @default(OPEN)
+  resolution            String?       @db.Text
+  createdAt             DateTime      @default(now())
+  resolvedAt            DateTime?
+  // B4 (RENA-013, 092): the resolution in flight. outcome and amount drive
+  // the idempotent retry; retryCount and nextRetryAt are its backoff.
+  resolutionOutcome     String?
+  resolutionAmountPence Int?
+  resolvingSince        DateTime?
+  resolvedById          String?
+  // The refund this resolution runs: a retry reuses it (same record, same keys).
+  refundRecordId        String?
+  lastMoneyError        String?
+  retryCount            Int           @default(0)
+  nextRetryAt           DateTime?
+  updatedAt             DateTime      @updatedAt
 
   booking  Booking           @relation(fields: [bookingId], references: [id], onDelete: Cascade)
   raisedBy User?             @relation("DisputesRaised", fields: [raisedById], references: [id], onDelete: Cascade)
@@ -1345,12 +1393,15 @@ model FixedServicePrice {
 }
 
 model ServiceAddon {
-  id            String      @id @default(cuid())
-  serviceTypeId String
-  serviceType   ServiceType @relation(fields: [serviceTypeId], references: [id])
-  name          String
-  price         Float
-  isActive      Boolean     @default(true)
+  id              String      @id @default(cuid())
+  serviceTypeId   String
+  serviceType     ServiceType @relation(fields: [serviceTypeId], references: [id])
+  name            String
+  price           Float
+  isActive        Boolean     @default(true)
+  // B4 (RENA-073, D-a): the cleaner's share of this add-on when it defines
+  // its own split; null means the parent service's rate.
+  cleanerSharePct Decimal?    @db.Decimal(5, 4)
 
   bookingAddons BookingAddon[]
 }
@@ -1992,4 +2043,102 @@ model SchedulerLease {
   lastSummary     Json?
   lastError       String?
   updatedAt       DateTime  @updatedAt
+}
+
+// ─── B4 money ledger (RENA-010, 011, 087, 088, 093) ─────────────────────────
+// Stripe identifiers are unique in the database (James-ruled). Legacy data is
+// never guessed: rows migrated from the old columns carry NEEDS_RECONCILE or
+// UNKNOWN until Stripe has been read, and block the money actions they touch.
+
+model TransferSlice {
+  id                  String    @id @default(cuid())
+  bookingId           String
+  stripeTransferId    String    @unique
+  amountPence         Int?
+  reversedPence       Int       @default(0)
+  kind                String // ANCHORED | EXCESS | ADOPTED
+  sourceChargeId      String?
+  status              String    @default("CREATED") // CREATED | PARTIALLY_REVERSED | REVERSED | NEEDS_RECONCILE
+  idempotencyKey      String?   @unique
+  attempt             Int       @default(0)
+  retryCount          Int       @default(0)
+  nextRetryAt         DateTime?
+  lastReconciledAt    DateTime?
+  lastReconcileResult String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  booking   Booking            @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  reversals TransferReversal[]
+
+  @@index([bookingId])
+  @@index([status])
+}
+
+model TransferReversal {
+  id                  String    @id @default(cuid())
+  transferSliceId     String
+  refundRecordId      String
+  stripeReversalId    String?   @unique
+  amountPence         Int
+  status              String    @default("PENDING") // PENDING | SUCCEEDED | UNKNOWN | FAILED
+  idempotencyKey      String    @unique
+  attempt             Int       @default(0)
+  retryCount          Int       @default(0)
+  nextRetryAt         DateTime?
+  lastReconciledAt    DateTime?
+  lastReconcileResult String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  slice TransferSlice @relation(fields: [transferSliceId], references: [id], onDelete: Cascade)
+
+  @@index([refundRecordId])
+  @@index([status])
+}
+
+model RefundSlice {
+  id                    String    @id @default(cuid())
+  refundRecordId        String
+  stripePaymentIntentId String
+  stripeChargeId        String?
+  requestedPence        Int
+  executedPence         Int       @default(0)
+  stripeRefundId        String?   @unique
+  status                String    @default("PENDING") // PENDING | SUCCEEDED | FAILED | UNKNOWN | NEEDS_RECONCILE
+  idempotencyKey        String    @unique
+  attempt               Int       @default(0)
+  retryCount            Int       @default(0)
+  nextRetryAt           DateTime?
+  lastReconciledAt      DateTime?
+  lastReconcileResult   String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  record RefundRecord @relation(fields: [refundRecordId], references: [id], onDelete: Cascade)
+
+  @@index([refundRecordId])
+  @@index([status])
+  @@index([stripePaymentIntentId])
+}
+
+// RENA-093 (N7): a Stripe chargeback on one of the booking's charges. OPEN
+// holds unreleased funds; AFTER_RELEASE is a chargeback that landed after the
+// payout and waits in stuck-money; WON, LOST or CLOSED end it.
+model ChargebackHold {
+  id              String    @id @default(cuid())
+  bookingId       String
+  stripeDisputeId String    @unique
+  stripeChargeId  String?
+  amountPence     Int
+  status          String // OPEN | AFTER_RELEASE | WON | LOST | CLOSED
+  openedAt        DateTime  @default(now())
+  closedAt        DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId])
+  @@index([status])
 }

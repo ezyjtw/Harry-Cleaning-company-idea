@@ -87,6 +87,20 @@ export type AuditAction =
   | 'TOPUP_SUCCEEDED'
   | 'TOPUP_WITHOUT_ASSIGNMENT'
   | 'ADMIN_REASSIGN_REVERT_REFUSED'
+  // B4 money ledger
+  | 'REFUND_REMAINDER_RETRIED'
+  | 'PAYMENT_SHORTFALL'
+  | 'SHORTFALL_CLEARED'
+  | 'CHARGEBACK_HOLD_OPENED'
+  | 'CHARGEBACK_HOLD_CLOSED'
+  | 'CHARGEBACK_AFTER_RELEASE'
+  | 'RELEASE_HELD'
+  | 'RELEASE_CLOCK_SET'
+  | 'DISPUTE_MONEY_RETRIED'
+  | 'RECURRING_CHARGE_UNKNOWN'
+  | 'RECURRING_CHARGE_RECONCILED'
+  | 'REASSIGN_REVERT_RETRIED'
+  | 'TOPUP_WITHOUT_ASSIGNMENT_REFUNDED'
   // R4 LANE 5A: a revert tried to cancel the on-session top-up PaymentIntent
   // at Stripe and could not — loud trail for the stuck-money sweep.
   | 'TOPUP_PI_CANCEL_FAILED'

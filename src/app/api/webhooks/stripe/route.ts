@@ -97,7 +97,11 @@ export async function POST(request: NextRequest) {
     const bookingId = pi.metadata?.bookingId;
 
     if (event.type === 'payment_intent.succeeded' && bookingId) {
-      await handleTopupPiSucceeded(pi.id, bookingId);
+      await handleTopupPiSucceeded(
+        pi.id,
+        bookingId,
+        typeof pi.latest_charge === 'string' ? pi.latest_charge : (pi.latest_charge?.id ?? null)
+      );
     } else if (event.type === 'payment_intent.payment_failed') {
       await handleTopupPiFailed(pi.id);
     }
@@ -332,39 +336,11 @@ export async function POST(request: NextRequest) {
   }
 
   if (event.type === 'charge.refunded') {
-    const charge = event.data.object as Stripe.Charge;
-    const booking = await prisma.booking.findUnique({
-      where: { stripeChargeId: charge.id },
-    });
-
-    if (booking) {
-      const isFullRefund = charge.amount_refunded >= charge.amount;
-      await prisma.booking.update({
-        where: { id: booking.id },
-        data: {
-          paymentStatus: isFullRefund ? 'REFUNDED' : 'PARTIALLY_REFUNDED',
-        },
-      });
-
-      // Best-effort backup: confirm RefundRecords that the synchronous
-      // writeRefundSuccess may not have written yet (webhook can race ahead).
-      // Match on bookingId + amount since stripeRefundId isn't set until
-      // writeRefundSuccess completes — a fast webhook finds no ID match.
-      const stripeRefunds = charge.refunds?.data ?? [];
-      for (const sr of stripeRefunds) {
-        const amountPounds = sr.amount / 100;
-        await prisma.refundRecord
-          .updateMany({
-            where: {
-              bookingId: booking.id,
-              amount: amountPounds,
-              status: { in: ['PENDING', 'UNKNOWN'] },
-            },
-            data: { status: 'SUCCEEDED', stripeRefundId: sr.id },
-          })
-          .catch(() => {});
-      }
-    }
+    // B4 (RENA-011): each refund on the charge confirms its slice, or is
+    // recorded as a dashboard refund; the booking state is recomputed from
+    // every slice of every charge, never from this one charge alone.
+    const { handleChargeRefunded } = await import('@/lib/services/refund.service');
+    await handleChargeRefunded(event.data.object as Stripe.Charge);
   }
 
   // B1.3 dispute early-warning: a new chargeback alerts the admin immediately —
@@ -372,6 +348,17 @@ export async function POST(request: NextRequest) {
   // stored webhook events, so receipt alone is enough to surface it). Alerting
   // ONLY — the money legs stay with the XERO-F2 handler below. Re-run safe:
   // resending one email on a webhook retry is acceptable for an alert.
+  // B4 (RENA-093, N7): a chargeback holds unreleased funds; after release it
+  // waits in stuck-money as CHARGEBACK_AFTER_RELEASE; closing it lifts its
+  // hold (a LOST one keeps holding for an admin decision).
+  if (event.type === 'charge.dispute.created' || event.type === 'charge.dispute.closed') {
+    const { recordChargeback, closeChargeback } =
+      await import('@/lib/services/money-holds.service');
+    const d = event.data.object as Stripe.Dispute;
+    if (event.type === 'charge.dispute.created') await recordChargeback(d);
+    else await closeChargeback(d);
+  }
+
   if (event.type === 'charge.dispute.created') {
     const dispute = event.data.object as Stripe.Dispute;
     const chargeId = typeof dispute.charge === 'string' ? dispute.charge : dispute.charge?.id;
@@ -441,9 +428,8 @@ export async function POST(request: NextRequest) {
       // (XERO-F2 guard) — never posted short.
       const txns = dispute.balance_transactions ?? [];
       const latestTxn = txns.length > 0 ? txns[txns.length - 1] : null;
-      const { calculateCleanerSharePence } = await import('@/lib/services/refund.service');
-      const { flaggedTopupPounds } = await import('@/lib/services/topup-flag');
-      const flagged = await flaggedTopupPounds(booking.id);
+      const { cleanerShareForAmountPence } = await import('@/lib/services/refund.service');
+      const sharePence = await cleanerShareForAmountPence(booking.id, dispute.amount);
       const { enqueueXeroPush } = await import('@/lib/services/xero-push.service');
       await enqueueXeroPush({
         bookingId: booking.id,
@@ -452,9 +438,7 @@ export async function POST(request: NextRequest) {
         occurredAt: new Date(event.created * 1000).toISOString(),
         disputeAmount: amountPounds,
         disputeFee: latestTxn ? Math.abs(latestTxn.fee) / 100 : undefined,
-        cleanerRefundPortion:
-          calculateCleanerSharePence(amountPounds, { ...booking, flaggedTopupPounds: flagged }) /
-          100,
+        cleanerRefundPortion: sharePence / 100,
       }).catch(() => {});
     }
   }

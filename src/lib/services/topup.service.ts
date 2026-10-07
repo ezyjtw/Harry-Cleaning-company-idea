@@ -195,7 +195,8 @@ async function executeOffSessionTopup(
         pi.id,
         amountPounds,
         attempt,
-        'off_session'
+        'off_session',
+        typeof pi.latest_charge === 'string' ? pi.latest_charge : (pi.latest_charge?.id ?? null)
       );
       if (written === 'TOPUP_WITHOUT_ASSIGNMENT') {
         return {
@@ -358,7 +359,9 @@ async function writeTopupSuccess(
   stripePaymentIntentId: string,
   amountPounds: number,
   attempt: number,
-  paymentMethodType: 'off_session' | 'on_session' = 'off_session'
+  paymentMethodType: 'off_session' | 'on_session' = 'off_session',
+  /** B4 (RENA-087): the top-up's own charge, stored for anchoring and lookups. */
+  stripeChargeId: string | null = null
 ): Promise<'ASSIGNED' | 'TOPUP_WITHOUT_ASSIGNMENT'> {
   // M1: the booking is being reassigned to the PRICIER cleaner — every money
   // snapshot field must be recomputed against THAT cleaner's real rates via the
@@ -428,6 +431,7 @@ async function writeTopupSuccess(
           where: { id: topupRecord.id },
           data: {
             stripePaymentIntentId,
+            ...(stripeChargeId ? { stripeChargeId } : {}),
             status: 'SUCCEEDED',
             paymentMethodType,
             attempt,
@@ -467,6 +471,7 @@ async function writeTopupSuccess(
         bookingId: booking.id,
         topupRecordId: topupRecord.id,
         stripePaymentIntentId,
+        stripeChargeId,
         paymentMethodType,
         attempt,
         amountPounds,
@@ -534,6 +539,7 @@ async function writeTopupSuccess(
         where: { id: topupRecord.id },
         data: {
           stripePaymentIntentId,
+          ...(stripeChargeId ? { stripeChargeId } : {}),
           status: 'SUCCEEDED',
           paymentMethodType,
           attempt,
@@ -568,6 +574,7 @@ async function writeTopupSuccess(
       bookingId: booking.id,
       topupRecordId: topupRecord.id,
       stripePaymentIntentId,
+      stripeChargeId,
       paymentMethodType,
       attempt,
       amountPounds,
@@ -625,6 +632,7 @@ async function flagTopupWithoutAssignment(args: {
   bookingId: string;
   topupRecordId: string;
   stripePaymentIntentId: string;
+  stripeChargeId: string | null;
   paymentMethodType: 'off_session' | 'on_session';
   attempt: number;
   amountPounds: number;
@@ -635,6 +643,7 @@ async function flagTopupWithoutAssignment(args: {
       where: { id: args.topupRecordId, status: { not: 'SUCCEEDED' } },
       data: {
         stripePaymentIntentId: args.stripePaymentIntentId,
+        ...(args.stripeChargeId ? { stripeChargeId: args.stripeChargeId } : {}),
         status: 'SUCCEEDED',
         paymentMethodType: args.paymentMethodType,
         attempt: args.attempt,
@@ -670,7 +679,11 @@ async function flagTopupWithoutAssignment(args: {
 
 // ─── Webhook handler for topup PI outcomes ────────────────────
 
-export async function handleTopupPiSucceeded(piId: string, bookingId: string): Promise<void> {
+export async function handleTopupPiSucceeded(
+  piId: string,
+  bookingId: string,
+  stripeChargeId: string | null = null
+): Promise<void> {
   const topupRecord = await prisma.topupRecord.findFirst({
     where: { stripePaymentIntentId: piId },
   });
@@ -694,7 +707,9 @@ export async function handleTopupPiSucceeded(piId: string, bookingId: string): P
       topupRecord,
       piId,
       Number(topupRecord.amount),
-      topupRecord.attempt
+      topupRecord.attempt,
+      'off_session',
+      stripeChargeId
     );
   } catch (err) {
     await prisma.topupRecord
