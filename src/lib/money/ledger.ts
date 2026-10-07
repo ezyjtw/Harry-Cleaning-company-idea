@@ -226,6 +226,8 @@ export type MoneyHoldReason = 'DISPUTE' | 'SHORTFALL' | 'CHARGEBACK';
 export function moneyHoldReasons(booking: {
   disputeStatus?: string | null;
   amountShortfallPence?: number | null;
+  /** An admin accepted the shortfall and released (it no longer holds). */
+  shortfallAccepted?: boolean;
   chargebackStatuses?: string[];
 }): MoneyHoldReason[] {
   const reasons: MoneyHoldReason[] = [];
@@ -238,7 +240,9 @@ export function moneyHoldReasons(booking: {
   ) {
     reasons.push('DISPUTE');
   }
-  if ((booking.amountShortfallPence ?? 0) > 0) reasons.push('SHORTFALL');
+  if ((booking.amountShortfallPence ?? 0) > 0 && !booking.shortfallAccepted) {
+    reasons.push('SHORTFALL');
+  }
   // An open chargeback holds, and so does a lost one: the money left Rena and
   // only an admin's recorded decision (settleLostChargeback) lifts it.
   if ((booking.chargebackStatuses ?? []).some((st) => st === 'OPEN' || st === 'LOST')) {

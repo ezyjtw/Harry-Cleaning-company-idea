@@ -82,7 +82,7 @@ export async function startDisputeResolution(params: {
         'A split must leave part of the payment to release; use refund-customer instead'
       );
     }
-    if (amountPence > remainderPence + 1) {
+    if (amountPence > remainderPence) {
       throw new Error(
         `Refund £${(amountPence / 100).toFixed(2)} exceeds refundable remainder £${(remainderPence / 100).toFixed(2)}`
       );

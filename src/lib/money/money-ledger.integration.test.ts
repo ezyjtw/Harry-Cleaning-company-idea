@@ -665,7 +665,7 @@ describe.skipIf(!enabled)('money ledger against Postgres (B4)', () => {
 
   // ─── 8 ──────────────────────────────────────────────────────
 
-  it('8. a shortfall pauses release and writes the field; an equal amount does not; clearing it releases', async () => {
+  it('8. a shortfall pauses release and writes the field; an equal amount does not; only an explicit, reasoned acceptance releases it', async () => {
     const make = async (startTime: string) => {
       n += 1;
       const pi = `pi_b4_sf_${n}`;
@@ -719,9 +719,41 @@ describe.skipIf(!enabled)('money ledger against Postgres (B4)', () => {
     expect(row.transferStatus).toBe('PENDING');
     await prisma.booking.update({ where: { id: short.id }, data: { status: 'COMPLETED' } });
     expect((await transfer.resumePausedRelease(short.id)).status).toBe('SKIPPED');
-    const cleared = await holds.clearShortfall(short.id, ids.admin);
-    expect(cleared.ok).toBe(true);
-    expect((await bookingRow(short.id)).transferStatus).toBe('RELEASED');
+    // The hold stays while the admin intends to collect: nothing releases it
+    // but an explicit, reasoned acceptance.
+    expect((await holds.acceptShortfallAndRelease(short.id, ids.admin, '')).ok).toBe(false);
+    expect((await holds.acceptShortfallAndRelease(short.id, ids.admin, 'ok')).ok).toBe(false);
+    expect((await bookingRow(short.id)).transferStatus).toBe('PAUSED');
+    expect((await holds.resumeIfUnheld(short.id, { trigger: 'ADMIN' })).status).toBe('SKIPPED');
+    const accepted = await holds.acceptShortfallAndRelease(
+      short.id,
+      ids.admin,
+      'Customer bank fee absorbed'
+    );
+    expect(accepted.ok).toBe(true);
+    const after = await prisma.booking.findUniqueOrThrow({ where: { id: short.id } });
+    expect(after.transferStatus).toBe('RELEASED');
+    // Expected, captured and shortfall all retained; who, when and why recorded.
+    expect(after.amountShortfallPence).toBe(500);
+    // The expected total is not rewritten to the captured amount.
+    expect(Number(after.totalAmountCharged ?? after.totalPrice)).toBe(60);
+    expect(after.shortfallAcceptedById).toBe(ids.admin);
+    expect(after.shortfallAcceptedAt).toBeInstanceOf(Date);
+    expect(after.shortfallAcceptReason).toBe('Customer bank fee absorbed');
+    const audit = await prisma.auditLog.findFirstOrThrow({
+      where: { entityId: short.id, action: 'SHORTFALL_ACCEPTED' },
+    });
+    expect(audit.userId).toBe(ids.admin);
+    expect(audit.metadata).toMatchObject({
+      expectedPence: 6000,
+      capturedPence: 5500,
+      shortfallPence: 500,
+      reason: 'Customer bank fee absorbed',
+    });
+    // A second acceptance is refused: one decision, one audit row.
+    expect((await holds.acceptShortfallAndRelease(short.id, ids.admin, 'again please')).ok).toBe(
+      false
+    );
   });
 
   // ─── 9 ──────────────────────────────────────────────────────
@@ -845,7 +877,9 @@ describe.skipIf(!enabled)('money ledger against Postgres (B4)', () => {
       amount: 5800,
       status: 'needs_response',
     } as never);
-    expect((await holds.clearShortfall(both.id, ids.admin)).ok).toBe(true);
+    expect(
+      (await holds.acceptShortfallAndRelease(both.id, ids.admin, 'Accepted for test')).ok
+    ).toBe(true);
     expect((await bookingRow(both.id)).transferStatus).toBe('PAUSED');
     await holds.closeChargeback({
       id: `dp_${both.id}`,
@@ -1027,7 +1061,9 @@ describe.skipIf(!enabled)('money ledger against Postgres (B4)', () => {
     const dp = { id: `dp_r2_${b.id}`, charge: b.charge, amount: 5900 };
     await holds.recordChargeback({ ...dp, status: 'needs_response' } as never);
     await holds.closeChargeback({ ...dp, status: 'lost' } as never);
-    expect((await holds.clearShortfall(b.id, ids.admin)).ok).toBe(true);
+    expect((await holds.acceptShortfallAndRelease(b.id, ids.admin, 'Accepted for R2')).ok).toBe(
+      true
+    );
     expect((await bookingRow(b.id)).transferStatus).toBe('PAUSED');
     expect((await holds.resumeIfUnheld(b.id, { trigger: 'ADMIN' })).status).toBe('SKIPPED');
     expect((await transfer.resumePausedRelease(b.id)).status).toBe('SKIPPED');
@@ -1457,7 +1493,7 @@ describe.skipIf(!enabled)('money ledger against Postgres (B4)', () => {
     const f = await paidBooking();
     fake.script('transfers.create', 'definitive');
     await transfer.releaseBookingFunds(f.id);
-    // TRANSFER_PAUSED_SHORTFALL → clear shortfall.
+    // TRANSFER_PAUSED_SHORTFALL → accept shortfall and release.
     const s = await paidBooking({ transferStatus: 'PAUSED', extra: { amountShortfallPence: 300 } });
     // COMPLETED_NO_RELEASE_CLOCK → set the clock.
     const c = await paidBooking({ extra: { releaseDueAt: null } });
@@ -1471,15 +1507,15 @@ describe.skipIf(!enabled)('money ledger against Postgres (B4)', () => {
     const rows = await abnormal.listAbnormalStates();
     const find = (state: string, bookingId: string) =>
       rows.find((r) => r.state === state && r.bookingId === bookingId);
-    const cases: [string, string, string][] = [
+    const cases: [string, string, string, string?][] = [
       ['REFUND_UNKNOWN', u.id, 'RECONCILE_REFUND_SLICE'],
       ['TRANSFER_FAILED', f.id, 'RELEASE_NOW'],
-      ['TRANSFER_PAUSED_SHORTFALL', s.id, 'CLEAR_SHORTFALL'],
+      ['TRANSFER_PAUSED_SHORTFALL', s.id, 'ACCEPT_SHORTFALL_RELEASE', 'Accepted in case 11'],
       ['COMPLETED_NO_RELEASE_CLOCK', c.id, 'SET_RELEASE_CLOCK'],
       ['TOPUP_WITHOUT_ASSIGNMENT', t.id, 'REFUND_TOPUP'],
       ['REFUND_FAILED', rf.id, 'RETRY_REFUND_REMAINDER'],
     ];
-    for (const [state, bookingId, action] of cases) {
+    for (const [state, bookingId, action, input] of cases) {
       const row = find(state, bookingId);
       expect(row, `${state} listed`).toBeTruthy();
       expect(row?.actions).toContain(action);
@@ -1488,7 +1524,8 @@ describe.skipIf(!enabled)('money ledger against Postgres (B4)', () => {
         action as never,
         bookingId,
         row?.refId as string,
-        ids.admin
+        ids.admin,
+        input
       );
       expect(result.ok, `${state}: ${result.message}`).toBe(true);
     }

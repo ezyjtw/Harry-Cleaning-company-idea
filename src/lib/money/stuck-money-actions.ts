@@ -15,7 +15,7 @@ export const STUCK_MONEY_ACTIONS: readonly AbnormalAction[] = [
   'APPLY_DASHBOARD_REFUND',
   'RELEASE_NOW',
   'RESUME_RELEASE',
-  'CLEAR_SHORTFALL',
+  'ACCEPT_SHORTFALL_RELEASE',
   'ACKNOWLEDGE_CHARGEBACK',
   'SETTLE_LOST_CHARGEBACK',
   'RECONCILE_TOPUP',
@@ -89,10 +89,13 @@ export async function runStuckMoneyAction(
       const ok = r.status === 'RELEASED' || r.status === 'ALREADY_RELEASED';
       return { ok, message: `${r.status}${r.reason ? `: ${r.reason}` : ''}` };
     }
-    case 'CLEAR_SHORTFALL': {
-      const { clearShortfall } = await import('@/lib/services/money-holds.service');
-      const r = await clearShortfall(bookingId, adminId);
-      return { ok: r.ok, message: r.ok ? 'Shortfall cleared' : (r.error ?? 'Refused') };
+    case 'ACCEPT_SHORTFALL_RELEASE': {
+      const { acceptShortfallAndRelease } = await import('@/lib/services/money-holds.service');
+      const r = await acceptShortfallAndRelease(bookingId, adminId, input ?? '');
+      return {
+        ok: r.ok,
+        message: r.ok ? 'Shortfall accepted; release resumed' : (r.error ?? 'Refused'),
+      };
     }
     case 'ACKNOWLEDGE_CHARGEBACK': {
       const { acknowledgeChargebackAfterRelease } =

@@ -147,7 +147,8 @@ export async function refundBooking(
       reason: 'An earlier refund on this booking is still being reconciled with Stripe',
     };
   }
-  if (amountPence > remaining + 1) {
+  // B4 gate ruling 4: exact, in integer pence (no tolerance).
+  if (amountPence > remaining) {
     return {
       status: 'FAILED',
       reason: `Refund £${amountPounds.toFixed(2)} exceeds refundable £${(remaining / 100).toFixed(2)}`,

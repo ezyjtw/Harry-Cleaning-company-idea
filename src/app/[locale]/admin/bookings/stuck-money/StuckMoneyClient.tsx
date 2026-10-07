@@ -61,7 +61,7 @@ const ACTION_LABEL: Record<AbnormalAction, string> = {
   APPLY_DASHBOARD_REFUND: 'Apply',
   RELEASE_NOW: 'Release now',
   RESUME_RELEASE: 'Resume release',
-  CLEAR_SHORTFALL: 'Clear shortfall',
+  ACCEPT_SHORTFALL_RELEASE: 'Accept shortfall and release',
   ACKNOWLEDGE_CHARGEBACK: 'Record as dealt with',
   SETTLE_LOST_CHARGEBACK: 'Release to cleaner anyway',
   RECONCILE_TOPUP: 'Reconcile',
@@ -78,7 +78,7 @@ const MOVES_MONEY: AbnormalAction[] = [
   'RETRY_REFUND_REMAINDER',
   'RELEASE_NOW',
   'RESUME_RELEASE',
-  'CLEAR_SHORTFALL',
+  'ACCEPT_SHORTFALL_RELEASE',
   'SETTLE_LOST_CHARGEBACK',
   'REFUND_TOPUP',
   'RETRY_DISPUTE_MONEY',
@@ -95,7 +95,8 @@ function ActionButton({ row, action }: { row: AbnormalRow; action: AbnormalActio
   const [state, setState] = useState<'idle' | 'confirming' | 'loading'>('idle');
   const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null);
   const [refundId, setRefundId] = useState('');
-  const needsInput = action === 'ATTACH_REFUND_ID';
+  const needsInput = action === 'ATTACH_REFUND_ID' || action === 'ACCEPT_SHORTFALL_RELEASE';
+  const inputHint = action === 'ATTACH_REFUND_ID' ? 're_… from Stripe' : 'Reason (recorded)';
 
   const go = useCallback(async () => {
     const input = needsInput ? refundId.trim() : undefined;
@@ -127,8 +128,8 @@ function ActionButton({ row, action }: { row: AbnormalRow; action: AbnormalActio
             <input
               value={refundId}
               onChange={(e) => setRefundId(e.target.value)}
-              placeholder="re_… from Stripe"
-              aria-label="Stripe refund id"
+              placeholder={inputHint}
+              aria-label={inputHint}
               className="w-40 rounded border border-line px-2 py-1 text-xs"
             />
           ) : (

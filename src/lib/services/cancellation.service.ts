@@ -29,7 +29,7 @@
 import type { BookingStatus } from '@prisma/client';
 
 import { prisma } from '@/lib/db/prisma';
-import { bookingStartOrDayStartUtc } from '@/lib/time/booking-time';
+import { cancellationAnchorUtc } from '@/lib/time/booking-time';
 
 import { AuditService } from './audit.service';
 import { BookingLifecycleService } from './booking-lifecycle.service';
@@ -91,13 +91,13 @@ async function refundableRemainder(bookingId: string): Promise<number | null> {
 }
 
 /**
- * B4 (parked from the B3 gate, James-ruled money rule): the refund ladder and
- * the short-notice grace count from the clean's real start, London wall time
- * on its day (a Flexible clean from the London start of its day), never the
- * stored UTC midnight, which cut every threshold early by the start hour.
+ * B4 (James-ruled): the refund ladder and the short-notice grace count from
+ * the clean's start on the London clock (bookingStartUtc); a Flexible clean
+ * from 06:00 London on its booking date. Never the stored UTC midnight, which
+ * cut every threshold early by the start hour.
  */
 function ladderStart(date: Date, startTime: string | null): Date {
-  return bookingStartOrDayStartUtc(date, startTime);
+  return cancellationAnchorUtc(date, startTime);
 }
 
 const RECONCILING_REASON =

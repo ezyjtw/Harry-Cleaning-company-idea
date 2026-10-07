@@ -616,7 +616,9 @@ function RefundModal({
 
   const parsedAmount = parseFloat(amount);
   const valid =
-    parsedAmount > 0 && parsedAmount <= maxRefundable + 0.01 && reason.trim().length > 0;
+    parsedAmount > 0 &&
+    Math.round(parsedAmount * 100) <= Math.round(maxRefundable * 100) &&
+    reason.trim().length > 0;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
@@ -752,7 +754,7 @@ function DisputeResolvePanel({
     (refundAmount.trim() !== '' &&
       !Number.isNaN(refundNum) &&
       refundNum > 0 &&
-      refundNum <= maxRefundable + 0.01);
+      Math.round(refundNum * 100) <= Math.round(maxRefundable * 100));
 
   const canSubmit = outcome !== '' && resolution.trim() !== '' && splitValid;
 
@@ -956,7 +958,7 @@ function CancelPanel({
     (refundAmount.trim() !== '' &&
       !Number.isNaN(overrideAmount) &&
       overrideAmount >= 0 &&
-      overrideAmount <= maxRefundable + 0.01);
+      Math.round(overrideAmount * 100) <= Math.round(maxRefundable * 100));
 
   const runCancel = useCallback(async () => {
     setSubmitting(true);

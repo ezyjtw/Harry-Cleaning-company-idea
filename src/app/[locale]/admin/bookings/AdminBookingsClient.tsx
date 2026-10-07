@@ -45,7 +45,10 @@ function RefundModal({ booking, onClose }: { booking: BookingRow; onClose: () =>
   }, [booking.fullId, amount, reason]);
 
   const parsedAmount = parseFloat(amount);
-  const valid = parsedAmount > 0 && parsedAmount <= refundable + 0.01 && reason.trim().length > 0;
+  const valid =
+    parsedAmount > 0 &&
+    Math.round(parsedAmount * 100) <= Math.round(refundable * 100) &&
+    reason.trim().length > 0;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">

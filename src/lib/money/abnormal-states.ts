@@ -47,7 +47,7 @@ export type AbnormalAction =
   | 'APPLY_DASHBOARD_REFUND'
   | 'RELEASE_NOW'
   | 'RESUME_RELEASE'
-  | 'CLEAR_SHORTFALL'
+  | 'ACCEPT_SHORTFALL_RELEASE'
   | 'ACKNOWLEDGE_CHARGEBACK'
   | 'SETTLE_LOST_CHARGEBACK'
   | 'RECONCILE_TOPUP'
@@ -174,12 +174,16 @@ export async function listAbnormalStates(now = new Date()): Promise<AbnormalRow[
     }),
     prisma.booking.findMany({
       where: {
-        OR: [{ transferStatus: 'PAUSED' }, { amountShortfallPence: { not: null } }],
+        OR: [
+          { transferStatus: 'PAUSED' },
+          { amountShortfallPence: { not: null }, shortfallAcceptedAt: null },
+        ],
       },
       select: {
         id: true,
         transferStatus: true,
         amountShortfallPence: true,
+        shortfallAcceptedAt: true,
         cleanerEarnings: true,
         updatedAt: true,
         dispute: { select: { id: true, status: true } },
@@ -359,7 +363,7 @@ export async function listAbnormalStates(now = new Date()): Promise<AbnormalRow[
   }
 
   for (const b of paused) {
-    if (b.amountShortfallPence !== null) {
+    if (b.amountShortfallPence !== null && !b.shortfallAcceptedAt) {
       rows.push({
         key: `TRANSFER_PAUSED_SHORTFALL:${b.id}`,
         state: 'TRANSFER_PAUSED_SHORTFALL',
@@ -367,9 +371,10 @@ export async function listAbnormalStates(now = new Date()): Promise<AbnormalRow[
         ageSeconds: ageOf(b.updatedAt, now),
         amountPence: b.amountShortfallPence,
         refId: b.id,
-        detail: 'Stripe received less than the booking expected',
+        detail:
+          'Stripe received less than the booking expected. Accept it to pay the cleaner, or leave it held while you collect.',
         persistent: false,
-        actions: ['CLEAR_SHORTFALL'],
+        actions: ['ACCEPT_SHORTFALL_RELEASE'],
         links: [],
       });
     }
@@ -378,6 +383,7 @@ export async function listAbnormalStates(now = new Date()): Promise<AbnormalRow[
     const holds = moneyHoldReasons({
       disputeStatus: b.dispute?.status ?? null,
       amountShortfallPence: b.amountShortfallPence,
+      shortfallAccepted: !!b.shortfallAcceptedAt,
       chargebackStatuses: b.chargebackHolds.map((h) => h.status),
     });
     if (b.transferStatus === 'PAUSED' && holds.length === 0) {

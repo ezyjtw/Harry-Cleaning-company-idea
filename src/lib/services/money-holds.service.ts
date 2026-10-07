@@ -160,36 +160,55 @@ export async function settleLostChargeback(
 // ─── Shortfall (RENA-017) ─────────────────────────────────
 
 /**
- * Admin, after checking Stripe: clear the shortfall and resume if nothing
- * else holds. The shortfall came from Stripe's own amount_received, so the
- * captured total is corrected to what Stripe received in the same write (the
- * refund ceiling never rises back above the money actually taken). The
- * cleaner's earnings are untouched (M2: a short payment never reduces them).
+ * Admin "Accept shortfall and release" (B4 gate ruling 5): an explicit,
+ * audited decision (who, when, why) to pay the cleaner although Stripe
+ * received less than expected. The expected, captured and shortfall amounts
+ * are all retained (the shortfall field stays; expected is totalAmountCharged;
+ * captured is expected less shortfall, which the ledger already uses as the
+ * refund ceiling). The cleaner's earnings are untouched (M2). An admin who
+ * intends to collect the difference instead does nothing: the hold stays.
  */
-export async function clearShortfall(
+export async function acceptShortfallAndRelease(
   bookingId: string,
-  actorId: string
+  actorId: string,
+  reason: string
 ): Promise<{ ok: boolean; error?: string }> {
+  const why = reason.trim();
+  if (why.length < 5) return { ok: false, error: 'A reason is required to accept a shortfall' };
   const b = await prisma.booking.findUnique({
     where: { id: bookingId },
-    select: { amountShortfallPence: true, totalAmountCharged: true, totalPrice: true },
+    select: {
+      amountShortfallPence: true,
+      shortfallAcceptedAt: true,
+      totalAmountCharged: true,
+      totalPrice: true,
+    },
   });
-  if (!b || b.amountShortfallPence === null) {
-    return { ok: false, error: 'No shortfall on this booking' };
-  }
-  const capturedPence =
-    Math.round(Number(b.totalAmountCharged ?? b.totalPrice) * 100) - b.amountShortfallPence;
+  if (!b || !b.amountShortfallPence) return { ok: false, error: 'No shortfall on this booking' };
+  if (b.shortfallAcceptedAt) return { ok: false, error: 'This shortfall was already accepted' };
+  const expectedPence = Math.round(Number(b.totalAmountCharged ?? b.totalPrice) * 100);
+  const now = new Date();
   const r = await prisma.booking.updateMany({
-    where: { id: bookingId, amountShortfallPence: b.amountShortfallPence },
-    data: { amountShortfallPence: null, totalAmountCharged: capturedPence / 100 },
+    where: {
+      id: bookingId,
+      amountShortfallPence: b.amountShortfallPence,
+      shortfallAcceptedAt: null,
+    },
+    data: { shortfallAcceptedAt: now, shortfallAcceptedById: actorId, shortfallAcceptReason: why },
   });
   if (r.count !== 1) return { ok: false, error: 'The shortfall changed; refresh and retry' };
   await AuditService.log({
     userId: actorId,
-    action: 'SHORTFALL_CLEARED',
+    action: 'SHORTFALL_ACCEPTED',
     entityType: 'Booking',
     entityId: bookingId,
-    metadata: { shortfallPence: b.amountShortfallPence, capturedPence },
+    metadata: {
+      expectedPence,
+      capturedPence: expectedPence - b.amountShortfallPence,
+      shortfallPence: b.amountShortfallPence,
+      reason: why,
+      acceptedAt: now.toISOString(),
+    },
   }).catch(() => {});
   await resumeIfUnheld(bookingId, { trigger: 'ADMIN', actorId });
   return { ok: true };

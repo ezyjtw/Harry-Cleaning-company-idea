@@ -628,8 +628,13 @@ model Booking {
 
   // ─── B4 money ledger ─────
   // RENA-017: amount_received fell short of the expected charge; release is
-  // held (a money hold reason) until an admin clears it after checking Stripe.
+  // held (a money hold reason) until an admin explicitly accepts the shortfall
+  // and releases (B4 gate ruling 5). The amount is retained after acceptance;
+  // expected stays totalAmountCharged, captured is expected less shortfall.
   amountShortfallPence     Int?
+  shortfallAcceptedAt      DateTime?
+  shortfallAcceptedById    String?
+  shortfallAcceptReason    String?
   // RENA-095 (N9): the recurring off-session charge's deterministic stored
   // idempotency key, and the moment its outcome became unknown (a connection
   // or API error survived one same-key retry). While unknown no new charge of

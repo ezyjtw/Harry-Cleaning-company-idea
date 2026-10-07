@@ -9,6 +9,7 @@ import {
   nextRetryAt,
   refundRecordStatus,
   remainingRefundablePence,
+  toPence,
 } from './ledger';
 
 const slice = (status: string, requestedPence: number, executedPence = 0) => ({
@@ -214,5 +215,19 @@ describe('nextRetryAt (short retries, then backoff)', () => {
     expect(nextRetryAt(t0, 0).getTime() - t0.getTime()).toBe(120_000);
     expect(nextRetryAt(t0, 3).getTime() - t0.getTime()).toBe(900_000);
     expect(nextRetryAt(t0, 99).getTime() - t0.getTime()).toBe(4 * 3_600_000);
+  });
+});
+
+describe('pounds to pence conversion boundary (B4 gate ruling 4)', () => {
+  it('round-trips every pence value up to £100,000 exactly, so ceilings compare with no tolerance', () => {
+    let bad = 0;
+    for (let p = 0; p <= 10_000_000; p++) {
+      if (toPence(p / 100) !== p || Math.round((p / 100) * 100) !== p) bad++;
+    }
+    expect(bad).toBe(0);
+  });
+  it('a Decimal-ish string from the database converts exactly', () => {
+    expect(toPence('19.99')).toBe(1999);
+    expect(toPence('0.29')).toBe(29);
   });
 });

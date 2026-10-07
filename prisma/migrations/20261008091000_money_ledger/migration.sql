@@ -21,7 +21,10 @@ ADD COLUMN     "chargeIdempotencyKey" TEXT,
 ADD COLUMN     "chargeNextReconcileAt" TIMESTAMP(3),
 ADD COLUMN     "chargeOutcomeUnknownAt" TIMESTAMP(3),
 ADD COLUMN     "chargeReconcileCount" INTEGER NOT NULL DEFAULT 0,
-ADD COLUMN     "reassignRevertConflictAt" TIMESTAMP(3);
+ADD COLUMN     "reassignRevertConflictAt" TIMESTAMP(3),
+ADD COLUMN     "shortfallAcceptReason" TEXT,
+ADD COLUMN     "shortfallAcceptedAt" TIMESTAMP(3),
+ADD COLUMN     "shortfallAcceptedById" TEXT;
 
 -- AlterTable
 ALTER TABLE "Dispute" ADD COLUMN     "lastMoneyError" TEXT,

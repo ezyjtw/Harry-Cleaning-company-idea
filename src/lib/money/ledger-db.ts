@@ -123,8 +123,8 @@ export async function loadBookingLedger(db: Db, bookingId: string): Promise<Book
   const { topupRecords, refundRecords, transferSlices, ...booking } = b;
   return {
     booking,
-    // RENA-017: while a shortfall is held, Stripe captured less than the
-    // booking expected; the ledger's charged money is what Stripe received.
+    // RENA-017: Stripe captured less than the booking expected; the ledger's
+    // charged money is what Stripe received (held or accepted alike).
     chargedPence: Math.max(
       0,
       toPence(b.totalAmountCharged ?? b.totalPrice) - (b.amountShortfallPence ?? 0)
@@ -254,6 +254,7 @@ export async function holdReasonsFor(db: Db, bookingId: string): Promise<MoneyHo
     where: { id: bookingId },
     select: {
       amountShortfallPence: true,
+      shortfallAcceptedAt: true,
       dispute: { select: { status: true } },
       chargebackHolds: { select: { status: true } },
     },
@@ -262,6 +263,7 @@ export async function holdReasonsFor(db: Db, bookingId: string): Promise<MoneyHo
   return moneyHoldReasons({
     disputeStatus: b.dispute?.status ?? null,
     amountShortfallPence: b.amountShortfallPence,
+    shortfallAccepted: !!b.shortfallAcceptedAt,
     chargebackStatuses: b.chargebackHolds.map((h) => h.status),
   });
 }

@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
       bookingId,
       refId,
       admin.id,
-      typeof input === 'string' ? input.slice(0, 100) : undefined
+      typeof input === 'string' ? input.slice(0, 300) : undefined
     );
     return NextResponse.json(result, { status: result.ok ? 200 : 409 });
   } catch (err) {
