@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 
-import { sessionLabel } from '@/lib/auth/device-session';
-import { generateApiToken, generateBridgeCode } from '@/lib/auth/session';
+import { mintNativeHandoffCode, shellHandoffApp } from '@/lib/auth/native-handoff';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 import { AuditService } from '@/lib/services/audit.service';
 import { registerUser } from '@/lib/services/auth.service';
@@ -61,17 +60,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: result.message }, { status: 400 });
     }
 
-    // D-g: same primitive as login; the RENA-031/082 native handoff (B5)
-    // consumes this mint, never a second path.
-    const { token, jti } = await generateApiToken(
-      {
-        id: result.user.id,
-        email: result.user.email,
-        name: result.user.name,
-        role: result.user.role,
-      },
-      { label: sessionLabel(request.headers.get('x-rena-shell'), 'native') }
-    );
+    // B5 (RENA-031/082, James-ruled): no long-lived native credential in a
+    // page response. A website signup gets no token at all; a shell signup
+    // for its own app's role gets a short-lived, single-use handoff code that
+    // the shell redeems by native fetch (/api/auth/native-handoff). The shell
+    // signature only chooses the response shape; the code is the credential.
+    const shellApp = shellHandoffApp(request.headers, userRole);
+    const handoffCode = shellApp
+      ? await mintNativeHandoffCode({ userId: result.user.id, role: userRole, app: shellApp })
+      : null;
 
     await AuditService.log({
       userId: result.user.id,
@@ -85,8 +82,7 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         user: result.user,
-        token,
-        bridgeCode: generateBridgeCode({ id: result.user.id, bearerJti: jti }),
+        ...(handoffCode ? { handoffCode } : {}),
         message: result.message,
         // RENA-077: the page tells the person honestly when the email failed.
         verificationEmailSent: result.verificationEmailSent === true,

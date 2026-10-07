@@ -194,16 +194,20 @@ export async function revokeAllSessionsInTx(
   return { sessionVersion: user.sessionVersion, revoked: revoked.count };
 }
 
-/** Daily sweep: spent bridge codes past expiry, rows ended more than thirty days ago. */
+/**
+ * Daily sweep: spent bridge codes and native handoff codes past expiry, rows
+ * ended more than thirty days ago.
+ */
 export async function sweepSessionRows(
   now: Date = new Date()
-): Promise<{ bridgeCodes: number; sessions: number }> {
+): Promise<{ bridgeCodes: number; sessions: number; handoffCodes: number }> {
   const ended = new Date(now.getTime() - ROW_RETENTION_AFTER_END_MS);
-  const [codes, rows] = await prisma.$transaction([
+  const [codes, rows, handoffs] = await prisma.$transaction([
     prisma.bridgeCodeUse.deleteMany({ where: { expiresAt: { lt: now } } }),
     prisma.deviceSession.deleteMany({
       where: { OR: [{ expiresAt: { lt: ended } }, { revokedAt: { lt: ended } }] },
     }),
+    prisma.nativeHandoffCode.deleteMany({ where: { expiresAt: { lt: now } } }),
   ]);
-  return { bridgeCodes: codes.count, sessions: rows.count };
+  return { bridgeCodes: codes.count, sessions: rows.count, handoffCodes: handoffs.count };
 }
