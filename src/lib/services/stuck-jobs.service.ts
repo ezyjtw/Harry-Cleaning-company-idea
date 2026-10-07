@@ -7,6 +7,7 @@ import {
   sendStuckJobNudge,
 } from '@/lib/services/email.service';
 import { EnhancedNotificationService } from '@/lib/services/enhanced-notification.service';
+import { bookingEndOrDayEndUtc } from '@/lib/time/booking-time';
 
 // ─────────────────────────────────────────────────────────────
 // Stuck-money reaper (James-approved spec, knobs ratified):
@@ -31,16 +32,11 @@ const SWEEP_BATCH = 50;
 // The pre-complete set (mirrors the H75 dashboard warning predicate).
 const PRE_COMPLETE = ['CONFIRMED', 'ACCEPTED', 'EN_ROUTE', 'IN_PROGRESS'] as const;
 
-/** Scheduled end = booking date 00:00 + startTime + duration hours ("Flexible"
- *  start parses to 0:00 — loud beats silent for money-blocking state). */
+/** Scheduled end = London start + duration hours ("Flexible" counts from the
+ *  day's London midnight — loud beats silent for money-blocking state). B3
+ *  sweep: through the one London helper. */
 export function scheduledEnd(b: { date: Date; startTime: string; duration: unknown }): Date {
-  const [h, m] = String(b.startTime || '0:0')
-    .split(':')
-    .map((n) => Number(n) || 0);
-  const end = new Date(b.date.getTime());
-  end.setHours(h, m, 0, 0);
-  end.setTime(end.getTime() + Number(b.duration) * 3600_000);
-  return end;
+  return bookingEndOrDayEndUtc(b.date, b.startTime, Number(b.duration));
 }
 
 /**

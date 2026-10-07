@@ -3,11 +3,16 @@ import { NextResponse } from 'next/server';
 
 import { getSessionUser } from '@/lib/auth/session';
 import prisma from '@/lib/db/prisma';
+import { mapBusy } from '@/lib/http/busy';
 
 // R1-C: customer reschedules an UNPAID flagged occurrence with the SAME
 // cleaner — it returns to SCHEDULED and charges at its new T-48h. Auth: the
 // booking's customer (session) or its guest token.
-export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+// B3 gate: a cleaner-lock wait past the transaction budget answers 503 BUSY.
+export const POST = mapBusy(async function POST(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   const { id } = await params;
   const body = await request.json().catch(() => ({}));
   const token = typeof body?.token === 'string' ? body.token : null;
@@ -44,4 +49,4 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     success: true,
     message: `Rescheduled — your clean now happens on ${date} at ${time} and is confirmed as normal closer to the date.`,
   });
-}
+});

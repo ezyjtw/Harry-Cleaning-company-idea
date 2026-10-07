@@ -9,6 +9,13 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
+import {
+  bookingDayFromIso,
+  bookingStartUtc,
+  formatLondonClock,
+  isFlexibleStart,
+} from '@/lib/time/booking-time';
+
 // F24.1: recurring occurrences are visibly recurring on the shell too.
 function recurringSuffix(job: { recurringFrequency?: string | null }): string {
   if (!job.recurringFrequency) return '';
@@ -53,6 +60,47 @@ export const LIFECYCLE_ACTION: Record<string, { label: string; next: string } | 
   en_route: { label: 'MARK COMPLETE', next: 'COMPLETED' },
   in_progress: { label: 'MARK COMPLETE', next: 'COMPLETED' },
 };
+
+/** B3 (James-ruled): a Flexible-time job starts before it completes, so on
+ *  the way it offers START CLEAN; every other job keeps the 4.6 law. */
+export function lifecycleActionFor(job: {
+  status: string;
+  time: string;
+}): { label: string; next: string } | undefined {
+  const s = job.status.toLowerCase();
+  if (s === 'en_route' && isFlexibleStart(job.time)) {
+    return { label: 'START CLEAN', next: 'IN_PROGRESS' };
+  }
+  return LIFECYCLE_ACTION[s];
+}
+
+const TARGET_WORDS: Record<string, string> = {
+  EN_ROUTE: 'On my way',
+  IN_PROGRESS: 'Start',
+  COMPLETED: 'Mark complete',
+};
+
+/** B3: the words for a refused lifecycle tap. 422 TOO_EARLY names the London
+ *  time it opens; 409 STATE_CHANGED asks the caller to refetch. */
+export function lifecycleRefusal(
+  status: number,
+  data: { error?: string; message?: string; target?: string; opensAt?: string } | null
+): { message: string; refetch: boolean } {
+  if (status === 422 && data?.error === 'TOO_EARLY' && data.opensAt) {
+    const word = TARGET_WORDS[data.target ?? ''] ?? 'this';
+    return {
+      message: `You can set ${word} from ${formatLondonClock(new Date(data.opensAt))}.`,
+      refetch: false,
+    };
+  }
+  if (status === 409) {
+    return {
+      message: data?.message || data?.error || 'This job changed a moment ago.',
+      refetch: true,
+    };
+  }
+  return { message: data?.message || data?.error || 'Could not update the job.', refetch: false };
+}
 
 // James-ruled guard: no card ever offers a road its underlying state can't
 // honour — terminal statuses never navigate into the offer machinery.
@@ -306,11 +354,17 @@ export function pay(job: AppJob): number {
   return job.viewerEarnings ?? job.cleanerEarnings;
 }
 
+/** B3 sweep: a job's start as an instant on the London clock, whatever the
+ *  device's own time zone; null for Flexible. */
+export function jobStartMs(dateIso: string, time: string): number | null {
+  const day = bookingDayFromIso(dateIso.slice(0, 10));
+  return day ? (bookingStartUtc(day, time)?.getTime() ?? null) : null;
+}
+
 export function minutesUntilStart(dateIso: string, time: string): number | null {
-  const [h, m] = time.split(':').map(Number);
-  const start = new Date(`${dateIso}T00:00:00`);
-  start.setHours(h || 0, m || 0, 0, 0);
-  const diffMs = start.getTime() - Date.now();
+  const startMs = jobStartMs(dateIso, time);
+  if (startMs === null) return null;
+  const diffMs = startMs - Date.now();
   if (diffMs <= 0) return null;
   return Math.round(diffMs / 60000);
 }
@@ -340,7 +394,7 @@ export function HeroJob({
   onAdvance: () => void;
   onCancelled?: () => void;
 }) {
-  const action = LIFECYCLE_ACTION[job.status];
+  const action = lifecycleActionFor(job);
   const router = useRouter();
   void now; // referenced so the hero re-renders on the countdown tick
   const countdown = startsInLabel(job.date, job.time);

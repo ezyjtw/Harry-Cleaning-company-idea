@@ -1,6 +1,13 @@
 /**
  * Calendar utilities — generates .ics content and "Add to Calendar" URLs.
+ *
+ * B3 gate (James-ruled): a booking's date and time are a London wall clock.
+ * Every event instant comes from the shared London helper, never the host's
+ * clock (the server runs in UTC, so a summer booking used to land an hour
+ * late in the invite).
  */
+
+import { londonWallToUtc } from '@/lib/time/booking-time';
 
 export interface CalendarEvent {
   title: string;
@@ -37,6 +44,19 @@ function parseTime(time: string): { hours: number; minutes: number } {
   return { hours: 9, minutes: 0 }; // fallback
 }
 
+/** The event's start and end instants: the London wall clock, resolved. */
+export function eventWindow(event: CalendarEvent): { start: Date; end: Date } {
+  const { hours, minutes } = parseTime(event.startTime);
+  const ymd = /^(\d{4})-(\d{2})-(\d{2})/.exec(event.startDate);
+  const day = ymd ? null : new Date(event.startDate);
+  const y = ymd ? Number(ymd[1]) : (day as Date).getUTCFullYear();
+  const m = ymd ? Number(ymd[2]) : (day as Date).getUTCMonth() + 1;
+  const d = ymd ? Number(ymd[3]) : (day as Date).getUTCDate();
+  const start = londonWallToUtc(y, m, d, hours, minutes);
+  const end = new Date(start.getTime() + event.durationHours * 60 * 60 * 1000);
+  return { start, end };
+}
+
 /**
  * Format a Date as an iCalendar datetime string (UTC): "20260415T100000Z"
  */
@@ -51,11 +71,7 @@ function toICSDate(date: Date): string {
  * Generate .ics file content for a booking.
  */
 export function generateICS(event: CalendarEvent): string {
-  const { hours, minutes } = parseTime(event.startTime);
-  const start = new Date(event.startDate);
-  start.setHours(hours, minutes, 0, 0);
-
-  const end = new Date(start.getTime() + event.durationHours * 60 * 60 * 1000);
+  const { start, end } = eventWindow(event);
   const now = new Date();
 
   const uid = `booking-${Date.now()}@rena.com`;
@@ -96,10 +112,7 @@ function escapeICS(text: string): string {
  * Generate a Google Calendar "Add Event" URL.
  */
 export function getGoogleCalendarUrl(event: CalendarEvent): string {
-  const { hours, minutes } = parseTime(event.startTime);
-  const start = new Date(event.startDate);
-  start.setHours(hours, minutes, 0, 0);
-  const end = new Date(start.getTime() + event.durationHours * 60 * 60 * 1000);
+  const { start, end } = eventWindow(event);
 
   const fmt = (d: Date) =>
     d
@@ -122,10 +135,7 @@ export function getGoogleCalendarUrl(event: CalendarEvent): string {
  * Generate an Outlook/Teams calendar URL.
  */
 export function getOutlookCalendarUrl(event: CalendarEvent): string {
-  const { hours, minutes } = parseTime(event.startTime);
-  const start = new Date(event.startDate);
-  start.setHours(hours, minutes, 0, 0);
-  const end = new Date(start.getTime() + event.durationHours * 60 * 60 * 1000);
+  const { start, end } = eventWindow(event);
 
   const params = new URLSearchParams({
     path: '/calendar/action/compose',

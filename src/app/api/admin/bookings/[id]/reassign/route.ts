@@ -2,6 +2,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
 import { getAdminSession } from '@/lib/auth/session';
+import { busyResponse } from '@/lib/http/busy';
 import { AdminOperationsService } from '@/lib/services/admin-operations.service';
 
 type RouteContext = { params: Promise<{ id: string }> };
@@ -51,6 +52,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
     );
     return NextResponse.json({ result });
   } catch (err) {
+    // B3 gate: the cleaner-lock wait timeout is the one 503 BUSY.
+    const busy = busyResponse(err);
+    if (busy) return busy;
     return NextResponse.json(
       { error: err instanceof Error ? err.message : 'Reassign failed' },
       { status: 400 }

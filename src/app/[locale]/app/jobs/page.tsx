@@ -14,7 +14,8 @@ import InboxBell from '@/components/app/InboxBell';
 import {
   type AppJob as Job,
   JobCard,
-  LIFECYCLE_ACTION,
+  lifecycleActionFor,
+  lifecycleRefusal,
   OfferCard,
   ReceiptRow,
   haptic,
@@ -22,6 +23,7 @@ import {
   pay,
 } from '@/components/app/job-cards';
 import ArrangementRequests from '@/components/cleaner/ArrangementRequests';
+import { normalizeCleanerJob } from '@/lib/booking/cleaner-job-display';
 
 type Filter = 'upcoming' | 'done';
 
@@ -68,7 +70,7 @@ export default function AppJobsPage() {
         return;
       }
       const data = await res.json().catch(() => null);
-      setJobs(Array.isArray(data?.jobs) ? data.jobs : []);
+      setJobs(Array.isArray(data?.jobs) ? data.jobs.map(normalizeCleanerJob) : []);
       setLoadError(false);
     } catch {
       setLoadError(true);
@@ -132,7 +134,7 @@ export default function AppJobsPage() {
   }, [jobs, filter]);
 
   const advance = async (job: Job) => {
-    const action = LIFECYCLE_ACTION[job.status];
+    const action = lifecycleActionFor(job);
     if (!action) return;
     haptic('medium');
     setProcessingId(job.id);
@@ -156,7 +158,10 @@ export default function AppJobsPage() {
         const data = await res.json().catch(() => null);
         if (!res.ok) {
           haptic('error');
-          setActionError(data?.error || 'Could not update the job.');
+          // B3: TOO_EARLY names the London time it opens; STATE_CHANGED refetches.
+          const refusal = lifecycleRefusal(res.status, data);
+          setActionError(refusal.message);
+          if (refusal.refetch && i === 0) await fetchJobs(filter);
           if (i > 0) await fetchJobs(filter);
           return;
         }

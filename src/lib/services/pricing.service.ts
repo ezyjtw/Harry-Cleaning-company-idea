@@ -1,6 +1,7 @@
 import Decimal from 'decimal.js';
 
 import { prisma } from '@/lib/db/prisma';
+import { londonParts, londonWallToUtc } from '@/lib/time/booking-time';
 import { MAX_HOURLY_RATE, MAX_FIXED_PRICE } from '@/lib/validation/inputs';
 
 // ─── Types ──────────────────────────────────────────────────────
@@ -555,11 +556,15 @@ export const pricingService = new PricingService();
 
 // ─── Same-Day Cutoff ────────────────────────────────────────────
 
-export const isSameDay = (scheduledAt: Date): boolean => {
-  const now = new Date();
-  const cutoff = new Date(now);
-  cutoff.setHours(12, 0, 0, 0);
-  return scheduledAt.toDateString() === now.toDateString() && now < cutoff;
+// B3 gate (James-ruled): the day and the noon cutoff are London's, read
+// through the shared helper, never the host clock (UTC on the server, so
+// in summer the cutoff fell at 13:00 London).
+export const isSameDay = (scheduledAt: Date, now: Date = new Date()): boolean => {
+  const at = londonParts(scheduledAt);
+  const today = londonParts(now);
+  const sameLondonDay = at.y === today.y && at.m === today.m && at.day === today.day;
+  const cutoff = londonWallToUtc(today.y, today.m, today.day, 12, 0);
+  return sameLondonDay && now.getTime() < cutoff.getTime();
 };
 
 // ─── Validation Helpers ─────────────────────────────────────────

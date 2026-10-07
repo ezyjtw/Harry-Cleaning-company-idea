@@ -11,6 +11,7 @@ import RegularCleanChip from '@/components/cleaner/RegularCleanChip';
 import ProfilePhotoNudge from '@/components/ProfilePhotoNudge';
 import VerifyEmailBanner from '@/components/VerifyEmailBanner';
 import { useAuth } from '@/hooks/useAuth';
+import { normalizeCleanerJob } from '@/lib/booking/cleaner-job-display';
 import { SAME_DAY_FEATURE_ENABLED } from '@/lib/config/features';
 import { bedroomsLabel, serviceLabelFromSlug } from '@/lib/constants/services';
 import { registerPane } from '@/lib/freshness';
@@ -125,7 +126,10 @@ export default function CleanerDashboard() {
       }
       if (!res.ok) throw new Error('Failed to load dashboard');
       const d = await res.json();
-      setData(d);
+      setData({
+        ...d,
+        upcomingJobs: Array.isArray(d?.upcomingJobs) ? d.upcomingJobs.map(normalizeCleanerJob) : [],
+      });
       setAvailableNow(d.profile.availableNow);
       setJobs(d.upcomingJobs);
     } catch (e) {

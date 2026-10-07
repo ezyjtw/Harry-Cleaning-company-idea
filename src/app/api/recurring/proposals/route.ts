@@ -7,6 +7,7 @@ import { prisma } from '@/lib/db/prisma';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 import { ARRANGEMENT_RESPONSE_HOURS } from '@/lib/services/arrangement.service';
 import { pricingService } from '@/lib/services/pricing.service';
+import { NONEXISTENT_TIME_MESSAGE, validateBookingSlot } from '@/lib/time/booking-time';
 
 // F23 (James-ruled): the recurring PROPOSAL — replaces the checkout-first
 // entry entirely. Creates the agreement as PENDING_CLEANER_ACCEPTANCE:
@@ -124,6 +125,11 @@ export async function POST(request: NextRequest) {
   const start = new Date(`${startDate}T00:00:00Z`);
   if (Number.isNaN(start.getTime())) {
     return NextResponse.json({ error: 'Choose a valid start date.' }, { status: 400 });
+  }
+  // B3 (James-ruled): a time inside the spring clock change is not a booking time.
+  const startSlot = validateBookingSlot(String(startDate), String(time));
+  if (!startSlot.ok && startSlot.reason === 'NONEXISTENT_TIME') {
+    return NextResponse.json({ error: NONEXISTENT_TIME_MESSAGE }, { status: 400 });
   }
   const todayUtc = new Date(new Date().toISOString().slice(0, 10));
   const daysOut = Math.round((start.getTime() - todayUtc.getTime()) / DAY_MS);

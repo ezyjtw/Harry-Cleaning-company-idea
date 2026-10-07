@@ -23,16 +23,17 @@
 import { RECURRING_AUTOCHARGE } from '@/lib/config/features';
 import { prisma } from '@/lib/db/prisma';
 import stripe from '@/lib/stripe';
+import { bookingStartOrDayStartUtc } from '@/lib/time/booking-time';
 
 export const CHARGE_WINDOW_HOURS = 48;
 export const CANCEL_CUTOFF_HOURS = 24;
 
 const HOUR_MS = 60 * 60 * 1000;
 
-/** Occurrence start as a real instant: date (UTC midnight) + startTime. */
+/** Occurrence start as a real instant: London wall time on the stored day
+ *  (B3 sweep, through the one helper). */
 function occurrenceStart(date: Date, startTime: string): number {
-  const [h, m] = startTime.split(':').map(Number);
-  return date.getTime() + (h * 60 + m) * 60 * 1000;
+  return bookingStartOrDayStartUtc(date, startTime).getTime();
 }
 
 async function sendPayNow(bookingId: string): Promise<void> {

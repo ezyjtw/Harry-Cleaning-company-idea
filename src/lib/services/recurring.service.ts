@@ -15,8 +15,10 @@
 import { randomBytes } from 'crypto';
 
 import { blocksCleanerSlotWhere } from '@/lib/availability/slot-eligibility';
-import { timeToMinutes } from '@/lib/availability/timesheet';
+import { blockingOverlap, withCleanerLock } from '@/lib/booking/assign';
 import { prisma } from '@/lib/db/prisma';
+import { log } from '@/lib/log';
+import { validateBookingSlot } from '@/lib/time/booking-time';
 
 /** Rolling mint horizon (James-ruled: 8 weeks, extended weekly). */
 export const OCCURRENCE_WINDOW_WEEKS = 8;
@@ -82,71 +84,78 @@ export async function mintOccurrences(
     if (existing.has(key)) continue;
     if (d.getTime() < Date.now()) continue; // never mint into the past
 
-    // R1 confirmation fix (belt-and-braces behind the API's 8-week cap): the
-    // mint used to create blindly — if anyone had booked the cleaner into
-    // this slot before the horizon reached it, the mint double-booked
-    // silently. Check the H63 blocking set for a time-overlap and SKIP
-    // LOUDLY instead; the slot was honestly taken first.
-    const dayStart = new Date(d);
-    dayStart.setHours(0, 0, 0, 0);
-    const dayEnd = new Date(d);
-    dayEnd.setHours(23, 59, 59, 999);
-    const sameDay = await prisma.booking.findMany({
-      where: {
-        cleanerId: agreement.cleanerId,
-        date: { gte: dayStart, lte: dayEnd },
-        AND: [blocksCleanerSlotWhere()],
-      },
-      select: { id: true, startTime: true, duration: true },
-    });
-    const occStart = timeToMinutes(agreement.startTime);
-    const occEnd = occStart + Number(agreement.duration) * 60;
-    const clash = sameDay.find((b) => {
-      const bStart = timeToMinutes(b.startTime);
-      // Unparseable ("Flexible") times can't be placed — treat as clashing.
-      if (Number.isNaN(bStart) || Number.isNaN(occStart)) return true;
-      const bEnd = bStart + Number(b.duration) * 60;
-      return occStart < bEnd && bStart < occEnd;
-    });
-    if (clash) {
-      // eslint-disable-next-line no-console
-      console.error(
-        `[Recurring] mint SKIPPED for agreement ${agreement.id} on ${key} — slot conflict with booking ${clash.id} (booked before the window reached this date)`
-      );
+    // B3 (James-ruled): a time inside the spring clock change does not exist
+    // on that date, so it is never minted (skipped loudly).
+    if (!validateBookingSlot(key, agreement.startTime).ok) {
+      log.warn('recurring', 'mint_skipped_invalid_time', { agreementId: agreement.id });
       continue;
     }
 
-    await prisma.booking.create({
-      data: {
-        agreementId: agreement.id,
-        cleanerId: agreement.cleanerId,
-        ...(agreement.clientId ? { clientId: agreement.clientId } : {}),
-        guestEmail: agreement.clientId ? null : agreement.guestEmail,
-        guestName: agreement.clientId ? null : agreement.guestName,
-        // Every occurrence gets its own tokened link (guest parity law).
-        guestToken: agreement.clientId ? null : randomBytes(24).toString('hex'),
-        serviceType: agreement.serviceType,
-        date: d,
-        startTime: agreement.startTime,
-        duration: agreement.duration,
-        addressLine1: agreement.addressLine1,
-        addressLine2: agreement.addressLine2,
-        addressCity: agreement.addressCity,
-        addressPostcode: agreement.addressPostcode,
-        rooms: agreement.rooms ?? undefined,
-        notes: agreement.notes,
-        // LB-7: occurrences inherit the agreement's (= trial booking's) answer.
-        suppliesProvided: agreement.suppliesProvided,
-        // The per-occurrence money snapshot — the platform's existing splits,
-        // captured once from the first booking's quote. No new arithmetic.
-        totalPrice: agreement.totalPrice,
-        platformFee: agreement.platformFee,
-        cleanerEarnings: agreement.cleanerEarnings,
-        status: 'SCHEDULED',
-        paymentStatus: 'PENDING',
-        cascadePhase: null,
-      },
+    // R1 confirmation fix, B3 (RENA-012): the mint checks the cleaner's
+    // blocking bookings for an overlap and creates the occurrence inside ONE
+    // transaction under the cleaner's advisory lock, so no concurrent
+    // assignment can land between the read and the create. A slot honestly
+    // taken first is SKIPPED LOUDLY.
+    const created = await withCleanerLock(agreement.cleanerId, async (tx) => {
+      // The mint has always treated a same-day Flexible booking as a clash
+      // (it cannot be placed); that stays.
+      const flexibleSameDay = await tx.booking.findFirst({
+        where: {
+          cleanerId: agreement.cleanerId,
+          date: d,
+          startTime: 'Flexible',
+          AND: [blocksCleanerSlotWhere()],
+        },
+        select: { id: true },
+      });
+      const clash =
+        flexibleSameDay?.id ??
+        (await blockingOverlap(tx, agreement.cleanerId, {
+          date: d,
+          startTime: agreement.startTime,
+          durationHours: Number(agreement.duration),
+        }));
+      if (clash) {
+        // eslint-disable-next-line no-console
+        console.error(
+          `[Recurring] mint SKIPPED for agreement ${agreement.id} on ${key} — slot conflict with booking ${clash} (booked before the window reached this date)`
+        );
+        return false;
+      }
+      await tx.booking.create({
+        data: {
+          agreementId: agreement.id,
+          cleanerId: agreement.cleanerId,
+          ...(agreement.clientId ? { clientId: agreement.clientId } : {}),
+          guestEmail: agreement.clientId ? null : agreement.guestEmail,
+          guestName: agreement.clientId ? null : agreement.guestName,
+          // Every occurrence gets its own tokened link (guest parity law).
+          guestToken: agreement.clientId ? null : randomBytes(24).toString('hex'),
+          serviceType: agreement.serviceType,
+          date: d,
+          startTime: agreement.startTime,
+          duration: agreement.duration,
+          addressLine1: agreement.addressLine1,
+          addressLine2: agreement.addressLine2,
+          addressCity: agreement.addressCity,
+          addressPostcode: agreement.addressPostcode,
+          rooms: agreement.rooms ?? undefined,
+          notes: agreement.notes,
+          // LB-7: occurrences inherit the agreement's (= trial booking's) answer.
+          suppliesProvided: agreement.suppliesProvided,
+          // The per-occurrence money snapshot — the platform's existing splits,
+          // captured once from the first booking's quote. No new arithmetic.
+          totalPrice: agreement.totalPrice,
+          platformFee: agreement.platformFee,
+          cleanerEarnings: agreement.cleanerEarnings,
+          status: 'SCHEDULED',
+          paymentStatus: 'PENDING',
+          cascadePhase: null,
+        },
+      });
+      return true;
     });
+    if (!created) continue;
     minted++;
   }
   if (minted > 0) {

@@ -3,12 +3,14 @@
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 
-import { OfferTimeChange } from '@/components/app/job-cards';
+import { OfferTimeChange, lifecycleRefusal } from '@/components/app/job-cards';
 import BookingStatusChip from '@/components/BookingStatusChip';
 import RegularCleanChip, { recurringFrequencyLabel } from '@/components/cleaner/RegularCleanChip';
+import { normalizeCleanerJob } from '@/lib/booking/cleaner-job-display';
 import { suppliesLabel } from '@/lib/booking/supplies';
 import { bedroomsLabel, serviceLabelFromSlug } from '@/lib/constants/services';
 import { buildGoogleCalendarLink } from '@/lib/services/job-ics';
+import { isFlexibleStart } from '@/lib/time/booking-time';
 
 // H104 item 5: the job's home — every cleaner job row/card clicks through to
 // here. Built ENTIRELY from the portal's existing vocabulary: surface cards
@@ -91,6 +93,7 @@ export default function CleanerJobDetailPage() {
   const [job, setJob] = useState<JobDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [acting, setActing] = useState(false);
+  const [actionNote, setActionNote] = useState<string | null>(null);
   // F12: the email's Decline link lands HERE with ?decline=1 — a confirm beat,
   // never an instant decline (mis-tap and multi-recipient safe). Dismissable.
   const [showDeclineConfirm, setShowDeclineConfirm] = useState(searchParams.get('decline') === '1');
@@ -120,7 +123,7 @@ export default function CleanerJobDetailPage() {
       setError(res.status === 404 ? 'Job not found.' : 'Could not load this job.');
       return;
     }
-    setJob((await res.json()).job);
+    setJob(normalizeCleanerJob((await res.json()).job));
   }, [params.id]);
 
   useEffect(() => {
@@ -129,6 +132,7 @@ export default function CleanerJobDetailPage() {
 
   async function transition(status: string) {
     setActing(true);
+    setActionNote(null);
     try {
       const res = await fetch(`/api/cleaner/jobs/${params.id}`, {
         method: 'PATCH',
@@ -138,7 +142,11 @@ export default function CleanerJobDetailPage() {
       if (res.ok) await load();
       else {
         const d = await res.json().catch(() => ({}));
-        setError(d.error || 'Action failed — try again.');
+        // B3: a refused tap (too early, changed meanwhile) is a note beside
+        // the button, not a page-wide error; a changed job is refetched.
+        const refusal = lifecycleRefusal(res.status, d);
+        setActionNote(refusal.message);
+        if (refusal.refetch) await load();
       }
     } finally {
       setActing(false);
@@ -179,9 +187,12 @@ export default function CleanerJobDetailPage() {
       ? { label: 'Accept job', to: 'ACCEPTED' }
       : job.status === 'ACCEPTED'
         ? { label: 'On my way', to: 'EN_ROUTE' }
-        : job.status === 'EN_ROUTE' || job.status === 'IN_PROGRESS'
-          ? { label: 'Mark complete', to: 'COMPLETED' }
-          : null;
+        : job.status === 'EN_ROUTE' && isFlexibleStart(job.time)
+          ? // B3 (James-ruled): a Flexible-time job starts before it completes.
+            { label: 'Start clean', to: 'IN_PROGRESS' }
+          : job.status === 'EN_ROUTE' || job.status === 'IN_PROGRESS'
+            ? { label: 'Mark complete', to: 'COMPLETED' }
+            : null;
 
   return (
     // pb-28 clears the portal's fixed bottom action bar — the lifecycle
@@ -285,7 +296,7 @@ export default function CleanerJobDetailPage() {
 
         <Section title="Where">
           <p className="font-jost text-sm text-ink">
-            {job.assigned && job.fullAddress ? job.fullAddress : (job.postcode ?? job.address)}
+            {job.assigned && job.fullAddress ? job.fullAddress : job.address}
           </p>
           {!job.assigned && (
             <p className="mt-1 font-jost text-[12px] font-light text-ink-3">
@@ -373,6 +384,11 @@ export default function CleanerJobDetailPage() {
           </p>
         </Section>
 
+        {actionNote && (
+          <p role="alert" className="font-jost text-sm text-ink-2" data-testid="job-action-note">
+            {actionNote}
+          </p>
+        )}
         {action && (
           <button
             onClick={() => transition(action.to)}

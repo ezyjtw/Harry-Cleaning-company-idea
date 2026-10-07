@@ -121,16 +121,20 @@ export class GdprService {
    */
   static async getCleanerDeletionBlockers(userId: string): Promise<string[]> {
     const { BookingStatus } = await import('@prisma/client');
+    // B3 (James-ruled 2026-10-07): an unaccepted offer, and backup or reserve
+    // membership, do NOT block deletion (the cascade skips the cleaner: see
+    // releaseOffersForDeletedCleaner); a provisional assignment does.
+    // AWAITING_CLEANER rows pinned to this cleaner are offers, so they left
+    // this list.
     const LIVE_STATUSES = [
       BookingStatus.PENDING,
-      BookingStatus.AWAITING_CLEANER,
       BookingStatus.CONFIRMED,
       BookingStatus.ACCEPTED,
       BookingStatus.EN_ROUTE,
       BookingStatus.IN_PROGRESS,
       BookingStatus.CLEANER_CANCELLED,
     ];
-    const [liveJobs, activeAgreements, moneyInFlight, openDisputes, pendingTopups] =
+    const [liveJobs, activeAgreements, moneyInFlight, openDisputes, pendingTopups, provisional] =
       await Promise.all([
         prisma.booking.count({ where: { cleanerId: userId, status: { in: LIVE_STATUSES } } }),
         prisma.recurringAgreement.count({ where: { cleanerId: userId, status: 'ACTIVE' } }),
@@ -147,12 +151,27 @@ export class GdprService {
         prisma.topupRecord.count({
           where: { booking: { cleanerId: userId }, status: 'PENDING' },
         }),
+        // A job held provisionally for this cleaner while the customer
+        // approves a price change (cascade or admin), or an admin reassign
+        // that reverts to them if the customer says no.
+        prisma.booking.count({
+          where: {
+            status: BookingStatus.AWAITING_CLEANER,
+            cascadePhase: 'PROVISIONAL_APPROVAL',
+            OR: [{ provisionalCleanerId: userId }, { reassignPreviousCleanerId: userId }],
+          },
+        }),
       ]);
 
     const blockers: string[] = [];
     if (liveJobs > 0) {
       blockers.push(
         `${liveJobs} upcoming or in-progress booking(s) — complete or cancel them first`
+      );
+    }
+    if (provisional > 0) {
+      blockers.push(
+        `${provisional} job(s) held for you while the customer approves a price change — wait for their decision`
       );
     }
     if (activeAgreements > 0) {

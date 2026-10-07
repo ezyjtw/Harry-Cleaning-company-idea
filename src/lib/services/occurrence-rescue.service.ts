@@ -19,15 +19,21 @@
 // sweep filters on status='SCHEDULED' + paymentStatus='PENDING', so a clean
 // being rescheduled can never be charged mid-flight.
 
+import { assignCleaner } from '@/lib/booking/assign';
 import { prisma } from '@/lib/db/prisma';
 import stripe from '@/lib/stripe';
+import {
+  NONEXISTENT_TIME_MESSAGE,
+  bookingStartOrDayStartUtc,
+  validateBookingSlot,
+} from '@/lib/time/booking-time';
 
 const RESCUE_WINDOW_MS = 48 * 60 * 60 * 1000;
 const SKIP_FREE_CUTOFF_MS = 24 * 60 * 60 * 1000;
 
+// B3 sweep: London wall time through the one helper.
 function occurrenceStart(date: Date, startTime: string): Date {
-  const [h, m] = startTime.split(':').map(Number);
-  return new Date(date.getTime() + (h * 60 + m) * 60 * 1000);
+  return bookingStartOrDayStartUtc(date, startTime);
 }
 
 export interface OccurrenceActionResult {
@@ -307,10 +313,20 @@ export async function rescheduleUnpaidOccurrence(params: {
       error: 'This occurrence is not awaiting an unpaid reschedule',
     };
   }
-  const when = new Date(`${params.date}T00:00:00`);
-  if (Number.isNaN(when.getTime()) || !/^\d{2}:\d{2}$/.test(params.startTime)) {
-    return { ok: false, status: 400, error: 'Invalid date or time' };
+  // B3: the stored day is the UTC midnight of the London date; a time inside
+  // the spring clock change is not a booking time (James-ruled).
+  const slotCheck = validateBookingSlot(params.date, params.startTime);
+  if (!slotCheck.ok || !/^\d{2}:\d{2}$/.test(params.startTime)) {
+    return {
+      ok: false,
+      status: 400,
+      error:
+        !slotCheck.ok && slotCheck.reason === 'NONEXISTENT_TIME'
+          ? NONEXISTENT_TIME_MESSAGE
+          : 'Invalid date or time',
+    };
   }
+  const when = slotCheck.day;
   if (occurrenceStart(when, params.startTime).getTime() <= Date.now()) {
     return { ok: false, status: 422, error: 'That time is in the past — pick a future slot' };
   }
@@ -328,8 +344,15 @@ export async function rescheduleUnpaidOccurrence(params: {
       error: 'Your cleaner is not free at that time — pick another slot, or skip this clean.',
     };
   }
-  const claim = await prisma.booking.updateMany({
-    where: { id: params.bookingId, status: 'CLEANER_CANCELLED' },
+  // B3 (RENA-012): SCHEDULED blocks the agreement cleaner's new slot, so the
+  // move runs through the assignment helper (lock, new slot re-read, CAS).
+  const claim = await assignCleaner({
+    bookingId: params.bookingId,
+    cleanerId: booking.cleanerId,
+    expect: { status: 'CLEANER_CANCELLED' },
+    requireUnexpiredOffer: false,
+    slot: { date: when, startTime: params.startTime, durationHours: Number(booking.duration) },
+    actor: { kind: 'CUSTOMER' },
     data: {
       status: 'SCHEDULED',
       date: when,
@@ -339,7 +362,14 @@ export async function rescheduleUnpaidOccurrence(params: {
       cancelledByCleanerId: null,
     },
   });
-  if (claim.count === 0) {
+  if (!claim.ok && claim.reason === 'SLOT_TAKEN') {
+    return {
+      ok: false,
+      status: 422,
+      error: 'Your cleaner is not free at that time — pick another slot, or skip this clean.',
+    };
+  }
+  if (!claim.ok) {
     return {
       ok: false,
       status: 409,

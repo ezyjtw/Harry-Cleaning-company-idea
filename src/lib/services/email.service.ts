@@ -1,6 +1,7 @@
 import { Resend } from 'resend';
 
 import { logApiCall } from '@/lib/api-metering';
+import { outwardCode } from '@/lib/booking/cleaner-view';
 import { log } from '@/lib/log';
 import {
   buildBookingConfirmation,
@@ -38,6 +39,7 @@ import {
   shouldSend,
   type NotificationCategory,
 } from '@/lib/services/notification-preferences.service';
+import { bookingStartOrDayStartUtc } from '@/lib/time/booking-time';
 import { generateUnsubscribeToken } from '@/lib/utils/unsubscribe-token';
 
 // A11c: build the PECR unsubscribe URL + List-Unsubscribe headers for a marketing
@@ -1019,7 +1021,8 @@ export async function sendBackupOfferEmails(bookingId: string, backupIds: string
     where: { id: { in: backupIds } },
     select: { id: true, name: true, email: true },
   });
-  const area = [b.addressCity, b.addressPostcode].filter(Boolean).join(' ');
+  // B3 (RENA-026, ruled): pre-accept location is the outward code and town.
+  const area = [b.addressCity, outwardCode(b.addressPostcode)].filter(Boolean).join(' ');
   const dateStr = b.date.toISOString().split('T')[0];
   for (const u of users) {
     if (!u.email) continue;
@@ -1409,17 +1412,17 @@ export async function sendOccurrencePayNow(bookingId: string): Promise<boolean> 
   // R10 Lane 1 (James-ruled): the deadline stated plainly. Release is 24
   // hours before the occurrence's start, the same instant the reap sweep
   // uses (occurrenceStart minus 24h).
-  const [sh, sm] = b.startTime.split(':').map(Number);
+  // B3 sweep: the start is London wall time, and the deadline reads in London.
   const releaseAt = new Date(
-    b.date.getTime() + ((sh || 0) * 60 + (sm || 0)) * 60 * 1000 - 24 * 60 * 60 * 1000
+    bookingStartOrDayStartUtc(b.date, b.startTime).getTime() - 24 * 60 * 60 * 1000
   );
   const heldUntilLong = `${releaseAt
-    .toLocaleTimeString('en-GB', { hour: 'numeric', minute: '2-digit', timeZone: 'UTC' })
+    .toLocaleTimeString('en-GB', { hour: 'numeric', minute: '2-digit', timeZone: 'Europe/London' })
     .replace(':00', '')} on ${releaseAt.toLocaleDateString('en-GB', {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
-    timeZone: 'UTC',
+    timeZone: 'Europe/London',
   })}`;
   const { buildOccurrencePayNow } = await import('./email-templates');
   const { subject, html } = buildOccurrencePayNow({

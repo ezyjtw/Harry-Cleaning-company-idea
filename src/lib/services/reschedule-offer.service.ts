@@ -21,7 +21,13 @@
 
 import { blocksCleanerSlotWhere } from '@/lib/availability/slot-eligibility';
 import { timeToMinutes } from '@/lib/availability/timesheet';
+import { assignCleaner } from '@/lib/booking/assign';
 import { prisma } from '@/lib/db/prisma';
+import {
+  NONEXISTENT_TIME_MESSAGE,
+  bookingStartOrDayStartUtc,
+  validateBookingSlot,
+} from '@/lib/time/booking-time';
 
 const HOUR_MS = 60 * 60 * 1000;
 const OFFER_TTL_MS = 48 * HOUR_MS;
@@ -30,9 +36,9 @@ const MIN_LEAD_MS = 24 * HOUR_MS;
 const TIME_RE = /^([01]?\d|2[0-3]):[0-5]\d$/;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
+// B3 sweep: London wall time through the one helper.
 function slotInstant(date: Date, time: string): number {
-  const [h, m] = time.split(':').map(Number);
-  return date.getTime() + ((h || 0) * 60 + (m || 0)) * 60 * 1000;
+  return bookingStartOrDayStartUtc(date, time).getTime();
 }
 
 function fmtWhen(date: Date, time: string): string {
@@ -50,17 +56,20 @@ function fmtWhen(date: Date, time: string): string {
  * the proposed slot? Her weekly TEMPLATE is deliberately not consulted —
  * she proposed this time herself (see header note).
  */
-async function cleanerClashAt(args: {
-  cleanerUserId: string;
-  date: Date; // UTC midnight of the proposed day
-  startTime: string; // "HH:MM"
-  durationHours: number;
-  excludeBookingId: string;
-}): Promise<string | null> {
+async function cleanerClashAt(
+  args: {
+    cleanerUserId: string;
+    date: Date; // UTC midnight of the proposed day
+    startTime: string; // "HH:MM"
+    durationHours: number;
+    excludeBookingId: string;
+  },
+  db: Pick<typeof prisma, 'cleanerProfile' | 'booking'> = prisma
+): Promise<string | null> {
   const dayStart = new Date(args.date);
   const dayEnd = new Date(dayStart.getTime() + 24 * HOUR_MS);
   const [profile, bookings] = await Promise.all([
-    prisma.cleanerProfile.findUnique({
+    db.cleanerProfile.findUnique({
       where: { userId: args.cleanerUserId },
       select: {
         bookingBufferMinutes: true,
@@ -70,7 +79,7 @@ async function cleanerClashAt(args: {
         },
       },
     }),
-    prisma.booking.findMany({
+    db.booking.findMany({
       where: {
         cleanerId: args.cleanerUserId,
         id: { not: args.excludeBookingId },
@@ -116,6 +125,18 @@ export async function offerReschedule(params: {
     return { ok: false, status: 400, error: 'Pick a valid date and time.' };
   }
   const proposedDate = new Date(`${params.proposedDate}T00:00:00.000Z`);
+  // B3 (James-ruled): a time inside the spring clock change is not a booking time.
+  const slotCheck = validateBookingSlot(params.proposedDate, params.proposedTime);
+  if (!slotCheck.ok) {
+    return {
+      ok: false,
+      status: 400,
+      error:
+        slotCheck.reason === 'NONEXISTENT_TIME'
+          ? NONEXISTENT_TIME_MESSAGE
+          : 'Pick a valid date and time.',
+    };
+  }
   const proposedAt = slotInstant(proposedDate, params.proposedTime);
   if (proposedAt < Date.now() + MIN_LEAD_MS) {
     return {
@@ -307,16 +328,49 @@ export async function resolveRescheduleOffer(params: {
 
   // Atomic, pinned to the ORIGINAL date/time (the same TOCTOU law as the
   // admin claims): any concurrent change to the occurrence makes count 0.
-  const moved = await prisma.booking.updateMany({
-    where: {
-      id: offer.bookingId,
-      status: { in: ['SCHEDULED', 'ACCEPTED', 'CONFIRMED'] },
+  // B3 (RENA-012): the move runs through the assignment helper — the
+  // cleaner's lock, the clash read (time off and bookings) repeated inside it
+  // plus the I1 overlap read, then the CAS.
+  const moved = await assignCleaner({
+    bookingId: offer.bookingId,
+    cleanerId: offer.cleanerId,
+    // The proposing cleaner must still hold the booking: an admin reassign in
+    // between would otherwise move the new cleaner's row on this diary read.
+    expect: {
+      cleanerId: offer.cleanerId,
       date: offer.originalDate,
       startTime: offer.originalTime,
     },
+    expectWhere: { status: { in: ['SCHEDULED', 'ACCEPTED', 'CONFIRMED'] } },
+    requireUnexpiredOffer: false,
+    slot: {
+      date: offer.proposedDate,
+      startTime: offer.proposedTime,
+      durationHours: Number(offer.booking.duration),
+    },
+    slotPolicy: 'overlap',
+    extraSlotCheck: async (tx) =>
+      (await cleanerClashAt(
+        {
+          cleanerUserId: offer.cleanerId,
+          date: offer.proposedDate,
+          startTime: offer.proposedTime,
+          durationHours: Number(offer.booking.duration),
+          excludeBookingId: offer.bookingId,
+        },
+        tx
+      )) === null,
+    actor: { kind: 'CUSTOMER' },
     data: { date: offer.proposedDate, startTime: offer.proposedTime },
   });
-  if (moved.count === 0) {
+  if (!moved.ok && moved.reason === 'SLOT_TAKEN') {
+    return {
+      ok: false,
+      status: 409,
+      error: 'Your cleaner is no longer free at the proposed time. The visit stays as it was.',
+    };
+  }
+  if (!moved.ok) {
     return {
       ok: false,
       status: 409,

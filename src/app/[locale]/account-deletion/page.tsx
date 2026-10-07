@@ -39,10 +39,14 @@ export default function AccountDeletionPage() {
             <strong className="font-medium text-ink">Delete my account</strong>.
           </p>
           <p className="mt-4 font-jost font-normal text-ink-2 leading-relaxed">
-            <strong className="font-medium text-ink">Cleaners</strong> (the Rena Pro app): open the{' '}
+            <strong className="font-medium text-ink">Cleaners</strong> (the Rena Pro app or the
+            website): in the app, open the{' '}
             <strong className="font-medium text-ink">account menu</strong>, then{' '}
             <strong className="font-medium text-ink">My Profile</strong>, and choose{' '}
-            <strong className="font-medium text-ink">Delete my account</strong> at the bottom.
+            <strong className="font-medium text-ink">Delete my account</strong> at the bottom. On
+            the website, open <strong className="font-medium text-ink">Profile</strong> and choose{' '}
+            <strong className="font-medium text-ink">Delete my account</strong> at the bottom of the
+            page.
           </p>
           <p className="mt-4 font-jost font-normal text-ink-2 leading-relaxed">
             Either way you will be asked to re-enter your password and type a confirmation, and the

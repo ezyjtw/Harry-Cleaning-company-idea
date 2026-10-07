@@ -100,6 +100,20 @@ export async function POST(request: NextRequest) {
     });
     // D-g: deletion revokes every session row and bumps the version too.
     await revokeAllSessions(userId, 'deletion').catch(() => {});
+    // B3 (James-ruled): the cascade skips a deleted cleaner — their live
+    // offers move on now (unaccepted offers never block a deletion). The same
+    // holds when an admin files the request (B3 gate): the cleaner's
+    // unaccepted offers are declined through the guarded decline and the
+    // cascade advances at once. Accepted and provisional assignments are left
+    // untouched; only the break-glass override changes those.
+    const targetRole =
+      userId === requester.id
+        ? requester.role
+        : (await db.user.findUnique({ where: { id: userId }, select: { role: true } }))?.role;
+    if (targetRole === 'CLEANER') {
+      const { releaseOffersForDeletedCleaner } = await import('@/lib/services/cascade.service');
+      await releaseOffersForDeletedCleaner(userId).catch(() => 0);
+    }
 
     return NextResponse.json({
       success: true,

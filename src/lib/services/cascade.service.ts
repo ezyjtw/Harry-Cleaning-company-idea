@@ -10,6 +10,7 @@
 import type { Booking, BookingStatus, CascadePhase, PropertySize } from '@prisma/client';
 
 import { filterSlotAvailableCleaners } from '@/lib/availability/slot-eligibility';
+import { ASSIGN_FAILURE_MESSAGE, type AssignFailure, assignCleaner } from '@/lib/booking/assign';
 import {
   normalizeToPricingSlug,
   propertySizeEnumToSlug,
@@ -19,6 +20,7 @@ import prisma from '@/lib/db/prisma';
 import { log } from '@/lib/log';
 import { getReviewCounts } from '@/lib/services/rating.service';
 import stripe from '@/lib/stripe';
+import { bookingStartUtc } from '@/lib/time/booking-time';
 
 import { AuditService } from './audit.service';
 import { BookingReminderService } from './booking-reminder.service';
@@ -42,18 +44,9 @@ import { refundBooking } from './refund.service';
 
 const HOUR_MS = 60 * 60 * 1000;
 
+// B3 sweep: the slot start is London wall time (D-f); the one helper owns it.
 function parseSlotStart(bookingDate: Date, startTime: string): Date | null {
-  try {
-    const parts = startTime.split(':');
-    const hours = Number(parts[0]);
-    const minutes = Number(parts[1] ?? 0);
-    if (Number.isNaN(hours) || Number.isNaN(minutes)) return null;
-    const slot = new Date(bookingDate);
-    slot.setUTCHours(hours, minutes, 0, 0);
-    return slot;
-  } catch {
-    return null;
-  }
+  return bookingStartUtc(bookingDate, startTime);
 }
 
 /** Cascade-state teardown fields — shared by cancel and reassign paths. */
@@ -227,6 +220,62 @@ async function advanceFromPrimary(bookingId: string, booking: BookingCascadeData
   await sendCascadeSearchingUpdate(bookingId).catch(() => {});
 }
 
+/**
+ * B3: payment success found the chosen cleaner's slot taken, recorded them as
+ * declined and claimed PRIMARY_OFFER; move the offer to the backups now.
+ */
+export async function advanceFromPrimaryAfterPayment(bookingId: string): Promise<void> {
+  const booking = await prisma.booking.findUnique({
+    where: { id: bookingId },
+    select: {
+      status: true,
+      cleanerId: true,
+      backupCleanerIds: true,
+      cascadePhase: true,
+      cascadeBackupExpiresAt: true,
+      declinedCleanerIds: true,
+      date: true,
+      startTime: true,
+      duration: true,
+      serviceType: true,
+    },
+  });
+  if (!booking || booking.status !== 'AWAITING_CLEANER') return;
+  if (booking.cascadePhase !== 'PRIMARY_OFFER') return;
+  await advanceFromPrimary(bookingId, booking);
+}
+
+/**
+ * B3 (James-ruled 2026-10-07): a cleaner who deletes their account while
+ * offered a job (primary, backup, combined, Rena-Find or reserve phase) is
+ * skipped by the cascade rather than blocking the deletion: each live offer is
+ * declined on their behalf through the same guarded decline, so the offer
+ * moves on now instead of waiting out the window. Reserve membership needs
+ * nothing here: promotion's slot read skips a deactivated cleaner.
+ */
+export async function releaseOffersForDeletedCleaner(cleanerId: string): Promise<number> {
+  const offered = await prisma.booking.findMany({
+    where: {
+      status: 'AWAITING_CLEANER',
+      NOT: { declinedCleanerIds: { has: cleanerId } },
+      OR: [
+        { cleanerId, cascadePhase: { in: ['PRIMARY_OFFER', 'COMBINED_OFFER'] } },
+        {
+          backupCleanerIds: { has: cleanerId },
+          cascadePhase: { in: ['BACKUP_OFFER', 'COMBINED_OFFER', 'RENA_FIND', 'PHASE2_RESERVE'] },
+        },
+      ],
+    },
+    select: { id: true },
+  });
+  let released = 0;
+  for (const b of offered) {
+    const r = await handleDecline(b.id, cleanerId).catch(() => null);
+    if (r?.success) released++;
+  }
+  return released;
+}
+
 // ─── Decline ───────────────────────────────────────────────────
 
 export interface DeclineResult {
@@ -236,7 +285,12 @@ export interface DeclineResult {
   message?: string;
 }
 
-export async function handleDecline(bookingId: string, cleanerId: string): Promise<DeclineResult> {
+export async function handleDecline(
+  bookingId: string,
+  cleanerId: string,
+  /** B3: the shell's optional reason, written in the same statement. */
+  reason?: string
+): Promise<DeclineResult> {
   const booking = await prisma.booking.findUnique({
     where: { id: bookingId },
     select: {
@@ -271,11 +325,32 @@ export async function handleDecline(bookingId: string, cleanerId: string): Promi
     return { success: false, error: 'Already declined', statusCode: 400 };
   }
 
-  // Atomic push — Prisma generates array_append(), safe under concurrency
-  await prisma.booking.update({
-    where: { id: bookingId },
-    data: { declinedCleanerIds: { push: cleanerId } },
-  });
+  // B3 (RENA-028): ONE guarded statement records the decline (and its
+  // reason) only while the row is still in the phase this read saw and the
+  // cleaner has not already declined. Zero rows means the sweep, an accept or
+  // another decline moved first: nothing is advanced from this stale read.
+  const entry = reason
+    ? JSON.stringify([{ cleanerId, reason, at: new Date().toISOString() }])
+    : null;
+  const written = await prisma.$executeRaw`
+    UPDATE "Booking"
+       SET "declinedCleanerIds" = array_append("declinedCleanerIds", ${cleanerId}),
+           "declineReasons" = CASE
+             WHEN ${entry}::jsonb IS NULL THEN "declineReasons"
+             ELSE COALESCE("declineReasons", '[]'::jsonb) || ${entry}::jsonb
+           END,
+           "updatedAt" = now()
+     WHERE id = ${bookingId}
+       AND status = 'AWAITING_CLEANER'::"BookingStatus"
+       AND "cascadePhase" = ${booking.cascadePhase}::"CascadePhase"
+       AND NOT (${cleanerId} = ANY("declinedCleanerIds"))`;
+  if (written === 0) {
+    return {
+      success: false,
+      error: 'This offer changed a moment ago — refresh to see where it stands.',
+      statusCode: 409,
+    };
+  }
 
   if (booking.cascadePhase === 'PRIMARY_OFFER' && isPrimary) {
     await advanceFromPrimary(bookingId, booking);
@@ -425,6 +500,12 @@ async function checkAllDeclined(bookingId: string, phase: CascadePhase): Promise
 export interface AcceptResult {
   success: boolean;
   reason?: string;
+  /** B3: the assignment helper's refusal, when the claim itself was refused. */
+  code?: AssignFailure;
+}
+
+function acceptRefusal(reason: AssignFailure): AcceptResult {
+  return { success: false, reason: ASSIGN_FAILURE_MESSAGE[reason], code: reason };
 }
 
 export async function atomicAccept(bookingId: string, cleanerId: string): Promise<AcceptResult> {
@@ -483,29 +564,15 @@ export async function atomicAccept(bookingId: string, cleanerId: string): Promis
     return { success: false, reason: 'You already declined this booking' };
   }
 
-  // H7 accept-time guard: offers can sit for hours — re-validate the accepter's
-  // REAL timesheet for this exact slot before assignment (the booking itself is
-  // excluded so a primary can't self-conflict).
-  const free = await filterSlotAvailableCleaners([cleanerId], {
-    date: booking.date,
-    startTime: booking.startTime,
-    durationHours: Number(booking.duration),
-    excludeBookingId: bookingId,
-  });
-  if (!free.has(cleanerId)) {
-    return {
-      success: false,
-      reason:
-        'This job overlaps your schedule — check your availability and bookings for that time.',
-    };
-  }
-
-  const result = await prisma.booking.updateMany({
-    where: {
-      id: bookingId,
-      status: 'AWAITING_CLEANER',
-      cascadePhase: booking.cascadePhase,
-    },
+  // H7 + B3 (RENA-012, RENA-030): the accepter's real diary is re-read and the
+  // claim made inside one transaction under the cleaner's advisory lock, with
+  // the offer window enforced in the CAS (the booking itself is excluded so a
+  // primary can't self-conflict).
+  const claim = await assignCleaner({
+    bookingId,
+    cleanerId,
+    expect: { status: 'AWAITING_CLEANER', cascadePhase: booking.cascadePhase },
+    requireUnexpiredOffer: true,
     data: {
       status: 'ACCEPTED',
       cleanerId,
@@ -515,11 +582,9 @@ export async function atomicAccept(bookingId: string, cleanerId: string): Promis
       cascadeBackupExpiresAt: null,
       reserveCleanerIds: [],
     },
+    actor: { kind: 'CLEANER', id: cleanerId },
   });
-
-  if (result.count === 0) {
-    return { success: false, reason: 'This booking was just taken by another cleaner.' };
-  }
+  if (!claim.ok) return acceptRefusal(claim.reason);
 
   // Booking confirmed — schedule the reminder series (best-effort; never blocks
   // the accept). The atomic guard above ensures this runs exactly once.
@@ -565,6 +630,7 @@ export async function renaFindAccept(bookingId: string, cleanerId: string): Prom
       backupCleanerIds: true,
       cascadePhase: true,
       status: true,
+      paymentStatus: true,
       declinedCleanerIds: true,
       date: true,
       startTime: true,
@@ -578,6 +644,10 @@ export async function renaFindAccept(bookingId: string, cleanerId: string): Prom
   // set they somehow appear in.
   if (booking.clientId === cleanerId) {
     return { success: false, reason: "This is your own booking — you can't accept it." };
+  }
+  // B3 (James-ruled): the H53 money door atomicAccept has — no payment, no accept.
+  if (booking.paymentStatus === 'PENDING' || booking.paymentStatus === 'FAILED') {
+    return { success: false, reason: 'This booking has not been paid for yet.' };
   }
 
   if (booking.status !== 'AWAITING_CLEANER') {
@@ -593,27 +663,12 @@ export async function renaFindAccept(bookingId: string, cleanerId: string): Prom
     return { success: false, reason: 'You already declined this booking' };
   }
 
-  // H7 accept-time guard — same re-validation as atomicAccept.
-  const free = await filterSlotAvailableCleaners([cleanerId], {
-    date: booking.date,
-    startTime: booking.startTime,
-    durationHours: Number(booking.duration),
-    excludeBookingId: bookingId,
-  });
-  if (!free.has(cleanerId)) {
-    return {
-      success: false,
-      reason:
-        'This job overlaps your schedule — check your availability and bookings for that time.',
-    };
-  }
-
-  const result = await prisma.booking.updateMany({
-    where: {
-      id: bookingId,
-      status: 'AWAITING_CLEANER',
-      cascadePhase: 'RENA_FIND',
-    },
+  // H7 + B3: same locked re-validation and claim as atomicAccept.
+  const claim = await assignCleaner({
+    bookingId,
+    cleanerId,
+    expect: { status: 'AWAITING_CLEANER', cascadePhase: 'RENA_FIND' },
+    requireUnexpiredOffer: true,
     data: {
       status: 'ACCEPTED',
       cleanerId,
@@ -623,11 +678,9 @@ export async function renaFindAccept(bookingId: string, cleanerId: string): Prom
       cascadeBackupExpiresAt: null,
       reserveCleanerIds: [],
     },
+    actor: { kind: 'CLEANER', id: cleanerId },
   });
-
-  if (result.count === 0) {
-    return { success: false, reason: 'This booking was just taken by another cleaner.' };
-  }
+  if (!claim.ok) return acceptRefusal(claim.reason);
 
   // Booking confirmed via Rena-find — schedule the reminder series (best-effort).
   await BookingReminderService.scheduleReminders(bookingId).catch(() => {});
@@ -752,27 +805,13 @@ export async function atomicProvisionalAccept(
     return { success: false, reason: 'You already declined this booking' };
   }
 
-  // H7 accept-time guard — a provisional accept is still an assignment path.
-  const free = await filterSlotAvailableCleaners([cleanerId], {
-    date: booking.date,
-    startTime: booking.startTime,
-    durationHours: Number(booking.duration),
-    excludeBookingId: bookingId,
-  });
-  if (!free.has(cleanerId)) {
-    return {
-      success: false,
-      reason:
-        'This job overlaps your schedule — check your availability and bookings for that time.',
-    };
-  }
-
-  const result = await prisma.booking.updateMany({
-    where: {
-      id: bookingId,
-      status: 'AWAITING_CLEANER',
-      cascadePhase: booking.cascadePhase,
-    },
+  // H7 + B3 — a provisional accept is still an assignment path: the lock and
+  // the slot check run for the provisional cleaner (cleanerId is unchanged).
+  const claim = await assignCleaner({
+    bookingId,
+    cleanerId,
+    expect: { status: 'AWAITING_CLEANER', cascadePhase: booking.cascadePhase },
+    requireUnexpiredOffer: true,
     // Unified entry. Net change vs before: +topupApproved:false (no-op —
     // default false, never flipped at first provisional), +reserveCleanerIds:[]
     // (no-op — empty pre-Phase-2), +provisionalSource:'CASCADE' (new field).
@@ -783,10 +822,10 @@ export async function atomicProvisionalAccept(
       approvalExpiresAt: pricing.approvalExpiresAt,
       source: 'CASCADE',
     }),
+    actor: { kind: 'CLEANER', id: cleanerId },
   });
-
-  if (result.count === 0) {
-    return { success: false, reason: 'This booking was just taken by another cleaner.' };
+  if (!claim.ok) {
+    return { success: false, reason: ASSIGN_FAILURE_MESSAGE[claim.reason] };
   }
 
   // Loser notifications
@@ -915,7 +954,9 @@ export async function expireBackupOrCombinedOffer(
 }
 
 export async function expireProvisionalApproval(bookingId: string): Promise<boolean> {
-  const advanced = await handleProvisionalFailure(bookingId, 'Approval window expired');
+  // A refused admin revert is not an advance: the booking stays put and the
+  // admins were alerted, so no customer comms go out here.
+  const advanced = (await handleProvisionalFailure(bookingId, 'Approval window expired')) === true;
   // R10 Lane 1 (James-ruled): the customer hears the release moment itself,
   // honestly PER CASCADE PATH. When the advance keeps the search alive the
   // notice promises the next step; when it exhausted the cascade, the
@@ -931,6 +972,9 @@ export async function expireProvisionalApproval(bookingId: string): Promise<bool
       if (b && ['CASCADE_EXHAUSTED', 'CANCELLED'].includes(b.status)) {
         return advanced;
       }
+      // B3: a top-up taken whose assignment was refused makes "nothing has
+      // been charged" untrue; that customer hears from the team instead.
+      if (await hasTopupWithoutAssignment(bookingId)) return advanced;
       if (b?.clientId) {
         await prisma.notification
           .create({
@@ -962,7 +1006,7 @@ export async function expireProvisionalApproval(bookingId: string): Promise<bool
 export async function handleProvisionalFailure(
   bookingId: string,
   reason: string
-): Promise<boolean> {
+): Promise<boolean | typeof REASSIGN_REVERT_CONFLICT> {
   const b = await prisma.booking.findUnique({
     where: { id: bookingId },
     select: {
@@ -1229,8 +1273,20 @@ export async function promoteReserves(bookingId: string): Promise<boolean> {
     booking.startTime
   );
 
-  const claim = await prisma.booking.updateMany({
-    where: { id: bookingId, status: 'AWAITING_CLEANER', cascadePhase: 'PHASE2_RESERVE' },
+  // B3: the promotion claims under the winner's lock with a locked slot
+  // re-read. No offer-window check: promotion is the system acting at or after
+  // the reserve window's end (the sweep calls it on expiry), not a cleaner
+  // answering a live offer. A lost slot leaves the phase for the next tick,
+  // whose pre-filter skips the winner. B3 gate condition (James-ruled): the
+  // promotion always writes a new explicit expiry (cascadeExpiresAt and
+  // approvalExpiresAt, both from a window computed now), and the acceptance
+  // that follows, the customer's approve, is still refused server-side once
+  // that expiry passes (approve-topup POST, 410).
+  const claim = await assignCleaner({
+    bookingId,
+    cleanerId: winner.cleanerId,
+    expect: { status: 'AWAITING_CLEANER', cascadePhase: 'PHASE2_RESERVE' },
+    requireUnexpiredOffer: false,
     // Unified entry. Net change vs before: +cascadeBackupExpiresAt:null
     // (PROVEN no-op — cascadeBackupExpiresAt is already null in every path
     // that reaches promoteReserves; first-failure entry into PHASE2_RESERVE
@@ -1244,8 +1300,9 @@ export async function promoteReserves(bookingId: string): Promise<boolean> {
       source: 'CASCADE',
       reserveCleanerIds: remaining,
     }),
+    actor: { kind: 'SYSTEM' },
   });
-  if (claim.count === 0) return false;
+  if (!claim.ok) return false;
 
   await AuditService.log({
     action: 'PHASE2_RESERVE_PROMOTED',
@@ -1320,13 +1377,18 @@ export async function enterAdminReassignProvisional(args: {
   if (!args.eligibleStatuses.includes(args.previousStatus)) {
     return { success: false, reason: 'Booking state changed — reload and try again' };
   }
-  const claim = await prisma.booking.updateMany({
-    where: {
-      id: args.bookingId,
-      status: args.previousStatus,
-      cleanerId: args.previousCleanerId,
-      transferStatus: { in: ['PENDING', 'FAILED'] },
-    },
+  // B3: through the assignment helper — the lock and the locked slot check
+  // run for the NEW (provisional) cleaner, who must genuinely be free.
+  const claim = await assignCleaner({
+    bookingId: args.bookingId,
+    cleanerId: args.newCleanerId,
+    expect: { status: args.previousStatus, cleanerId: args.previousCleanerId },
+    expectWhere: { transferStatus: { in: ['PENDING', 'FAILED'] } },
+    requireUnexpiredOffer: false,
+    // Admin placements may sit outside template hours (as before); only a
+    // true double booking refuses.
+    slotPolicy: 'overlap',
+    actor: { kind: 'ADMIN' },
     data: {
       status: 'AWAITING_CLEANER',
       reassignPreviousStatus: args.previousStatus,
@@ -1340,8 +1402,14 @@ export async function enterAdminReassignProvisional(args: {
       }),
     },
   });
-  if (claim.count === 0) {
-    return { success: false, reason: 'Booking changed state — reassign aborted' };
+  if (!claim.ok) {
+    return {
+      success: false,
+      reason:
+        claim.reason === 'SLOT_TAKEN'
+          ? 'The new cleaner is not free at that time — reassign aborted'
+          : 'Booking changed state — reassign aborted',
+    };
   }
 
   await AuditService.log({
@@ -1505,11 +1573,22 @@ export async function enterAdminPriceAdjust(args: {
   return { success: true, approvalExpiresAt };
 }
 
+/**
+ * B3 gate (James-ruled): an admin revert whose original cleaner has lost the
+ * slot is refused, never written. The booking stays in its reassignment or
+ * provisional state, the refusal is audited and every admin gets an urgent
+ * bell. B4 adds the REASSIGN_REVERT_CONFLICT queue state that holds it.
+ */
+export const REASSIGN_REVERT_CONFLICT = 'REASSIGN_REVERT_CONFLICT' as const;
+
 // Revert an admin-reassign provisional on customer decline / expiry / charge
 // fail. Restores the EXACT pre-reassign state (status + cleaner). For a
 // CASCADE_EXHAUSTED booking this returns it to CASCADE_EXHAUSTED (James
 // decision 1). Atomic + idempotent: count===0 ⇒ no-op.
-async function revertAdminReassign(bookingId: string, reason: string): Promise<boolean> {
+async function revertAdminReassign(
+  bookingId: string,
+  reason: string
+): Promise<boolean | typeof REASSIGN_REVERT_CONFLICT> {
   const b = await prisma.booking.findUnique({
     where: { id: bookingId },
     select: {
@@ -1520,20 +1599,36 @@ async function revertAdminReassign(bookingId: string, reason: string): Promise<b
       // R4 LANE 5B: captured BEFORE the revert clears it — the copy fork
       // (adjust vs reassign) depends on it.
       provisionalSource: true,
+      approvalExpiresAt: true,
     },
   });
   if (!b?.reassignPreviousStatus || !b.reassignPreviousCleanerId) return false;
   const wasAdjust = b.provisionalSource === 'ADMIN_PRICE_ADJUST';
+  // B3: the revert's customer copy says nothing was charged; when a top-up
+  // was taken but its assignment refused that is untrue, so the copy is held
+  // and the team (stuck-money page) speaks instead.
+  const moneyTaken = await hasTopupWithoutAssignment(bookingId);
   const wasDeclined = reason.includes('declined');
 
-  const res = await prisma.booking.updateMany({
-    where: {
-      id: bookingId,
+  // B3: the restore moves the row back into the blocking set for the previous
+  // cleaner, whose slot was open to others during the approval window, so it
+  // runs through the assignment helper: the cleaner's lock, the I1 overlap
+  // re-read, then the CAS. A lost slot refuses the restore (James-ruled).
+  const res = await assignCleaner({
+    bookingId,
+    cleanerId: b.reassignPreviousCleanerId,
+    expect: {
       status: 'AWAITING_CLEANER',
       cascadePhase: 'PROVISIONAL_APPROVAL',
+      reassignPreviousCleanerId: b.reassignPreviousCleanerId,
+    },
+    expectWhere: {
       // H54: both admin-initiated provisional sources revert the same way.
       provisionalSource: { in: ['ADMIN_REASSIGN', 'ADMIN_PRICE_ADJUST'] },
     },
+    requireUnexpiredOffer: false,
+    slotPolicy: 'overlap',
+    actor: { kind: 'SYSTEM' },
     data: {
       status: b.reassignPreviousStatus,
       cleanerId: b.reassignPreviousCleanerId,
@@ -1550,7 +1645,16 @@ async function revertAdminReassign(bookingId: string, reason: string): Promise<b
       reassignPreviousCleanerId: null,
     },
   });
-  if (res.count === 0) return false;
+  if (!res.ok) {
+    if (res.reason !== 'SLOT_TAKEN') return false;
+    await raiseRevertConflict({
+      bookingId,
+      cleanerId: b.reassignPreviousCleanerId,
+      reason,
+      episode: b.approvalExpiresAt?.toISOString() ?? 'none',
+    });
+    return REASSIGN_REVERT_CONFLICT;
+  }
 
   // R4 LANE 5A (James-ruled): the fence extends to top-ups — cancel the
   // on-session PaymentIntent at Stripe BEFORE the record sweep (cancel-first
@@ -1620,7 +1724,7 @@ async function revertAdminReassign(bookingId: string, reason: string): Promise<b
       })
       .catch(() => {});
   }
-  if (b.clientId) {
+  if (b.clientId && !moneyTaken) {
     // R4 LANE 5B: the bell tells the true story — adjust vs reassign, and
     // declined vs expired are different sentences.
     const title = wasAdjust
@@ -1649,13 +1753,84 @@ async function revertAdminReassign(bookingId: string, reason: string): Promise<b
   }
 
   // R4 LANE 5B: the revert email — this leg was bell-row-only before.
-  await sendTopupRevertNotice({
-    bookingId,
-    declined: wasDeclined,
-    isAdjust: wasAdjust,
-  }).catch(() => {});
+  if (!moneyTaken) {
+    await sendTopupRevertNotice({
+      bookingId,
+      declined: wasDeclined,
+      isAdjust: wasAdjust,
+    }).catch(() => {});
+  }
 
   return true;
+}
+
+/**
+ * The refusal's audit row and urgent admin alert. The expiry sweep retries
+ * the revert every tick (a slot that frees again lets it land), so the alert
+ * is raised once per provisional episode (keyed on its approval expiry); the
+ * error log line is written on every refusal.
+ */
+async function raiseRevertConflict(args: {
+  bookingId: string;
+  cleanerId: string;
+  reason: string;
+  episode: string;
+}): Promise<void> {
+  log.error('cascade', 'admin_revert_refused_slot_taken', {
+    bookingId: args.bookingId,
+    cleanerId: args.cleanerId,
+  });
+  const already = await prisma.auditLog.count({
+    where: {
+      entityId: args.bookingId,
+      action: 'ADMIN_REASSIGN_REVERT_REFUSED',
+      metadata: { path: ['episode'], equals: args.episode },
+    },
+  });
+  if (already > 0) return;
+  await AuditService.log({
+    action: 'ADMIN_REASSIGN_REVERT_REFUSED',
+    entityType: 'Booking',
+    entityId: args.bookingId,
+    metadata: {
+      code: REASSIGN_REVERT_CONFLICT,
+      previousCleanerId: args.cleanerId,
+      trigger: args.reason,
+      episode: args.episode,
+    },
+  }).catch(() => {});
+  const admins = await prisma.user.findMany({ where: { role: 'ADMIN' }, select: { id: true } });
+  const ref = args.bookingId.substring(0, 8).toUpperCase();
+  for (const admin of admins) {
+    await prisma.notification
+      .create({
+        data: {
+          userId: admin.id,
+          type: 'SYSTEM',
+          title: 'Urgent: reassignment could not be reverted',
+          body: `Booking ${ref}: the original cleaner is no longer free at that time, so the booking was not returned to them. It stays in its reassignment state until someone resolves it.`,
+          data: {
+            bookingId: args.bookingId,
+            severity: 'high',
+            code: REASSIGN_REVERT_CONFLICT,
+            url: `/admin/bookings/${args.bookingId}`,
+          },
+        },
+      })
+      .catch(() => {});
+  }
+}
+
+/** B3: a top-up was charged but its assignment refused (flagged for B4). */
+async function hasTopupWithoutAssignment(bookingId: string): Promise<boolean> {
+  const n = await prisma.topupRecord.count({
+    where: {
+      bookingId,
+      status: 'SUCCEEDED',
+      failureReason: { startsWith: 'TOPUP_WITHOUT_ASSIGNMENT' },
+    },
+  });
+  return n > 0;
 }
 
 // ─── Rena-find: cascade exhaustion → wider network (A5.5) ────────

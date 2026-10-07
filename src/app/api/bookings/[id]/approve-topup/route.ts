@@ -3,8 +3,9 @@ import { NextResponse } from 'next/server';
 
 import { getSessionUser } from '@/lib/auth/session';
 import prisma from '@/lib/db/prisma';
-import { handleProvisionalFailure } from '@/lib/services/cascade.service';
-import { executeTopup } from '@/lib/services/topup.service';
+import { mapBusy } from '@/lib/http/busy';
+import { REASSIGN_REVERT_CONFLICT, handleProvisionalFailure } from '@/lib/services/cascade.service';
+import { TOPUP_WITHOUT_ASSIGNMENT, executeTopup } from '@/lib/services/topup.service';
 import stripe from '@/lib/stripe';
 
 type RouteContext = { params: Promise<{ id: string }> };
@@ -84,7 +85,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       startTime: true,
       topupRecords: {
         where: { status: 'SUCCEEDED' },
-        select: { id: true, amount: true },
+        select: { id: true, amount: true, failureReason: true },
       },
       cleaner: { select: { name: true } },
     },
@@ -100,6 +101,21 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
   if (!isAuthorized(booking, user, token) && !isAdminViewer) {
     return refusal(booking, user);
+  }
+
+  // B3: the top-up was taken but the cleaner was no longer free
+  // (TOPUP_WITHOUT_ASSIGNMENT). Neither the paid state nor the approved
+  // confirmation is true for this visitor, in the window or after it, so the
+  // link says what happened. A later clean top-up outranks the flag.
+  const flagged = booking.topupRecords.filter((r) =>
+    r.failureReason?.startsWith(TOPUP_WITHOUT_ASSIGNMENT)
+  );
+  if (flagged.length > 0 && flagged.length === booking.topupRecords.length) {
+    return NextResponse.json({
+      reason: 'resolved',
+      outcome: 'taken_unassigned',
+      topupAmount: Number(flagged[0].amount),
+    });
   }
 
   if (booking.cascadePhase !== 'PROVISIONAL_APPROVAL') {
@@ -185,7 +201,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
   });
 }
 
-export async function POST(request: NextRequest, context: RouteContext) {
+// B3 gate: a cleaner-lock wait past the transaction budget answers 503 BUSY.
+export const POST = mapBusy(async function POST(request: NextRequest, context: RouteContext) {
   const user = await getSessionUser();
 
   const { id } = await context.params;
@@ -223,7 +240,19 @@ export async function POST(request: NextRequest, context: RouteContext) {
   }
 
   if (action === 'decline') {
-    await handleProvisionalFailure(id, 'Customer declined');
+    const outcome = await handleProvisionalFailure(id, 'Customer declined');
+    // B3 gate (James-ruled): the original cleaner lost the slot, so the
+    // revert was refused and the admins alerted; the booking stays as it is.
+    if (outcome === REASSIGN_REVERT_CONFLICT) {
+      return NextResponse.json(
+        {
+          error: REASSIGN_REVERT_CONFLICT,
+          message:
+            'You declined the price change, so nothing has been charged. Your original cleaner is no longer free at that time, so our team has been alerted and will contact you about your booking.',
+        },
+        { status: 409 }
+      );
+    }
     return NextResponse.json({ result: 'declined' });
   }
 
@@ -242,6 +271,21 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     if (topupResult.outcome === 'SUCCEEDED') {
       return NextResponse.json({ result: 'paid', outcome: topupResult.outcome });
+    }
+
+    // B3: the charge went through but the cleaner could no longer be assigned.
+    // The money is recorded and flagged for review; the booking is NOT failed
+    // over (that would tell the customer the payment failed), and the copy
+    // says what actually happened.
+    if (topupResult.outcome === 'TAKEN_UNASSIGNED') {
+      return NextResponse.json(
+        {
+          error:
+            'Your payment went through, but that cleaner is no longer free at this time. Our team has been alerted and will contact you about it.',
+          outcome: topupResult.outcome,
+        },
+        { status: 409 }
+      );
     }
 
     if (topupResult.outcome === 'REQUIRES_ACTION' || topupResult.outcome === 'REQUIRES_CARD') {
@@ -263,4 +307,4 @@ export async function POST(request: NextRequest, context: RouteContext) {
   }
 
   return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
-}
+});

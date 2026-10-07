@@ -34,7 +34,9 @@ type PageState =
   | 'payment'
   | 'error'
   | 'resolved'
-  | 'approved';
+  | 'approved'
+  | 'unassigned'
+  | 'revertConflict';
 
 /** H67: what a link whose provisional already resolved APPROVED renders from. */
 interface ApprovedOutcome {
@@ -73,6 +75,10 @@ export default function ApproveTopupPage() {
           // straight back to this panel (the H6 callbackUrl pattern).
           const back = `/booking/${bookingId}/approve-topup${guestToken ? `?token=${encodeURIComponent(guestToken)}` : ''}`;
           router.replace(`/login?callbackUrl=${encodeURIComponent(back)}`);
+        } else if (d.reason === 'resolved' && d.outcome === 'taken_unassigned') {
+          // B3: paid, but the cleaner was no longer free. Neither the paid
+          // nor the approved state is true; the team follows up.
+          setState('unassigned');
         } else if (d.reason === 'resolved' && d.outcome === 'approved') {
           // H67: they approved and PAID — arriving here (including the Stripe
           // return_url redirect after card entry) gets confirmation, never the
@@ -126,6 +132,9 @@ export default function ApproveTopupPage() {
       if (result.result === 'paid') {
         markStale(['home', 'mycleans', 'account']);
         setState('success');
+      } else if (result.outcome === 'TAKEN_UNASSIGNED') {
+        markStale(['home', 'mycleans', 'account']);
+        setState('unassigned');
       } else if (result.result === 'requires_payment' && result.clientSecret) {
         setClientSecret(result.clientSecret);
         setState('payment');
@@ -143,13 +152,15 @@ export default function ApproveTopupPage() {
     setState('processing');
     setError(null);
     try {
-      await fetch(`/api/bookings/${bookingId}/approve-topup`, {
+      const res = await fetch(`/api/bookings/${bookingId}/approve-topup`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'decline', ...(guestToken ? { guestToken } : {}) }),
       });
       markStale(['home', 'mycleans', 'account']);
-      setState('declined');
+      const result = await res.json().catch(() => ({}));
+      // B3: the original cleaner lost the slot; the team takes it from here.
+      setState(result.error === 'REASSIGN_REVERT_CONFLICT' ? 'revertConflict' : 'declined');
     } catch {
       setError('Network error. Please try again');
       setState('loaded');
@@ -234,6 +245,41 @@ export default function ApproveTopupPage() {
             for {approvedOutcome.date} at {approvedOutcome.time}. The extra &pound;
             {approvedOutcome.topupAmount.toFixed(2)} has been charged, bringing your total to
             &pound;{approvedOutcome.newPrice.toFixed(2)}.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (state === 'revertConflict') {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-page p-4">
+        <div
+          className="max-w-md rounded-2xl border border-line bg-surface p-6 text-center sm:p-7"
+          data-testid="topup-revert-conflict"
+        >
+          <h2 className="font-newsreader text-2xl text-ink">Declined</h2>
+          <p className="mt-2 text-sm text-ink-2">
+            You declined the price change, so nothing has been charged. Your original cleaner is no
+            longer free at that time, so our team has been alerted and will contact you about your
+            booking.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (state === 'unassigned') {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-page p-4">
+        <div
+          className="max-w-md rounded-2xl border border-line bg-surface p-6 text-center sm:p-7"
+          data-testid="topup-unassigned"
+        >
+          <h2 className="font-newsreader text-2xl text-ink">We&rsquo;re on it</h2>
+          <p className="mt-2 text-sm text-ink-2">
+            Your payment went through, but that cleaner is no longer free at this time. Our team has
+            been alerted and will contact you about it.
           </p>
         </div>
       </div>

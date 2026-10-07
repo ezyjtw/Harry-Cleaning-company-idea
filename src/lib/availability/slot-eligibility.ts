@@ -19,6 +19,7 @@ import type { BookingStatus, CascadePhase } from '@prisma/client';
 
 import { computeCleanerOpenRanges, timeToMinutes } from '@/lib/availability/timesheet';
 import { prisma } from '@/lib/db/prisma';
+import { bookingStartUtc, isFlexibleStart, londonDayEndUtc } from '@/lib/time/booking-time';
 
 // ─── H63 (Harry-ruled, availability economics): WHICH bookings block a
 // cleaner's slot ───────────────────────────────────────────────────────────
@@ -81,20 +82,21 @@ export interface SlotQuery {
   excludeBookingId?: string;
 }
 
-function slotStartDateTime(date: Date, startTime: string): Date {
-  const [h, m] = startTime.split(':').map(Number);
-  const start = new Date(date);
-  start.setHours(h || 0, m || 0, 0, 0);
-  return start;
-}
-
 /**
  * Batch form: of these cleaner USER ids, which are genuinely free for the slot?
  * Empty input → empty set. A slot whose start has passed → empty set.
  */
+/** A Prisma client or an interactive transaction (B3: the assignment helper
+ *  re-reads availability inside its locked transaction). */
+export type SlotDb = Pick<
+  typeof prisma,
+  'cleanerProfile' | 'availabilityDateSlot' | 'availabilityOverride' | 'booking'
+>;
+
 export async function filterSlotAvailableCleaners(
   cleanerUserIds: string[],
-  slot: SlotQuery
+  slot: SlotQuery,
+  db: SlotDb = prisma
 ): Promise<Set<string>> {
   const ids = Array.from(new Set(cleanerUserIds));
   if (ids.length === 0) return new Set();
@@ -105,16 +107,19 @@ export async function filterSlotAvailableCleaners(
   // and exhausted+refunded on the spot. For a flexible slot the honest
   // question is "does ANY open range that day fit the duration"; pastness is
   // end-of-day, not a (nonexistent) start time.
-  const isFlexible = !/^\d{1,2}:\d{2}$/.test(slot.startTime);
+  const isFlexible = isFlexibleStart(slot.startTime);
 
+  // The stored booking day is a UTC-midnight date: the row query spans it.
   const startOfDay = new Date(slot.date);
-  startOfDay.setHours(0, 0, 0, 0);
+  startOfDay.setUTCHours(0, 0, 0, 0);
   const endOfDay = new Date(slot.date);
-  endOfDay.setHours(23, 59, 59, 999);
+  endOfDay.setUTCHours(23, 59, 59, 999);
 
+  // B3 sweep: pastness is read on the London clock (the start, or the end of
+  // the London day for a Flexible slot) through the one helper.
   if (isFlexible) {
-    if (endOfDay.getTime() <= Date.now()) return new Set();
-  } else if (slotStartDateTime(slot.date, slot.startTime).getTime() <= Date.now()) {
+    if (londonDayEndUtc(slot.date).getTime() <= Date.now()) return new Set();
+  } else if ((bookingStartUtc(slot.date, slot.startTime)?.getTime() ?? 0) <= Date.now()) {
     return new Set();
   }
 
@@ -122,8 +127,14 @@ export async function filterSlotAvailableCleaners(
   const endMin = startMin === null ? null : startMin + slot.durationHours * 60;
   const durationMins = slot.durationHours * 60;
 
-  const profiles = await prisma.cleanerProfile.findMany({
-    where: { userId: { in: ids } },
+  const profiles = await db.cleanerProfile.findMany({
+    // B3 (James-ruled): a cleaner who has deleted their account is skipped by
+    // every offer, promotion and accept (backup, reserve and unaccepted offer
+    // membership never block a deletion).
+    where: {
+      userId: { in: ids },
+      user: { accountStatus: { not: 'DEACTIVATED' }, isDeleted: false },
+    },
     select: {
       id: true,
       userId: true,
@@ -136,11 +147,11 @@ export async function filterSlotAvailableCleaners(
   const userIds = profiles.map((p) => p.userId);
 
   const [dateSlots, overrides, bookings] = await Promise.all([
-    prisma.availabilityDateSlot.findMany({
+    db.availabilityDateSlot.findMany({
       where: { cleanerProfileId: { in: profileIds }, date: { gte: startOfDay, lte: endOfDay } },
       select: { cleanerProfileId: true, date: true, startTime: true, endTime: true },
     }),
-    prisma.availabilityOverride.findMany({
+    db.availabilityOverride.findMany({
       where: {
         cleanerProfileId: { in: profileIds },
         date: { gte: startOfDay, lte: endOfDay },
@@ -149,7 +160,7 @@ export async function filterSlotAvailableCleaners(
       select: { cleanerProfileId: true, date: true, startTime: true, endTime: true },
     }),
     // Same conflict source as search: bookings that actually BLOCK (H63).
-    prisma.booking.findMany({
+    db.booking.findMany({
       where: {
         cleanerId: { in: userIds },
         date: { gte: startOfDay, lte: endOfDay },
@@ -189,9 +200,10 @@ export async function filterSlotAvailableCleaners(
 /** Single-cleaner form (accept-time guard, rebooking validation). */
 export async function cleanerAvailableForSlot(
   cleanerUserId: string,
-  slot: SlotQuery
+  slot: SlotQuery,
+  db: SlotDb = prisma
 ): Promise<boolean> {
-  const set = await filterSlotAvailableCleaners([cleanerUserId], slot);
+  const set = await filterSlotAvailableCleaners([cleanerUserId], slot, db);
   return set.has(cleanerUserId);
 }
 

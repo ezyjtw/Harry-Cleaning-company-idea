@@ -5,6 +5,7 @@ import { getSessionUser } from '@/lib/auth/session';
 import prisma from '@/lib/db/prisma';
 import { log } from '@/lib/log';
 import stripe from '@/lib/stripe';
+import { bookingStartUtc } from '@/lib/time/booking-time';
 
 // Finish door (James-ruled, phantom follow-up Change 2 → build order):
 // the resume path for a ONE-OFF booking abandoned at checkout. Option (a),
@@ -67,9 +68,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       { status: 409 }
     );
   }
-  const [h, m] = booking.startTime.split(':').map(Number);
-  const startMs = booking.date.getTime() + (h * 60 + m) * 60 * 1000;
-  if (startMs < Date.now()) {
+  // B3 sweep: London wall time; a Flexible start has no clock to pass.
+  const startAt = bookingStartUtc(booking.date, booking.startTime);
+  if (startAt && startAt.getTime() < Date.now()) {
     return NextResponse.json(
       { error: 'This booking has expired.', reason: 'expired' },
       { status: 409 }

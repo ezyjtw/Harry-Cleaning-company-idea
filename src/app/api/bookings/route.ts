@@ -15,6 +15,7 @@ import { AuditService } from '@/lib/services/audit.service';
 import { pricingService } from '@/lib/services/pricing.service';
 import { resolveProfileImageUrl } from '@/lib/storage/r2-client';
 import stripe from '@/lib/stripe';
+import { NONEXISTENT_TIME_MESSAGE, validateBookingSlot } from '@/lib/time/booking-time';
 import { isValidPostcode } from '@/lib/utils/postcode';
 import { isSaneDurationHours, normalizeUkPostcode } from '@/lib/validation/inputs';
 
@@ -269,6 +270,16 @@ export async function POST(request: NextRequest) {
     }
 
     const bookingDate = new Date(`${body.date}T00:00:00`);
+    // B3 (James-ruled): a time inside the spring clock change does not exist
+    // on that date, so it is not a booking time.
+    {
+      const slotCheck = validateBookingSlot(String(body.date), String(body.time), {
+        allowFlexible: true,
+      });
+      if (!slotCheck.ok && slotCheck.reason === 'NONEXISTENT_TIME') {
+        return NextResponse.json({ error: NONEXISTENT_TIME_MESSAGE }, { status: 400 });
+      }
+    }
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 

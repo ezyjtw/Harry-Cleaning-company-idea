@@ -8,6 +8,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import ArrangementRequests from '@/components/cleaner/ArrangementRequests';
 import CleanerStatusChip from '@/components/cleaner/CleanerStatusChip';
 import RegularCleanChip from '@/components/cleaner/RegularCleanChip';
+import { normalizeCleanerJob } from '@/lib/booking/cleaner-job-display';
 import { bedroomsLabel, serviceLabelFromSlug } from '@/lib/constants/services';
 
 // 4.6 (James-ruled): EN_ROUTE and IN_PROGRESS collapse to one cleaner-visible
@@ -166,7 +167,7 @@ export default function CleanerJobsPage() {
       if (seq !== fetchSeq.current) return;
       setJobList(
         data.jobs.map((j: Job) => ({
-          ...j,
+          ...normalizeCleanerJob(j),
           status: j.status,
         }))
       );

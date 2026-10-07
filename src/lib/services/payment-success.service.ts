@@ -11,9 +11,15 @@
 // does nothing. This also prevents a hours-later retry from stomping a booking
 // a cleaner has since accepted — the status is no longer PENDING.
 
+import { assignCleaner } from '@/lib/booking/assign';
+import { firstNameOf, outwardCode } from '@/lib/booking/cleaner-view';
 import { serviceLabelFromSlug } from '@/lib/constants/services';
 import { prisma } from '@/lib/db/prisma';
-import { computeCascadeWindows } from '@/lib/services/cascade.service';
+import { log } from '@/lib/log';
+import {
+  advanceFromPrimaryAfterPayment,
+  computeCascadeWindows,
+} from '@/lib/services/cascade.service';
 import {
   sendBackupOfferEmails,
   sendBookingConfirmation,
@@ -95,15 +101,23 @@ export async function processPaymentSuccess(
   // else (Xero push, receipt, lifecycle, payout-on-completion) rides the same
   // laws as any paid booking.
   if (booking.agreementId && booking.status === 'SCHEDULED') {
-    const claimed = await prisma.booking.updateMany({
-      where: { id: bookingId, status: 'SCHEDULED' },
+    // B3: through the assignment helper under the agreement cleaner's lock.
+    // SCHEDULED already holds this cleaner's slot (same cleaner, same slot),
+    // so the claim cannot change I1 and a paid occurrence is never refused.
+    const claimed = await assignCleaner({
+      bookingId,
+      cleanerId: booking.cleanerId,
+      expect: { status: 'SCHEDULED' },
+      requireUnexpiredOffer: false,
+      slotPolicy: 'skip',
+      actor: { kind: 'SYSTEM' },
       data: {
         paymentStatus: 'SUCCEEDED',
         status: 'ACCEPTED',
         ...(pi.chargeId ? { stripeChargeId: pi.chargeId } : {}),
       },
     });
-    if (claimed.count === 0) {
+    if (!claimed.ok) {
       // Cancelled between our read and the claim — the same cancel/pay race
       // as below; route it to the refund handler rather than dropping it.
       return handleLateOccurrencePayment(bookingId, pi);
@@ -177,27 +191,67 @@ export async function processPaymentSuccess(
   const cascadeData = computeCascadeWindows(booking.date, booking.startTime, now);
 
   // ── ATOMIC CLAIM: payment + status + cascade fields, only from PENDING ──
-  const claimed = await prisma.booking.updateMany({
-    where: { id: bookingId, status: 'PENDING' },
-    data: {
-      paymentStatus: 'SUCCEEDED',
-      status: 'AWAITING_CLEANER',
-      ...(pi.chargeId ? { stripeChargeId: pi.chargeId } : {}),
-      ...(cascadeData
-        ? {
-            cascadePhase: cascadeData.initialPhase,
-            cascadeExpiresAt: cascadeData.cascadeExpiresAt,
-            cascadeBackupExpiresAt: cascadeData.cascadeBackupExpiresAt,
-          }
-        : {}),
-    },
+  // B3 (RENA-012): PENDING → PRIMARY_OFFER puts the chosen cleaner's slot into
+  // the blocking set, so the claim runs through the assignment helper (their
+  // lock, a locked slot re-read). COMBINED_OFFER does not block: same helper,
+  // no slot requirement.
+  const claimData = {
+    paymentStatus: 'SUCCEEDED' as const,
+    status: 'AWAITING_CLEANER' as const,
+    ...(pi.chargeId ? { stripeChargeId: pi.chargeId } : {}),
+    ...(cascadeData
+      ? {
+          cascadePhase: cascadeData.initialPhase,
+          cascadeExpiresAt: cascadeData.cascadeExpiresAt,
+          cascadeBackupExpiresAt: cascadeData.cascadeBackupExpiresAt,
+        }
+      : {}),
+  };
+  let claimed = await assignCleaner({
+    bookingId,
+    cleanerId: booking.cleanerId,
+    expect: { status: 'PENDING' },
+    requireUnexpiredOffer: false,
+    slotPolicy: cascadeData?.initialPhase === 'PRIMARY_OFFER' ? 'diary' : 'skip',
+    actor: { kind: 'SYSTEM' },
+    data: claimData,
   });
+  // The chosen cleaner lost the slot between booking and paying. The customer
+  // has paid, so the transition still happens: the primary is recorded as
+  // declined and the offer moves straight to the backups (advanceFromPrimary's
+  // own CAS, PRIMARY_OFFER → BACKUP_OFFER). No customer is refused after paying.
+  //
+  // B3 gate (James-ruled): between this second claim and the advance, the row
+  // sits in PRIMARY_OFFER pinned to the declined primary, which the blocking
+  // set counts. That is a narrow, logged, recoverable transitional exception,
+  // not continuous I1: the lost slot is logged (warn), a failed advance is
+  // logged (error), and the PRIMARY_OFFER window sweep advances it if the
+  // in-line advance did not.
+  let primaryLostSlot = false;
+  if (!claimed.ok && claimed.reason === 'SLOT_TAKEN') {
+    primaryLostSlot = true;
+    claimed = await assignCleaner({
+      bookingId,
+      cleanerId: booking.cleanerId,
+      expect: { status: 'PENDING' },
+      requireUnexpiredOffer: false,
+      slotPolicy: 'skip',
+      actor: { kind: 'SYSTEM' },
+      data: { ...claimData, declinedCleanerIds: { push: booking.cleanerId } },
+    });
+  }
   // Recovery Lane A belt (James-ruled): a one-off claim-miss is no longer a
   // silent skip — a capture landing on a non-PENDING one-off (customer
   // cancelled mid-payment, or any residual race) routes to the late-payment
   // handler, which auto-refunds with the honest email. Genuine duplicate
   // success events still fall out as SKIPPED_ALREADY inside its gate.
-  if (claimed.count === 0) return handleLateOccurrencePayment(bookingId, pi);
+  if (!claimed.ok) return handleLateOccurrencePayment(bookingId, pi);
+  if (primaryLostSlot) {
+    log.warn('payment_success', 'primary_lost_slot', { bookingId, cleanerId: booking.cleanerId });
+    await advanceFromPrimaryAfterPayment(bookingId).catch((e) => {
+      log.error('payment_success', 'advance_after_lost_slot_failed', { bookingId }, e);
+    });
+  }
 
   // ── Side-effects (claim winner only — never double-fired) ──
 
@@ -259,7 +313,8 @@ export async function processPaymentSuccess(
     ).catch(() => {});
   }
 
-  if (booking.cleaner?.email) {
+  // B3: a primary who lost the slot is not offered the job.
+  if (booking.cleaner?.email && !primaryLostSlot) {
     // F1: the cleaner's offer email is SANITISED — area only (city + postcode),
     // never the street address, plus their own net figure. The full emailData
     // address stays customer-side only.
@@ -267,7 +322,13 @@ export async function processPaymentSuccess(
     await sendCleanerAssignment(
       {
         ...emailData,
-        area: [booking.addressCity, booking.addressPostcode].filter(Boolean).join(' '),
+        // B3 (RENA-026): an offer never carries the surname or the street —
+        // first name and area only (the template already ignored the rest).
+        customerName: firstNameOf(booking.client?.name ?? booking.guestName) ?? 'Customer',
+        address: [booking.addressCity, outwardCode(booking.addressPostcode)]
+          .filter(Boolean)
+          .join(' '),
+        area: [booking.addressCity, outwardCode(booking.addressPostcode)].filter(Boolean).join(' '),
         cleanerEarnings: getTransferAmountPence(Number(booking.cleanerEarnings)) / 100,
         suppliesProvided: booking.suppliesProvided,
       },
@@ -279,7 +340,7 @@ export async function processPaymentSuccess(
   }
 
   // Notify primary cleaner (and backups in COMBINED_OFFER)
-  if (booking.cleaner) {
+  if (booking.cleaner && !primaryLostSlot) {
     await prisma.notification
       .create({
         data: {

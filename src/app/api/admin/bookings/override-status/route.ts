@@ -2,6 +2,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
 import { getAdminSession } from '@/lib/auth/session';
+import { needsCheckInStamp } from '@/lib/booking/override-stamps';
 import { ADMIN_DESTRUCTIVE_ENABLED } from '@/lib/config/features';
 import prisma from '@/lib/db/prisma';
 import { AuditService } from '@/lib/services/audit.service';
@@ -138,6 +139,8 @@ export async function POST(request: NextRequest) {
       paymentStatus: true,
       transferStatus: true,
       completedAt: true,
+      startTime: true,
+      checkedInAt: true,
     },
   });
 
@@ -231,6 +234,13 @@ export async function POST(request: NextRequest) {
     if ((status === 'COMPLETED' || status === 'REVIEWED') && !booking.completedAt) {
       changes.completedAt = new Date();
       auditChanges.push({ field: 'completedAt', from: null, to: 'now (override stamp)' });
+    }
+    // B3 gate (James-ruled): a Flexible booking's completion window anchors
+    // on checkedInAt, so an override INTO IN_PROGRESS stamps it when absent;
+    // otherwise the cleaner could never leave IN_PROGRESS.
+    if (needsCheckInStamp(booking, status)) {
+      changes.checkedInAt = new Date();
+      auditChanges.push({ field: 'checkedInAt', from: null, to: 'now (override stamp)' });
     }
   }
 

@@ -161,7 +161,14 @@ export async function releaseBookingFunds(
   // NOTE: the excess slice requires available platform balance; if the balance
   // is short Stripe rejects it, the release goes FAILED with a clear reason,
   // and the standard retry path (scheduler / admin release-funds) picks it up.
-  const chargePence = Math.round(Number(booking.totalAmountCharged ?? booking.totalPrice) * 100);
+  // B3 R2: a flagged top-up (taken without its assignment) never moves the
+  // cleaner side, so the headroom reads the captured total net of it.
+  const { flaggedTopupPounds } = await import('./topup-flag');
+  const chargePence = Math.round(
+    (Number(booking.totalAmountCharged ?? booking.totalPrice) -
+      (await flaggedTopupPounds(bookingId))) *
+      100
+  );
 
   // ── Reconcile FIRST, always ─────────────────────────────
   // Previously gated on UNKNOWN/RELEASING; now unconditional because a split
