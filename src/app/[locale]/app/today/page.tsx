@@ -17,6 +17,7 @@ import {
   pay,
 } from '@/components/app/job-cards';
 import VerificationChecklist from '@/components/app/VerificationChecklist';
+import { COALESCE_MS } from '@/lib/freshness';
 
 function dateEyebrow(): string {
   return new Date()
@@ -700,14 +701,15 @@ export default function TodayPage() {
   // Freshness: refetch when the app/tab regains focus or becomes visible (a
   // cleaner switching back from Maps/messages sees current jobs), and expose a
   // refetch the native shell's pull-to-refresh can call via injected JS.
-  // R17 (b) (James-ruled): the on-show refetch is coalesced — at most one per
-  // 30s, stale-while-revalidate (the existing DOM paints instantly, data
-  // refreshes quietly behind). Pull-to-refresh below stays the always-fresh
-  // override and bypasses the window.
+  // R17 (b) (James-ruled): the on-show refetch is coalesced, stale while
+  // revalidate (the existing DOM paints instantly, data refreshes quietly
+  // behind). B2 amendment 2 (James-ruled 2026-10-07): one window for both
+  // apps, 15 s, the shared COALESCE_MS (was 30 s). Pull-to-refresh below stays
+  // the always-fresh override and bypasses the window.
   const lastShowFetch = useRef(0);
   useEffect(() => {
     const freshFetch = () => {
-      if (Date.now() - lastShowFetch.current < 30000) return;
+      if (Date.now() - lastShowFetch.current < COALESCE_MS) return;
       lastShowFetch.current = Date.now();
       fetchJobs();
     };

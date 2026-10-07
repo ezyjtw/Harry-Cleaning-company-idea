@@ -12,6 +12,7 @@ import RegularCleanOfferCard from '@/components/RegularCleanOfferCard';
 import VerifyEmailBanner from '@/components/VerifyEmailBanner';
 import { useAuth } from '@/hooks/useAuth';
 import { serviceLabelFromSlug } from '@/lib/constants/services';
+import { registerPane } from '@/lib/freshness';
 
 interface BookingUser {
   id: string;
@@ -110,7 +111,7 @@ export default function AccountHome() {
   useEffect(() => {
     if (authLoading || !isAuthenticated) return;
 
-    async function fetchHome() {
+    async function fetchHome(refetch = false) {
       try {
         const [allRes, completedRes, rescueRes, approvalRes] = await Promise.all([
           fetch('/api/bookings'),
@@ -187,13 +188,19 @@ export default function AccountHome() {
           });
         }
       } catch (e) {
-        setError(e instanceof Error ? e.message : 'Something went wrong');
+        // A background refetch that fails keeps the painted dashboard; only
+        // the first load turns a failure into the error card.
+        if (!refetch) setError(e instanceof Error ? e.message : 'Something went wrong');
       } finally {
         setLoading(false);
       }
     }
 
     fetchHome();
+    // RENA-084 mechanism 3 (B2b): the dashboard joins the freshness contract,
+    // so a back-forward cache restore (pageshow persisted), a return to the
+    // tab, or a stale marker from Messages or a booking change refetches it.
+    return registerPane('account', () => void fetchHome(true));
   }, [authLoading, isAuthenticated]);
 
   if (authLoading || (!isAuthenticated && !error)) {
