@@ -1,6 +1,7 @@
 import Decimal from 'decimal.js';
 
 import { prisma } from '@/lib/db/prisma';
+import * as RATES from '@/lib/pricing/rates';
 import { londonParts, londonWallToUtc } from '@/lib/time/booking-time';
 import { MAX_HOURLY_RATE, MAX_FIXED_PRICE } from '@/lib/validation/inputs';
 
@@ -13,15 +14,10 @@ export type AirbnbPropertySize = 'studio' | '1bed' | '2bed' | '3bed' | '4bedPlus
 
 const FIXED_SERVICES: ServiceSlug[] = ['eot', 'airbnb'];
 
-const COMMISSION_RATES: Record<ServiceSlug, number> = {
-  regular: 0.1,
-  'same-day': 0.1,
-  deep: 0.1,
-  eot: 0.15,
-  airbnb: 0.15,
-};
-
-const PLATFORM_FEE_RATE = 0.06;
+// The rates live in one pure module (B4, RENA-075) so the admin page can show
+// them without a database setting that pretends to control them.
+const COMMISSION_RATES: Record<ServiceSlug, number> = RATES.COMMISSION_RATES;
+const PLATFORM_FEE_RATE = RATES.PLATFORM_FEE_RATE;
 
 // James-ruled policy (final, amended): "cleaner brings products" is a REAL £5
 // add-on. The 6% customer service fee applies to it (fee base = full subtotal
@@ -29,10 +25,40 @@ const PLATFORM_FEE_RATE = 0.06;
 // 10% COMMISSION: Rena takes £0.50, the cleaner receives £4.50. Code-level
 // (not a DB ServiceAddon row) so the policy cannot drift.
 export const PRODUCTS_ADDON_ID = 'products';
-export const PRODUCTS_FEE = 5;
-export const PRODUCTS_FEE_COMMISSION_RATE = 0.1;
+export const PRODUCTS_FEE = RATES.PRODUCTS_FEE;
+export const PRODUCTS_FEE_COMMISSION_RATE = RATES.PRODUCTS_FEE_COMMISSION_RATE;
 
 export const PRICE_ABSORPTION_THRESHOLD = 3.0;
+
+/**
+ * B4 (RENA-073, D-a, James-ruled): the split of the chosen database add-ons.
+ * Each add-on's cleaner share is its own cleanerSharePct when set, else the
+ * parent service's share (1 − commission). Rounded per add-on to the penny;
+ * the commission is the remainder, so share + commission = price exactly.
+ */
+export function addonSplit(
+  addonIds: string[],
+  available: { id: string; price: number; cleanerSharePct?: unknown }[],
+  commissionRate: number
+): { total: number; cleanerShare: number; commission: number } {
+  let total = new Decimal(0);
+  let share = new Decimal(0);
+  for (const a of available) {
+    if (!addonIds.includes(a.id)) continue;
+    const pct =
+      a.cleanerSharePct === null || a.cleanerSharePct === undefined
+        ? 1 - commissionRate
+        : Number(a.cleanerSharePct);
+    const price = new Decimal(a.price);
+    total = total.plus(price);
+    share = share.plus(price.mul(pct).toDecimalPlaces(2));
+  }
+  return {
+    total: total.toDecimalPlaces(2).toNumber(),
+    cleanerShare: share.toDecimalPlaces(2).toNumber(),
+    commission: total.minus(share).toDecimalPlaces(2).toNumber(),
+  };
+}
 
 // ─── F24.3 (James-ruled): the cleaner-facing earnings breakdown ────────────
 // The banked money-display law (H104, sharpened): the cleaner sees THEIR OWN
@@ -161,8 +187,12 @@ export interface QuoteResult {
   customerTotal: number;
 
   addonTotal: number;
-  /** £5 "cleaner brings products" reimbursement — included in customerTotal
-   *  AND cleanerPayout, exempt from commission and the 6% fee. */
+  /** B4 (RENA-073, D-a): the cleaner's part of addonTotal (inside cleanerPayout). */
+  addonCleanerShare: number;
+  /** Rena's part of addonTotal (inside cleanerCommission). */
+  addonCommission: number;
+  /** £5 "cleaner brings products" add-on — included in customerTotal and the
+   *  6% fee base; its own split, 90% to the cleaner (James-ruled). */
   productsFee: number;
   breakdown: string;
 }
@@ -248,14 +278,18 @@ export class PricingService {
       .toDecimalPlaces(2)
       .toNumber();
 
+    // D-a (James-ruled): an add-on pays the cleaner the parent service's
+    // share unless the add-on defines its own split.
+    const addons = addonSplit(input.addons ?? [], serviceType.addons, commissionRate);
+    const addonTotal = addons.total;
+
     const cleanerPayout = new Decimal(cleanerListedPrice)
       .minus(cleanerCommission)
       .plus(productsFee)
       .minus(productsFeeCommission) // James-ruled: the £5 carries 10% commission
+      .plus(addons.cleanerShare)
       .toDecimalPlaces(2)
       .toNumber();
-
-    const addonTotal = this.calcAddonTotal(input.addons ?? [], serviceType.addons);
 
     const customerPlatformFee = new Decimal(cleanerListedPrice)
       .plus(addonTotal)
@@ -280,12 +314,15 @@ export class PricingService {
       cleanerListedPrice,
       cleanerCommission: new Decimal(cleanerCommission)
         .plus(productsFeeCommission)
+        .plus(addons.commission)
         .toDecimalPlaces(2)
         .toNumber(),
       cleanerPayout,
       customerPlatformFee,
       customerTotal,
       addonTotal,
+      addonCleanerShare: addons.cleanerShare,
+      addonCommission: addons.commission,
       productsFee,
       breakdown: `${hours} hrs × £${hourlyRate}/hr = £${cleanerListedPrice}. Commission ${(commissionRate * 100).toFixed(0)}%: £${cleanerCommission}. Cleaner payout: £${cleanerPayout}. Platform fee 6%: £${customerPlatformFee}. Customer total: £${customerTotal}.`,
     };
@@ -337,14 +374,18 @@ export class PricingService {
       .toDecimalPlaces(2)
       .toNumber();
 
+    // D-a (James-ruled): an add-on pays the cleaner the parent service's
+    // share unless the add-on defines its own split.
+    const addons = addonSplit(input.addons ?? [], serviceType.addons, commissionRate);
+    const addonTotal = addons.total;
+
     const cleanerPayout = new Decimal(cleanerListedPrice)
       .minus(cleanerCommission)
       .plus(productsFee)
       .minus(productsFeeCommission) // James-ruled: the £5 carries 10% commission
+      .plus(addons.cleanerShare)
       .toDecimalPlaces(2)
       .toNumber();
-
-    const addonTotal = this.calcAddonTotal(input.addons ?? [], serviceType.addons);
 
     const customerPlatformFee = new Decimal(cleanerListedPrice)
       .plus(addonTotal)
@@ -369,12 +410,15 @@ export class PricingService {
       cleanerListedPrice,
       cleanerCommission: new Decimal(cleanerCommission)
         .plus(productsFeeCommission)
+        .plus(addons.commission)
         .toDecimalPlaces(2)
         .toNumber(),
       cleanerPayout,
       customerPlatformFee,
       customerTotal,
       addonTotal,
+      addonCleanerShare: addons.cleanerShare,
+      addonCommission: addons.commission,
       productsFee,
       breakdown: `Fixed price £${cleanerListedPrice} (${input.propertySize}). Commission ${(commissionRate * 100).toFixed(0)}%: £${cleanerCommission}. Cleaner payout: £${cleanerPayout}. Platform fee 6%: £${customerPlatformFee}. Customer total: £${customerTotal}.`,
     };
@@ -536,12 +580,6 @@ export class PricingService {
   private async getConfig(): Promise<Record<string, number>> {
     const configs = await prisma.platformConfig.findMany();
     return Object.fromEntries(configs.map((c) => [c.key, parseFloat(c.value)]));
-  }
-
-  private calcAddonTotal(addonIds: string[], available: { id: string; price: number }[]): number {
-    if (!addonIds.length) return 0;
-    const matched = available.filter((a) => addonIds.includes(a.id));
-    return matched.reduce((sum, a) => sum + a.price, 0);
   }
 
   async validateCleanerRate(rate: number): Promise<{ valid: boolean; message?: string }> {

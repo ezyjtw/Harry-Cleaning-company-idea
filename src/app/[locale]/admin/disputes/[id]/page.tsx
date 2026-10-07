@@ -23,7 +23,7 @@ export default async function AdminDisputeDetailPage({ params }: { params: { id:
         include: {
           client: { select: { id: true, name: true, email: true } },
           cleaner: { select: { id: true, name: true, email: true } },
-          refundRecords: { where: { status: 'SUCCEEDED' }, select: { amount: true } },
+          refundRecords: { select: { executedPence: true } },
         },
       },
     },
@@ -33,8 +33,10 @@ export default async function AdminDisputeDetailPage({ params }: { params: { id:
   // Side-effect of OPENING the case: OPEN → UNDER_REVIEW (the stamp is a
   // consequence of investigating, per the ruling). Never touches a resolved one.
   if (dispute.status === 'OPEN') {
+    // B4: guarded on OPEN, so a page load racing a resolution can never
+    // write a RESOLVING dispute back to UNDER_REVIEW.
     await prisma.dispute
-      .update({ where: { id: dispute.id }, data: { status: 'UNDER_REVIEW' } })
+      .updateMany({ where: { id: dispute.id, status: 'OPEN' }, data: { status: 'UNDER_REVIEW' } })
       .catch(() => {});
     dispute.status = 'UNDER_REVIEW';
   }
@@ -64,7 +66,8 @@ export default async function AdminDisputeDetailPage({ params }: { params: { id:
     select: { id: true, action: true, createdAt: true, metadata: true },
   });
 
-  const refundedSoFar = b.refundRecords.reduce((s, r) => s + Number(r.amount), 0);
+  // B4: what Stripe executed, not what was requested.
+  const refundedSoFar = b.refundRecords.reduce((s, r) => s + r.executedPence, 0) / 100;
   const charged = Number(b.totalAmountCharged ?? b.totalPrice);
 
   // H69: a null actor is the booking's GUEST customer (token-authorised).

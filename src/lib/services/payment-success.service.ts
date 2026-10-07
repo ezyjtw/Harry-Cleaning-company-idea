@@ -421,7 +421,12 @@ async function handleLateOccurrencePayment(
       client: { select: { name: true, email: true } },
       cleaner: { select: { name: true } },
       date: true,
-      refundRecords: { where: { status: 'SUCCEEDED' }, select: { id: true } },
+      // B4: any record that may have moved money counts (not only SUCCEEDED),
+      // so a duplicate late-payment event never starts a second refund.
+      refundRecords: {
+        where: { status: { in: ['SUCCEEDED', 'PARTIAL', 'PENDING', 'UNKNOWN'] } },
+        select: { id: true },
+      },
     },
   });
   // Lane A: the gate admits BOTH species of stray capture. Occurrences keep
@@ -554,6 +559,15 @@ export async function sweepStrandedPayments(): Promise<{ scanned: number; proces
       // eslint-disable-next-line no-console
       console.error(`[PAYMENT-SWEEP] failed for booking ${c.id}:`, err);
     }
+  }
+
+  // N9: unknown recurring-charge outcomes, reconciled read-only with backoff.
+  try {
+    const { sweepUnknownOccurrenceCharges } = await import('./recurring-charge.service');
+    const r = await sweepUnknownOccurrenceCharges();
+    processed += r.processed;
+  } catch (err) {
+    log.error('payment_sweep', 'unknown_charge_sweep_failed', {}, err);
   }
 
   return { scanned: candidates.length, processed };

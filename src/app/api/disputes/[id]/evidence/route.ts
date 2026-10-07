@@ -14,7 +14,7 @@ import { validateFileType, MAX_EVIDENCE_SIZE } from '@/lib/utils/file-validation
 type RouteContext = { params: Promise<{ id: string }> };
 
 // A dispute in a terminal state no longer accepts new evidence.
-const CLOSED_STATUSES = ['RESOLVED', 'DISMISSED'];
+const CLOSED_STATUSES = ['RESOLVED', 'DISMISSED', 'RESOLVING_REFUND', 'RESOLVING_RELEASE'];
 
 // The magic-byte validator (validateFileType) currently whitelists images + PDF
 // only, so the detected MIME maps onto two of the four EvidenceType values:

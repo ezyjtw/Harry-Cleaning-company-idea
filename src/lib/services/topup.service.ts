@@ -741,3 +741,30 @@ export async function handleTopupPiFailed(piId: string): Promise<void> {
 
   await handleProvisionalFailure(record.bookingId, 'Top-up payment failed (webhook)');
 }
+
+/**
+ * Stuck-money "Reconcile" on an UNKNOWN or stale PENDING top-up: read the
+ * payment intent and route its truth through the webhook handlers (the same
+ * guarded writers). Never charges.
+ */
+export async function reconcileTopup(topupRecordId: string): Promise<string> {
+  const t = await prisma.topupRecord.findUnique({ where: { id: topupRecordId } });
+  if (!t?.stripePaymentIntentId) return t?.status ?? 'MISSING';
+  if (t.status !== 'UNKNOWN' && t.status !== 'PENDING') return t.status;
+  const pi = await stripe.paymentIntents.retrieve(t.stripePaymentIntentId);
+  if (pi.status === 'succeeded') {
+    const chargeId =
+      typeof pi.latest_charge === 'string' ? pi.latest_charge : (pi.latest_charge?.id ?? null);
+    await handleTopupPiSucceeded(pi.id, t.bookingId, chargeId).catch((err) => {
+      log.error('topup', 'reconcile_success_write_failed', { topupRecordId }, err);
+    });
+  } else if (
+    pi.status === 'canceled' ||
+    // A declined attempt, not an on-session intent still awaiting its card.
+    (pi.status === 'requires_payment_method' && pi.last_payment_error)
+  ) {
+    await handleTopupPiFailed(pi.id);
+  }
+  const after = await prisma.topupRecord.findUniqueOrThrow({ where: { id: topupRecordId } });
+  return after.status;
+}

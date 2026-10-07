@@ -345,11 +345,11 @@ async function notifyDisputeResolved(
     },
     'refund-customer': {
       cleaner: `The dispute on your booking (${dateStr}) has been resolved. The customer has been refunded.`,
-      customer: `The dispute on your booking (${dateStr}) has been resolved in your favour. Your full refund has been issued.`,
+      customer: `The dispute on your booking (${dateStr}) has been resolved in your favour. A full refund is being processed.`,
     },
     split: {
       cleaner: `The dispute on your booking (${dateStr}) has been resolved with a partial adjustment. Your reduced payment will be released.`,
-      customer: `The dispute on your booking (${dateStr}) has been resolved. Your partial refund has been issued.`,
+      customer: `The dispute on your booking (${dateStr}) has been resolved. A partial refund is being processed.`,
     },
   };
   const msgs = messages[outcome];

@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 
 import { getAdminSession } from '@/lib/auth/session';
 import { AdminOperationsService } from '@/lib/services/admin-operations.service';
+import { DisputeConflictError } from '@/lib/services/dispute-resolution.service';
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -73,14 +74,25 @@ export async function POST(request: NextRequest, context: RouteContext) {
       adminId: admin.id,
     });
 
+    // B4: RESOLVED only once the money is confirmed. A pending money step
+    // leaves the dispute RESOLVING; the scheduler retries it and stuck-money
+    // shows it, so the admin is told rather than shown a false success.
+    const resolved = result.disputeStatus === 'RESOLVED';
     return NextResponse.json({
-      message: 'Dispute resolved',
+      message: resolved
+        ? 'Dispute resolved'
+        : 'Resolution recorded. The money step is pending and will be retried automatically; it is listed in Stuck money until it completes.',
       outcome: result.outcome,
+      disputeStatus: result.disputeStatus,
       refundedAmount: result.refundedAmount,
       refundStatus: result.refundStatus,
       releaseStatus: result.releaseStatus,
+      lastMoneyError: result.lastMoneyError ?? null,
     });
   } catch (err) {
+    if (err instanceof DisputeConflictError) {
+      return NextResponse.json({ error: err.message }, { status: 409 });
+    }
     return NextResponse.json(
       { error: err instanceof Error ? err.message : 'Resolve failed' },
       { status: 400 }

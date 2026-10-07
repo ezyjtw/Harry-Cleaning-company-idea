@@ -20,8 +20,12 @@
 // occurrence claim (SCHEDULED→ACCEPTED), so Xero, receipts and lifecycle all
 // ride the existing laws — no parallel money path.
 
+import type Stripe from 'stripe';
+
 import { RECURRING_AUTOCHARGE } from '@/lib/config/features';
 import { prisma } from '@/lib/db/prisma';
+import { log } from '@/lib/log';
+import { isUnknownStripeOutcome, nextRetryAt } from '@/lib/money/ledger';
 import stripe from '@/lib/stripe';
 import { bookingStartOrDayStartUtc } from '@/lib/time/booking-time';
 
@@ -118,6 +122,9 @@ export async function attemptOccurrenceCharge(
   });
   if (!b || !b.agreement) return 'skipped';
   if (b.status !== 'SCHEDULED' || b.paymentStatus !== 'PENDING') return 'skipped';
+  // N9 (James-ruled): while an earlier attempt's outcome is unknown nothing
+  // charges again; the sweep reconciles it from Stripe.
+  if (b.chargeOutcomeUnknownAt) return 'skipped';
 
   try {
     // Guests structurally have no saved card — the single attempt is an
@@ -163,30 +170,51 @@ export async function attemptOccurrenceCharge(
     }
 
     const amountPence = Math.round(Number(b.totalAmountCharged ?? b.totalPrice) * 100);
+    // N9: the deterministic key, stored before the call so the reconciler
+    // can always name the attempt.
+    const idempotencyKey = `recurring_occurrence_${b.id}`;
+    await prisma.booking.update({
+      where: { id: b.id },
+      data: { chargeIdempotencyKey: idempotencyKey },
+    });
+    const params = {
+      amount: amountPence,
+      currency: 'gbp' as const,
+      customer: stripeCustomerId,
+      payment_method: methodId,
+      confirm: true,
+      off_session: true,
+      metadata: { bookingId: b.id, type: 'recurring_occurrence' },
+    };
     // MONEY LAW: the try/catch around the CHARGE is exactly that wide — once
     // Stripe reports 'succeeded', no downstream error may ever mark the
     // attempt failed (a paid clean must never receive a pay-now email).
     let pi: Awaited<ReturnType<typeof stripe.paymentIntents.create>>;
     try {
-      pi = await stripe.paymentIntents.create(
-        {
-          amount: amountPence,
-          currency: 'gbp',
-          customer: stripeCustomerId,
-          payment_method: methodId,
-          confirm: true,
-          off_session: true,
-          metadata: { bookingId: b.id, type: 'recurring_occurrence' },
-        },
-        // Single attempt held at the Stripe layer too: a crash-and-rerun
-        // resolves to the SAME PaymentIntent, never a second charge.
-        { idempotencyKey: `recurring_occurrence_${b.id}` }
-      );
+      // Single attempt held at the Stripe layer too: a crash-and-rerun
+      // resolves to the SAME PaymentIntent, never a second charge.
+      pi = await stripe.paymentIntents.create(params, { idempotencyKey });
     } catch (chargeErr) {
-      // Declines throw (card_error) — that IS the single failed attempt.
-      const msg = chargeErr instanceof Error ? chargeErr.message : String(chargeErr);
-      await failAttempt(b.id, `charge attempt threw: ${msg}`).catch(() => {});
-      return 'failed';
+      if (!isUnknownStripeOutcome(chargeErr)) {
+        // Declines throw (card_error) — that IS the single failed attempt.
+        const msg = chargeErr instanceof Error ? chargeErr.message : String(chargeErr);
+        await failAttempt(b.id, `charge attempt threw: ${msg}`).catch(() => {});
+        return 'failed';
+      }
+      // N9: a connection or API error says nothing about the card. One
+      // same-key retry (Stripe answers with the original if it landed).
+      try {
+        pi = await stripe.paymentIntents.create(params, { idempotencyKey });
+      } catch (retryErr) {
+        if (!isUnknownStripeOutcome(retryErr)) {
+          const msg = retryErr instanceof Error ? retryErr.message : String(retryErr);
+          await failAttempt(b.id, `charge attempt threw: ${msg}`).catch(() => {});
+          return 'failed';
+        }
+        await markChargeUnknown(b.id);
+        // Not 'failed': no pay-now email while the card may have been charged.
+        return 'skipped';
+      }
     }
     await prisma.booking
       .update({ where: { id: b.id }, data: { stripePaymentIntentId: pi.id } })
@@ -234,6 +262,164 @@ export async function attemptOccurrenceCharge(
   }
 }
 
+/** N9: the attempt's outcome is unknown; the sweep reconciles it. */
+async function markChargeUnknown(bookingId: string): Promise<void> {
+  const now = new Date();
+  await prisma.booking.update({
+    where: { id: bookingId },
+    data: {
+      chargeOutcomeUnknownAt: now,
+      chargeReconcileCount: 0,
+      chargeNextReconcileAt: nextRetryAt(now, 0),
+    },
+  });
+  const { AuditService } = await import('./audit.service');
+  await AuditService.log({
+    action: 'RECURRING_CHARGE_UNKNOWN',
+    entityType: 'Booking',
+    entityId: bookingId,
+  }).catch(() => {});
+  log.error('recurring_charge', 'charge_outcome_unknown', { bookingId });
+}
+
+const DAY_MS = 24 * HOUR_MS;
+
+/**
+ * N9 reconciliation (read only): list the customer's payment intents since
+ * the unknown attempt and match metadata.bookingId. Succeeded → the normal
+ * success path. Declined or canceled → the single failed attempt (pay-now).
+ * None after 24 hours → the charge never reached Stripe: the failed attempt.
+ * Otherwise back off and look again. Never creates a charge.
+ */
+export async function reconcileUnknownOccurrenceCharge(
+  bookingId: string
+): Promise<'SUCCEEDED' | 'FAILED' | 'PENDING' | 'NOT_UNKNOWN'> {
+  const b = await prisma.booking.findUnique({
+    where: { id: bookingId },
+    select: {
+      id: true,
+      paymentStatus: true,
+      chargeOutcomeUnknownAt: true,
+      chargeReconcileCount: true,
+      client: { select: { stripeCustomerId: true } },
+    },
+  });
+  if (!b?.chargeOutcomeUnknownAt) return 'NOT_UNKNOWN';
+  const since = b.chargeOutcomeUnknownAt;
+  const clear = {
+    chargeOutcomeUnknownAt: null,
+    chargeNextReconcileAt: null,
+  };
+  // A webhook already settled it: clear the marker, send nothing twice.
+  if (b.paymentStatus !== 'PENDING') {
+    await prisma.booking.update({ where: { id: bookingId }, data: clear });
+    return b.paymentStatus === 'SUCCEEDED' ? 'SUCCEEDED' : 'FAILED';
+  }
+  const backoff = async (result: string) => {
+    await prisma.booking.update({
+      where: { id: bookingId },
+      data: {
+        chargeReconcileCount: b.chargeReconcileCount + 1,
+        chargeNextReconcileAt: nextRetryAt(new Date(), b.chargeReconcileCount + 1),
+      },
+    });
+    log.warn('recurring_charge', 'charge_reconcile_pending', { bookingId, result });
+  };
+  const customer = b.client?.stripeCustomerId;
+  if (!customer) {
+    await backoff('no customer');
+    return 'PENDING';
+  }
+  let found: Stripe.PaymentIntent | null = null;
+  try {
+    const list = await stripe.paymentIntents.list({
+      customer,
+      created: { gte: Math.floor(since.getTime() / 1000) - 3600 },
+      limit: 100,
+    });
+    found = list.data.find((p) => p.metadata?.bookingId === bookingId) ?? null;
+  } catch {
+    await backoff('stripe read failed');
+    return 'PENDING';
+  }
+  const { AuditService } = await import('./audit.service');
+  if (found?.status === 'succeeded') {
+    await prisma.booking.update({
+      where: { id: bookingId },
+      data: { ...clear, stripePaymentIntentId: found.id },
+    });
+    const { processPaymentSuccess } = await import('@/lib/services/payment-success.service');
+    const chargeId =
+      typeof found.latest_charge === 'string' ? found.latest_charge : found.latest_charge?.id;
+    await processPaymentSuccess({
+      bookingId,
+      pi: {
+        id: found.id,
+        created: found.created,
+        currency: found.currency,
+        amountReceived: found.amount_received,
+        chargeId: chargeId ?? null,
+      },
+    });
+    await AuditService.log({
+      action: 'RECURRING_CHARGE_RECONCILED',
+      entityType: 'Booking',
+      entityId: bookingId,
+      metadata: { outcome: 'SUCCEEDED', paymentIntentId: found.id },
+    }).catch(() => {});
+    return 'SUCCEEDED';
+  }
+  const declined =
+    found &&
+    (found.status === 'canceled' ||
+      (found.status === 'requires_payment_method' && !!found.last_payment_error));
+  const neverArrived = !found && Date.now() - since.getTime() > DAY_MS;
+  if (declined || neverArrived || (found && found.status === 'requires_action')) {
+    await prisma.booking.update({
+      where: { id: bookingId },
+      data: { ...clear, ...(found ? { stripePaymentIntentId: found.id } : {}) },
+    });
+    await AuditService.log({
+      action: 'RECURRING_CHARGE_RECONCILED',
+      entityType: 'Booking',
+      entityId: bookingId,
+      metadata: { outcome: 'FAILED', paymentIntentId: found?.id ?? null },
+    }).catch(() => {});
+    await failAttempt(
+      bookingId,
+      found
+        ? `reconciled: off-session PI status ${found.status}`
+        : 'reconciled: no charge reached Stripe'
+    );
+    return 'FAILED';
+  }
+  await backoff(found ? `stripe status ${found.status}` : 'not found yet');
+  return 'PENDING';
+}
+
+/** Sweep (rides sweepStrandedPayments): due unknown occurrence charges. */
+export async function sweepUnknownOccurrenceCharges(): Promise<{ processed: number }> {
+  const now = new Date();
+  const due = await prisma.booking.findMany({
+    where: {
+      chargeOutcomeUnknownAt: { not: null },
+      OR: [{ chargeNextReconcileAt: null }, { chargeNextReconcileAt: { lte: now } }],
+    },
+    select: { id: true },
+    take: 20,
+  });
+  let processed = 0;
+  for (const d of due) {
+    try {
+      const r = await reconcileUnknownOccurrenceCharge(d.id);
+      if (r === 'SUCCEEDED' || r === 'FAILED') processed++;
+    } catch (err) {
+      log.error('recurring_charge', 'charge_reconcile_threw', { bookingId: d.id }, err);
+    }
+  }
+  return { processed };
+}
+
 /** T-48h sweep: one off-session attempt per due occurrence. Idempotent — only
  *  paymentStatus PENDING occurrences are candidates; any outcome (SUCCEEDED /
  *  FAILED) removes them from the pool. Stripe-side idempotencyKey pins the
@@ -246,6 +432,7 @@ export async function processRecurringCharges(): Promise<{ processed: number }> 
     where: {
       status: 'SCHEDULED',
       paymentStatus: 'PENDING',
+      chargeOutcomeUnknownAt: null, // N9: reconciled, never re-attempted
       agreement: { status: 'ACTIVE' },
       // F22 (James-ruled): BOTH sweeps window on the occurrence's actual
       // startTime — this date filter is only an indexable prefilter (a day of
@@ -288,6 +475,9 @@ export async function cancelUnpaidOccurrences(): Promise<{ processed: number }> 
       // T-24h cut. The claim below re-asserts the same unpaid set — the
       // safety beneath: SUCCEEDED can never be swept.
       paymentStatus: { in: ['PENDING', 'FAILED', 'REQUIRES_ACTION', 'CANCELED'] },
+      // N9: an occurrence whose charge may have landed is never cancelled as
+      // unpaid; it waits for the reconciler (and stuck-money shows it).
+      chargeOutcomeUnknownAt: null,
       date: { lte: new Date(now + CANCEL_CUTOFF_HOURS * HOUR_MS) },
     },
     select: {
@@ -318,6 +508,7 @@ export async function cancelUnpaidOccurrences(): Promise<{ processed: number }> 
         id: b.id,
         status: 'SCHEDULED',
         paymentStatus: { in: ['PENDING', 'FAILED', 'REQUIRES_ACTION', 'CANCELED'] },
+        chargeOutcomeUnknownAt: null,
       },
       data: {
         status: 'CANCELLED',

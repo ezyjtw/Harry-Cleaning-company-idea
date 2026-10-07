@@ -47,6 +47,7 @@ import {
 import stripe from '@/lib/stripe';
 
 import { AuditService } from './audit.service';
+import { TOPUP_WITHOUT_ASSIGNMENT } from './topup-flag';
 import { enqueueXeroPush } from './xero-push.service';
 
 // ─── Types ─────────────────────────────────────────────────
@@ -866,6 +867,9 @@ export async function reconcileRefundSlice(sliceId: string): Promise<string> {
   const bookingId = slice.record.bookingId;
   try {
     let found: { id: string; amount: number; status: string | null } | null = null;
+    // Refunds on the intent that no slice claims: their presence forbids the
+    // 24h FAILED conclusion (never guessed; an admin matches them).
+    let unclaimed = 0;
     if (slice.stripeRefundId) {
       found = await stripe.refunds.retrieve(slice.stripeRefundId);
     } else {
@@ -873,6 +877,15 @@ export async function reconcileRefundSlice(sliceId: string): Promise<string> {
         payment_intent: slice.stripePaymentIntentId,
         limit: 100,
       });
+      const live = list.data.filter((r) => r.status !== 'failed' && r.status !== 'canceled');
+      if (live.length > 0) {
+        const claimedIds = await prisma.refundSlice.findMany({
+          where: { stripeRefundId: { in: live.map((r) => r.id) } },
+          select: { stripeRefundId: true },
+        });
+        const claimedSet = new Set(claimedIds.map((c) => c.stripeRefundId));
+        unclaimed = live.filter((r) => !claimedSet.has(r.id)).length;
+      }
       found =
         list.data.find((r) => r.metadata?.refundSliceId === slice.id) ??
         // Legacy slices: one refund per record per payment intent.
@@ -900,6 +913,18 @@ export async function reconcileRefundSlice(sliceId: string): Promise<string> {
       return outcome;
     }
     const age = Date.now() - slice.record.createdAt.getTime();
+    if (age > DAY_MS && unclaimed > 0) {
+      await prisma.refundSlice.updateMany({
+        where: { id: slice.id, status: { in: ['PENDING', 'UNKNOWN', 'NEEDS_RECONCILE'] } },
+        data: { status: 'NEEDS_RECONCILE' },
+      });
+      await bumpSliceRetry(
+        slice.id,
+        slice.retryCount,
+        `${unclaimed} unmatched refund(s) on the payment intent; needs an admin match`
+      );
+      return 'NEEDS_RECONCILE';
+    }
     if (age > DAY_MS) {
       await prisma.$transaction(async (tx) => {
         await tx.refundSlice.updateMany({
@@ -995,6 +1020,7 @@ export async function reconcileReversal(rowId: string): Promise<string> {
     const found = list.data.find((r) => r.metadata?.transferReversalId === row.id);
     if (found) {
       await confirmReversal(row.id, { id: found.id, amount: found.amount });
+      await afterReversalSettled(row.refundRecordId);
       return 'SUCCEEDED';
     }
     if (Date.now() - row.createdAt.getTime() > DAY_MS) {
@@ -1006,6 +1032,7 @@ export async function reconcileReversal(rowId: string): Promise<string> {
           lastReconcileResult: 'no reversal after 24h',
         },
       });
+      await afterReversalSettled(row.refundRecordId);
       return 'FAILED';
     }
     await prisma.transferReversal.update({
@@ -1029,6 +1056,29 @@ export async function reconcileReversal(rowId: string): Promise<string> {
     });
     return row.status;
   }
+}
+
+/**
+ * A record that stopped at an unknown reversal never sent its refund slices.
+ * Once every reversal of it is settled, the record becomes FAILED so the
+ * stuck-money "Retry remainder" can continue it (the settled reversal counts;
+ * the refund is sent then, never automatically). The booking stays REFUNDING.
+ */
+async function afterReversalSettled(recordId: string): Promise<void> {
+  const open = await prisma.transferReversal.count({
+    where: { refundRecordId: recordId, status: { in: ['UNKNOWN', 'PENDING'] } },
+  });
+  if (open > 0) return;
+  const slices = await prisma.refundSlice.count({ where: { refundRecordId: recordId } });
+  if (slices > 0) return;
+  await prisma.refundRecord.updateMany({
+    where: { id: recordId, status: 'UNKNOWN' },
+    data: {
+      status: 'FAILED',
+      failureReason: 'The reversal is settled; the refund was not sent. Retry the remainder.',
+      finalizedAt: new Date(),
+    },
+  });
 }
 
 // ─── charge.refunded (RENA-011) ────────────────────────────
@@ -1193,4 +1243,181 @@ async function notifyRefundSuccess(
       })
       .catch(() => {});
   }
+}
+
+/**
+ * Scheduler (D-ac): read-only reconciliation of unresolved refund slices and
+ * reversals whose backoff has passed, oldest first. Never executes money; a
+ * PENDING row is only read once it is ten minutes old (a live worker owns it
+ * before that). Persistent failures stay listed in stuck-money.
+ */
+export async function reconcileUnresolvedRefunds(limit = 50): Promise<{ processed: number }> {
+  const now = new Date();
+  const stale = new Date(now.getTime() - 10 * 60_000);
+  const due = { OR: [{ nextRetryAt: null }, { nextRetryAt: { lte: now } }] };
+  const slices = await prisma.refundSlice.findMany({
+    where: {
+      AND: [
+        due,
+        {
+          OR: [
+            { status: { in: ['UNKNOWN', 'NEEDS_RECONCILE'] } },
+            { status: 'PENDING', createdAt: { lt: stale } },
+          ],
+        },
+      ],
+    },
+    orderBy: { createdAt: 'asc' },
+    select: { id: true },
+    take: limit,
+  });
+  let processed = 0;
+  for (const s of slices) {
+    try {
+      const status = await reconcileRefundSlice(s.id);
+      if (status === 'SUCCEEDED' || status === 'FAILED') processed++;
+    } catch (err) {
+      log.error('refund', 'slice_reconcile_threw', { refundSliceId: s.id }, err);
+    }
+  }
+  const reversals = await prisma.transferReversal.findMany({
+    where: {
+      AND: [
+        due,
+        {
+          OR: [{ status: 'UNKNOWN' }, { status: 'PENDING', createdAt: { lt: stale } }],
+        },
+      ],
+    },
+    orderBy: { createdAt: 'asc' },
+    select: { id: true },
+    take: limit,
+  });
+  for (const r of reversals) {
+    try {
+      const status = await reconcileReversal(r.id);
+      if (status === 'SUCCEEDED' || status === 'FAILED') processed++;
+    } catch (err) {
+      log.error('refund', 'reversal_reconcile_threw', { transferReversalId: r.id }, err);
+    }
+  }
+  return { processed };
+}
+
+/**
+ * Stuck-money "Reconcile" on a booking stuck REFUNDING: read Stripe for every
+ * unresolved slice and reversal, then settle records a crash interrupted
+ * before any Stripe call (no slices, no open reversal): FAILED with the claim
+ * released when nothing moved, FAILED with the claim kept when a reversal
+ * landed (the admin retries the remainder). Never sends money.
+ */
+export async function recoverStaleRefunding(
+  bookingId: string
+): Promise<{ transferStatus: string | null }> {
+  const records = await prisma.refundRecord.findMany({
+    where: { bookingId },
+    select: { id: true },
+  });
+  for (const r of records) {
+    await reconcileRecordSlices(r.id);
+    const open = await prisma.transferReversal.findMany({
+      where: { refundRecordId: r.id, status: { in: ['UNKNOWN', 'PENDING'] } },
+      select: { id: true },
+    });
+    for (const v of open) await reconcileReversal(v.id);
+  }
+  const stale = new Date(Date.now() - 10 * 60_000);
+  const interrupted = await prisma.refundRecord.findMany({
+    where: {
+      bookingId,
+      status: { in: ['PENDING', 'UNKNOWN'] },
+      createdAt: { lt: stale },
+      slices: { none: {} },
+    },
+  });
+  for (const rec of interrupted) {
+    if (!rec.context) continue;
+    const openReversals = await prisma.transferReversal.count({
+      where: { refundRecordId: rec.id, status: { in: ['UNKNOWN', 'PENDING'] } },
+    });
+    if (openReversals > 0) continue;
+    const reversed = await reversedForRecord(rec.id);
+    const ctx = rec.context as unknown as RecordContext;
+    await prisma.refundRecord.updateMany({
+      where: { id: rec.id, status: { in: ['PENDING', 'UNKNOWN'] } },
+      data: {
+        status: 'FAILED',
+        failureReason:
+          reversed > 0
+            ? 'Interrupted after the reversal; the refund was not sent. Retry the remainder.'
+            : 'Interrupted before any money moved',
+        finalizedAt: new Date(),
+      },
+    });
+    if (reversed === 0) {
+      await prisma.booking.updateMany({
+        where: { id: bookingId, transferStatus: 'REFUNDING' },
+        data: { transferStatus: ctx.prevTransferStatus },
+      });
+    }
+    log.warn('refund', 'interrupted_record_settled', { bookingId, refundRecordId: rec.id });
+  }
+  const b = await prisma.booking.findUnique({
+    where: { id: bookingId },
+    select: { transferStatus: true },
+  });
+  return { transferStatus: b?.transferStatus ?? null };
+}
+
+/**
+ * Stuck-money "Refund top-up" (B3 R2, B4): refund a TOPUP_WITHOUT_ASSIGNMENT
+ * charge on its own payment intent, never touching the original charge or
+ * the cleaner's earnings (a flagged top-up carries no share).
+ */
+export async function refundFlaggedTopup(
+  topupRecordId: string,
+  actorId: string
+): Promise<RefundResult> {
+  const t = await prisma.topupRecord.findUnique({ where: { id: topupRecordId } });
+  if (
+    !t ||
+    t.status !== 'SUCCEEDED' ||
+    !t.stripePaymentIntentId ||
+    !(t.failureReason ?? '').startsWith(`${TOPUP_WITHOUT_ASSIGNMENT}:`)
+  ) {
+    return { status: 'SKIPPED', reason: 'Not an unrefunded top-up without assignment' };
+  }
+  const ledger = await loadBookingLedger(prisma, t.bookingId);
+  if (!ledger) return { status: 'FAILED', reason: 'Booking not found' };
+  const charge = chargesLifo(ledger).find((c) => c.paymentIntentId === t.stripePaymentIntentId);
+  const remaining = charge ? Math.max(0, charge.capturedPence - charge.takenPence) : 0;
+  if (remaining <= 0) return { status: 'SKIPPED', reason: 'Nothing left on this top-up' };
+
+  const result = await refundBooking(
+    t.bookingId,
+    remaining / 100,
+    'Top-up refunded: the reassignment did not go ahead',
+    { triggeredBy: actorId, adjustEarnings: false, onlyPaymentIntentId: t.stripePaymentIntentId }
+  );
+  if (result.status === 'REFUNDED' || result.status === 'PARTIALLY_REFUNDED') {
+    // The flag prefix stays (the share maths keys on it); the queue no longer lists it.
+    await prisma.topupRecord.updateMany({
+      where: { id: t.id, failureReason: { startsWith: `${TOPUP_WITHOUT_ASSIGNMENT}:` } },
+      data: {
+        failureReason: `${TOPUP_WITHOUT_ASSIGNMENT}_REFUNDED${(t.failureReason ?? '').slice(TOPUP_WITHOUT_ASSIGNMENT.length)}`,
+      },
+    });
+    await AuditService.log({
+      userId: actorId,
+      action: 'TOPUP_WITHOUT_ASSIGNMENT_REFUNDED',
+      entityType: 'Booking',
+      entityId: t.bookingId,
+      metadata: {
+        topupRecordId: t.id,
+        amountPence: remaining,
+        refundRecordId: result.refundRecordId,
+      },
+    }).catch(() => {});
+  }
+  return result;
 }

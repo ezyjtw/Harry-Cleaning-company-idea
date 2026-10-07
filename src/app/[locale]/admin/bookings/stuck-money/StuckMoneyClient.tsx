@@ -1,92 +1,136 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useCallback, useState } from 'react';
 
-import type { StuckRefund, StuckTopup } from './page';
+import type { AbnormalAction, AbnormalRow, AbnormalStateName } from '@/lib/money/abnormal-states';
 
-function fmtDate(iso: string): string {
-  return new Date(iso).toLocaleString('en-GB', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+const STATE_HELP: Record<AbnormalStateName, string> = {
+  REFUND_UNKNOWN:
+    'A refund call ended without an answer. Reconcile reads Stripe; nothing is resent.',
+  REFUND_FAILED:
+    'A refund stopped short. Retry remainder reads Stripe first, then sends only what is missing.',
+  REFUND_STALE_PENDING:
+    'A refund has waited over ten minutes for Stripe. Reconcile reads its truth.',
+  REVERSAL_UNKNOWN: 'A payout reversal ended without an answer. Reconcile reads the transfer.',
+  TRANSFER_UNKNOWN:
+    'A payout ended without an answer. Release now reconciles the transfer group first.',
+  TRANSFER_FAILED: 'A payout was refused. Release now retries with a new key.',
+  TRANSFER_RELEASING_STALE:
+    'A payout has been in flight over ten minutes. Release now reconciles it.',
+  TRANSFER_PAUSED_DISPUTE: 'The payout waits for the customer dispute.',
+  TRANSFER_PAUSED_SHORTFALL:
+    'Stripe received less than expected. Check Stripe, then clear the shortfall.',
+  TRANSFER_PAUSED_CHARGEBACK: 'A card chargeback is open. The payout waits for its outcome.',
+  CHARGEBACK_AFTER_RELEASE:
+    'A chargeback arrived after the cleaner was paid. Deal with it, then record it.',
+  CHARGEBACK_LOST: 'A chargeback was lost. The payout stays held until an admin decides.',
+  REFUNDING_STALE:
+    'A refund has held this booking over ten minutes. Reconcile reads Stripe and settles interrupted records.',
+  TOPUP_UNKNOWN: 'A top-up outcome is unknown. Reconcile reads the payment intent.',
+  TOPUP_FAILED: 'A top-up was declined while the booking still waits for approval.',
+  TOPUP_STALE_PENDING:
+    'A top-up is still pending after the window. Reconcile reads the payment intent.',
+  TOPUP_WITHOUT_ASSIGNMENT:
+    'A top-up was taken but the new cleaner could not be assigned. Refund the top-up.',
+  SLICE_NEEDS_RECONCILE: 'A migrated payout is being filled from Stripe by the scheduler.',
+  LEGACY_RECONCILE:
+    'A migrated refund is not yet proven by Stripe. Reconcile reads it; refunds on this booking wait.',
+  DISPUTE_RESOLVING:
+    'A resolved dispute is waiting for its money step. It retries itself; Retry runs it now.',
+  COMPLETED_NO_RELEASE_CLOCK:
+    'A completed booking has no release time. Set it to release on the next tick.',
+  RECURRING_CHARGE_UNKNOWN:
+    'A regular-clean charge ended without an answer. It is never charged again while unknown.',
+  REASSIGN_REVERT_CONFLICT:
+    'A reassignment could not be reverted because the original cleaner lost the slot.',
+};
+
+const ACTION_LABEL: Record<AbnormalAction, string> = {
+  RECONCILE_REFUND_SLICE: 'Reconcile with Stripe',
+  RETRY_REFUND_REMAINDER: 'Retry remainder',
+  RECONCILE_REVERSAL: 'Reconcile reversal',
+  RECONCILE_BOOKING_REFUNDS: 'Reconcile',
+  RELEASE_NOW: 'Release now',
+  CLEAR_SHORTFALL: 'Clear shortfall',
+  ACKNOWLEDGE_CHARGEBACK: 'Record as dealt with',
+  SETTLE_LOST_CHARGEBACK: 'Release to cleaner anyway',
+  RECONCILE_TOPUP: 'Reconcile',
+  REFUND_TOPUP: 'Refund top-up',
+  RETRY_DISPUTE_MONEY: 'Retry money step',
+  SET_RELEASE_CLOCK: 'Set release clock',
+  RECONCILE_RECURRING_CHARGE: 'Reconcile now',
+  RETRY_REVERT: 'Retry revert',
+};
+
+// Actions that move money ask for a second tap.
+const MOVES_MONEY: AbnormalAction[] = [
+  'RETRY_REFUND_REMAINDER',
+  'RELEASE_NOW',
+  'CLEAR_SHORTFALL',
+  'SETTLE_LOST_CHARGEBACK',
+  'REFUND_TOPUP',
+  'RETRY_DISPUTE_MONEY',
+];
+
+function fmtAge(seconds: number): string {
+  if (seconds < 3600) return `${Math.max(1, Math.round(seconds / 60))}m`;
+  if (seconds < 86400) return `${Math.round(seconds / 3600)}h`;
+  return `${Math.round(seconds / 86400)}d`;
 }
 
-function StatusBadge({ status }: { status: string }) {
-  const colors: Record<string, string> = {
-    REVERSAL_ONLY: 'bg-danger/10 text-danger',
-    UNKNOWN: 'bg-warning/10 text-warning',
-  };
-  return (
-    <span
-      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${colors[status] || 'bg-page text-ink-2'}`}
-    >
-      {status}
-    </span>
-  );
-}
-
-function RetryButton({ refundRecordId, amount }: { refundRecordId: string; amount: number }) {
+function ActionButton({ row, action }: { row: AbnormalRow; action: AbnormalAction }) {
+  const router = useRouter();
   const [state, setState] = useState<'idle' | 'confirming' | 'loading'>('idle');
   const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null);
 
-  const handleRetry = useCallback(async () => {
+  const go = useCallback(async () => {
     setState('loading');
     setResult(null);
     try {
-      const res = await fetch('/api/admin/bookings/retry-refund', {
+      const res = await fetch('/api/admin/stuck-money/action', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ refundRecordId }),
+        body: JSON.stringify({ action, bookingId: row.bookingId, refId: row.refId }),
       });
-      const data = await res.json();
-      if (!res.ok) {
-        setResult({ ok: false, message: `${data.status ?? 'Failed'}: ${data.error}` });
-      } else {
-        setResult({
-          ok: true,
-          message: `Refund of £${(data.amountRefunded ?? amount).toFixed(2)} succeeded`,
-        });
-      }
+      const data = await res.json().catch(() => null);
+      setResult({ ok: !!data?.ok, message: data?.message ?? data?.error ?? `HTTP ${res.status}` });
+      if (data?.ok) router.refresh();
     } catch {
       setResult({ ok: false, message: 'Network error' });
     } finally {
       setState('idle');
     }
-  }, [refundRecordId, amount]);
+  }, [action, row.bookingId, row.refId, router]);
 
+  const label = ACTION_LABEL[action];
   return (
-    <div className="inline-flex items-center gap-2">
+    <div className="inline-flex flex-wrap items-center gap-2">
       {state === 'confirming' ? (
         <>
-          <span className="text-xs text-ink-3">Retry £{amount.toFixed(2)} refund?</span>
+          <span className="text-xs text-ink-3">{label}?</span>
           <button
-            onClick={handleRetry}
+            onClick={go}
             className="px-2 py-1 text-xs font-medium text-white rounded bg-danger hover:bg-danger"
           >
-            Yes, retry
+            Yes
           </button>
           <button
-            onClick={() => {
-              setState('idle');
-              setResult(null);
-            }}
+            onClick={() => setState('idle')}
             className="px-2 py-1 text-xs font-medium text-ink-2 rounded border border-line hover:bg-page"
           >
             No
           </button>
         </>
       ) : state === 'loading' ? (
-        <span className="text-xs text-ink-3">Processing…</span>
+        <span className="text-xs text-ink-3">Working…</span>
       ) : (
         <button
-          onClick={() => setState('confirming')}
-          className="px-2 py-1 text-xs font-medium text-danger rounded border border-danger/20 hover:bg-danger/10"
+          onClick={() => (MOVES_MONEY.includes(action) ? setState('confirming') : go())}
+          className="px-2 py-1 text-xs font-medium text-primary rounded border border-line hover:bg-page"
         >
-          Retry refund
+          {label}
         </button>
       )}
       {result && (
@@ -98,14 +142,9 @@ function RetryButton({ refundRecordId, amount }: { refundRecordId: string; amoun
   );
 }
 
-export default function StuckMoneyClient({
-  refunds,
-  topups,
-}: {
-  refunds: StuckRefund[];
-  topups: StuckTopup[];
-}) {
-  const total = refunds.length + topups.length;
+export default function StuckMoneyClient({ rows }: { rows: AbnormalRow[] }) {
+  const groups = new Map<AbnormalStateName, AbnormalRow[]>();
+  for (const r of rows) groups.set(r.state, [...(groups.get(r.state) ?? []), r]);
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
@@ -115,40 +154,34 @@ export default function StuckMoneyClient({
         </Link>
         <h1 className="text-2xl font-bold text-ink mt-1">Stuck Money</h1>
         <p className="text-ink-3 mt-1">
-          {total === 0
-            ? 'No stuck records — all clear.'
-            : `${total} record${total !== 1 ? 's' : ''} requiring investigation`}
+          {rows.length === 0
+            ? 'Nothing is stuck. All clear.'
+            : `${rows.length} item${rows.length !== 1 ? 's' : ''} across ${groups.size} state${groups.size !== 1 ? 's' : ''}, oldest first`}
         </p>
       </div>
 
-      {refunds.length > 0 && (
-        <div className="bg-surface rounded-xl border border-line overflow-hidden mb-6">
-          <div className="px-6 py-3 bg-danger/10 border-b border-line">
-            <h2 className="text-sm font-semibold text-danger uppercase tracking-wider">
-              Stuck Refunds ({refunds.length})
+      {Array.from(groups.entries()).map(([state, list]) => (
+        <div key={state} className="bg-surface rounded-xl border border-line overflow-hidden mb-6">
+          <div className="px-6 py-3 bg-page border-b border-line">
+            <h2 className="text-sm font-semibold text-ink uppercase tracking-wider">
+              {state.replace(/_/g, ' ')} ({list.length})
             </h2>
-            <p className="text-xs text-danger mt-0.5">
-              REVERSAL_ONLY = cleaner&apos;s share clawed back but customer refund failed. UNKNOWN =
-              outcome uncertain.
-            </p>
+            <p className="text-xs text-ink-3 mt-0.5">{STATE_HELP[state]}</p>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left text-xs font-medium text-ink-3 uppercase border-b border-line">
                   <th className="px-6 py-2">Booking</th>
+                  <th className="px-6 py-2">Age</th>
                   <th className="px-6 py-2">Amount</th>
-                  <th className="px-6 py-2">Status</th>
-                  <th className="px-6 py-2">Reason</th>
-                  <th className="px-6 py-2">Stripe Refund ID</th>
-                  <th className="px-6 py-2">Failure</th>
-                  <th className="px-6 py-2">Date</th>
-                  <th className="px-6 py-2">Action</th>
+                  <th className="px-6 py-2">Detail</th>
+                  <th className="px-6 py-2">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-line">
-                {refunds.map((r) => (
-                  <tr key={r.id} className="hover:bg-page">
+                {list.map((r) => (
+                  <tr key={r.key} className="hover:bg-page align-top">
                     <td className="px-6 py-3">
                       <Link
                         href={`/admin/bookings/${r.bookingId}`}
@@ -157,80 +190,43 @@ export default function StuckMoneyClient({
                         {r.bookingId.substring(0, 8).toUpperCase()}
                       </Link>
                     </td>
-                    <td className="px-6 py-3 font-medium">£{r.amount.toFixed(2)}</td>
-                    <td className="px-6 py-3">
-                      <StatusBadge status={r.status} />
-                    </td>
-                    <td className="px-6 py-3 text-ink-2 max-w-xs truncate">{r.reason}</td>
-                    <td className="px-6 py-3 text-xs text-ink-3 font-mono">
-                      {r.stripeRefundId || '—'}
-                    </td>
-                    <td className="px-6 py-3 text-danger text-xs">{r.failureReason || '—'}</td>
-                    <td className="px-6 py-3 text-ink-2 text-xs">{fmtDate(r.createdAt)}</td>
-                    <td className="px-6 py-3">
-                      {r.status === 'REVERSAL_ONLY' && (
-                        <RetryButton refundRecordId={r.id} amount={r.amount} />
+                    <td className="px-6 py-3 text-xs text-ink-2">
+                      {fmtAge(r.ageSeconds)}
+                      {r.persistent && (
+                        <span className="ml-2 inline-flex rounded-full px-2 py-0.5 text-xs font-medium bg-danger/10 text-danger">
+                          persistent
+                        </span>
                       )}
                     </td>
+                    <td className="px-6 py-3 font-medium">
+                      {r.amountPence === null ? '—' : `£${(r.amountPence / 100).toFixed(2)}`}
+                    </td>
+                    <td className="px-6 py-3 text-xs text-ink-2 max-w-xs">{r.detail ?? '—'}</td>
+                    <td className="px-6 py-3">
+                      <div className="flex flex-col gap-2">
+                        {r.actions.map((a) => (
+                          <ActionButton key={a} row={r} action={a} />
+                        ))}
+                        {r.links.map((l) => (
+                          <a
+                            key={l.href}
+                            href={l.href}
+                            target={l.href.startsWith('http') ? '_blank' : undefined}
+                            rel="noreferrer"
+                            className="text-xs text-primary hover:underline"
+                          >
+                            {l.label}
+                          </a>
+                        ))}
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
         </div>
-      )}
-
-      {topups.length > 0 && (
-        <div className="bg-surface rounded-xl border border-line overflow-hidden">
-          <div className="px-6 py-3 bg-warning/10 border-b border-line">
-            <h2 className="text-sm font-semibold text-warning uppercase tracking-wider">
-              Stuck Topups ({topups.length})
-            </h2>
-            <p className="text-xs text-warning mt-0.5">
-              UNKNOWN = topup payment outcome uncertain. Check Stripe dashboard for the PI status.
-            </p>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-left text-xs font-medium text-ink-3 uppercase border-b border-line">
-                  <th className="px-6 py-2">Booking</th>
-                  <th className="px-6 py-2">Amount</th>
-                  <th className="px-6 py-2">Status</th>
-                  <th className="px-6 py-2">Reason</th>
-                  <th className="px-6 py-2">Stripe PI</th>
-                  <th className="px-6 py-2">Failure</th>
-                  <th className="px-6 py-2">Date</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-line">
-                {topups.map((t) => (
-                  <tr key={t.id} className="hover:bg-page">
-                    <td className="px-6 py-3">
-                      <Link
-                        href={`/admin/bookings/${t.bookingId}`}
-                        className="text-primary hover:underline font-mono text-xs"
-                      >
-                        {t.bookingId.substring(0, 8).toUpperCase()}
-                      </Link>
-                    </td>
-                    <td className="px-6 py-3 font-medium">£{t.amount.toFixed(2)}</td>
-                    <td className="px-6 py-3">
-                      <StatusBadge status={t.status} />
-                    </td>
-                    <td className="px-6 py-3 text-ink-2 max-w-xs truncate">{t.reason}</td>
-                    <td className="px-6 py-3 text-xs text-ink-3 font-mono">
-                      {t.stripePaymentIntentId || '—'}
-                    </td>
-                    <td className="px-6 py-3 text-danger text-xs">{t.failureReason || '—'}</td>
-                    <td className="px-6 py-3 text-ink-2 text-xs">{fmtDate(t.createdAt)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
+      ))}
     </div>
   );
 }

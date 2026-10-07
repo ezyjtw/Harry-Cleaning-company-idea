@@ -229,7 +229,13 @@ export function moneyHoldReasons(booking: {
   chargebackStatuses?: string[];
 }): MoneyHoldReason[] {
   const reasons: MoneyHoldReason[] = [];
-  if (booking.disputeStatus === 'OPEN' || booking.disputeStatus === 'UNDER_REVIEW') {
+  // RESOLVING_REFUND holds too: the refund runs before any release, so the
+  // scheduler never pays the full share while the resolution refund is open.
+  if (
+    booking.disputeStatus === 'OPEN' ||
+    booking.disputeStatus === 'UNDER_REVIEW' ||
+    booking.disputeStatus === 'RESOLVING_REFUND'
+  ) {
     reasons.push('DISPUTE');
   }
   if ((booking.amountShortfallPence ?? 0) > 0) reasons.push('SHORTFALL');

@@ -78,18 +78,19 @@ export interface CancellationPreview {
   graceUntil?: string;
 }
 
-// Refundable remainder = what's left of the captured charge after any prior
-// partial refund. Anchored to the original charge (Part-3), never totalPrice
-// drift. Shared by execute and preview so the two cannot diverge.
-function refundableRemainder(booking: {
-  totalAmountCharged: unknown;
-  totalPrice: unknown;
-  refundRecords: { amount: unknown }[];
-}): number {
-  const totalPaid = Number(booking.totalAmountCharged ?? booking.totalPrice);
-  const alreadyRefunded = booking.refundRecords.reduce((s, r) => s + Number(r.amount), 0);
-  return Math.max(0, totalPaid - alreadyRefunded);
+// Refundable remainder = what's left of the captured charge after every
+// refund Stripe executed (B4 ledger: charged less executed slices, never the
+// requested amounts). null while an earlier refund is still being reconciled
+// with Stripe: nothing is cancelled then (never guessed). Shared by execute
+// and preview so the two cannot diverge.
+async function refundableRemainder(bookingId: string): Promise<number | null> {
+  const { remainingRefundableFor } = await import('./refund.service');
+  const pence = await remainingRefundableFor(bookingId);
+  return pence === null ? null : pence / 100;
 }
+
+const RECONCILING_REASON =
+  'An earlier refund on this booking is still being confirmed with our payment provider. Please try again shortly.';
 
 /**
  * Read-only cancellation preview for the customer's timing policy. Runs the SAME
@@ -106,9 +107,6 @@ export async function previewCancellation(bookingId: string): Promise<Cancellati
       paymentStatus: true,
       date: true,
       createdAt: true,
-      totalAmountCharged: true,
-      totalPrice: true,
-      refundRecords: { where: { status: 'SUCCEEDED' }, select: { amount: true } },
     },
   });
   if (!booking) {
@@ -140,7 +138,10 @@ export async function previewCancellation(bookingId: string): Promise<Cancellati
   // Mirror execute: only paid bookings yield an actual refund amount.
   const isPaid =
     booking.paymentStatus === 'SUCCEEDED' || booking.paymentStatus === 'PARTIALLY_REFUNDED';
-  const remainder = refundableRemainder(booking);
+  const remainder = isPaid ? await refundableRemainder(bookingId) : 0;
+  if (remainder === null) {
+    return { canCancel: false, refundPercent: 0, refundAmount: 0, reason: RECONCILING_REASON };
+  }
   const refundAmount = isPaid
     ? Math.round(remainder * (policy.refundPercent / 100) * 100) / 100
     : 0;
@@ -177,7 +178,6 @@ export async function executeCancellation(params: {
       address: true,
       cleaner: { select: { name: true } },
       client: { select: { id: true, name: true, email: true } },
-      refundRecords: { where: { status: 'SUCCEEDED' }, select: { amount: true } },
     },
   });
   if (!booking) return { ok: false, status: 404, error: 'Booking not found' };
@@ -260,7 +260,13 @@ export async function executeCancellation(params: {
   //    late-payment overrides the directive: full refund, always. (Its
   //    remainder is the same computation — a just-paid booking has no prior
   //    SUCCEEDED refunds, so the remainder is the full charge.)
-  const remainder = refundableRemainder(booking);
+  //    B4: an unpaid booking has nothing to refund; a paid one whose earlier
+  //    refund is still being reconciled is not cancelled at all (409).
+  const remainderOrNull = isPaid ? await refundableRemainder(bookingId) : 0;
+  if (remainderOrNull === null) {
+    return { ok: false, status: 409, error: RECONCILING_REASON };
+  }
+  const remainder = remainderOrNull;
 
   const directive: RefundDirective = fenceLatePaid
     ? { kind: 'full' }

@@ -102,6 +102,8 @@ interface BookingDetail {
     reason: string;
     triggeredBy: string | null;
     status: string;
+    executedPence?: number;
+    requestedPence?: number | null;
     attempt: number;
     failureReason: string | null;
     createdAt: string;
@@ -206,7 +208,9 @@ function StatusBadge({
     SUCCEEDED: 'green',
     FAILED: 'red',
     UNKNOWN: 'red',
-    REVERSAL_ONLY: 'red',
+    REVERSAL_ONLY: 'red', // legacy rows only; B4 writes PARTIAL instead
+    PARTIAL: 'amber',
+    NEEDS_RECONCILE: 'red',
     RELEASED: 'green',
     RELEASING: 'amber',
     REFUNDED: 'amber',
@@ -771,7 +775,11 @@ function DisputeResolvePanel({
         setError(data.error);
         return;
       }
-      const parts = [`Dispute resolved (${data.outcome})`];
+      const parts = [
+        data.disputeStatus && data.disputeStatus !== 'RESOLVED'
+          ? `Resolution recorded (${data.outcome}); money step pending, retried automatically`
+          : `Dispute resolved (${data.outcome})`,
+      ];
       if (data.refundedAmount > 0) parts.push(`Refund: £${data.refundedAmount.toFixed(2)}`);
       if (data.refundStatus) parts.push(`Refund status: ${data.refundStatus}`);
       if (data.releaseStatus) parts.push(`Release status: ${data.releaseStatus}`);
@@ -1415,7 +1423,20 @@ function AdjustPricePanel({ booking }: { booking: BookingDetail }) {
   );
 }
 
-export default function BookingDetailClient({ booking: b }: { booking: BookingDetail }) {
+export interface BookingMoney {
+  chargedPence: number;
+  executedPence: number;
+  /** null while a refund slice is still being reconciled with Stripe. */
+  remainingPence: number | null;
+}
+
+export default function BookingDetailClient({
+  booking: b,
+  money,
+}: {
+  booking: BookingDetail;
+  money: BookingMoney;
+}) {
   const [showRefund, setShowRefund] = useState(false);
   const [releaseState, setReleaseState] = useState<{
     loading: boolean;
@@ -1427,18 +1448,16 @@ export default function BookingDetailClient({ booking: b }: { booking: BookingDe
     confirming: false,
   });
 
-  const totalRefunded = b.refundRecords
-    .filter((r) => r.status === 'SUCCEEDED')
-    .reduce((sum, r) => sum + n(r.amount), 0);
-  // Refundable is anchored to the ORIGINAL charge — the only PI the refund action
-  // touches. Top-ups are charged on separate PIs and refunded via a separate
-  // (deferred) action, so they're shown as accounting context, not refundable here.
-  const baseCharged = n(b.totalAmountCharged ?? b.totalPrice);
+  // B4: the ledger's figures. totalAmountCharged already includes every
+  // succeeded top-up; refunds run LIFO across all of the booking's charges.
+  const totalRefunded = money.executedPence / 100;
+  const totalCharged = money.chargedPence / 100;
   const topupsCharged = (b.topupRecords ?? [])
     .filter((t) => t.status === 'SUCCEEDED')
     .reduce((sum, t) => sum + n(t.amount), 0);
-  const totalCharged = +(baseCharged + topupsCharged).toFixed(2);
-  const refundable = Math.max(0, +(baseCharged - totalRefunded).toFixed(2));
+  const baseCharged = Math.max(0, +(totalCharged - topupsCharged).toFixed(2));
+  const reconciling = money.remainingPence === null;
+  const refundable = reconciling ? 0 : (money.remainingPence ?? 0) / 100;
 
   const handleRelease = useCallback(async () => {
     setReleaseState((s) => ({ ...s, loading: true, result: null }));
@@ -1610,11 +1629,11 @@ export default function BookingDetailClient({ booking: b }: { booking: BookingDe
             <Field
               label="Refundable"
               value={
-                refundable > 0
-                  ? topupsCharged > 0
-                    ? `£${refundable.toFixed(2)} (original PI only — topup refund via separate action)`
-                    : `£${refundable.toFixed(2)}`
-                  : '—'
+                reconciling
+                  ? 'Reconciling with Stripe (see Stuck money)'
+                  : refundable > 0
+                    ? `£${refundable.toFixed(2)}`
+                    : '—'
               }
             />
           </dl>
@@ -1794,7 +1813,8 @@ export default function BookingDetailClient({ booking: b }: { booking: BookingDe
               <thead>
                 <tr className="text-left text-xs font-medium text-ink-3 uppercase">
                   <th className="pb-2">Date</th>
-                  <th className="pb-2">Amount</th>
+                  <th className="pb-2">Requested</th>
+                  <th className="pb-2">Executed</th>
                   <th className="pb-2">Status</th>
                   <th className="pb-2">Reason</th>
                   <th className="pb-2">Stripe ID</th>
@@ -1806,6 +1826,7 @@ export default function BookingDetailClient({ booking: b }: { booking: BookingDe
                   <tr key={r.id}>
                     <td className="py-2 text-ink-2">{fmtDate(r.createdAt)}</td>
                     <td className="py-2 font-medium">£{n(r.amount).toFixed(2)}</td>
+                    <td className="py-2">£{((r.executedPence ?? 0) / 100).toFixed(2)}</td>
                     <td className="py-2">
                       <StatusBadge status={r.status} />
                     </td>

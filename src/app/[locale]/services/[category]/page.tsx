@@ -144,7 +144,9 @@ const AIRBNB_SUGGESTED_RANGES: Record<number, [number, number]> = {
 
 // Add-ons per spec — EOT: oven £40, carpet £45/room, windows £25, fridge £20
 // Airbnb: same-day turnaround £25, post-party deep clean £40
-// Cleaner keeps 85% of add-on revenue
+// Display-only estimate extras (never sent to the quote). A charged add-on
+// pays the cleaner the parent service's share unless it defines its own
+// (B4, D-a; pricing.service addonSplit).
 const EXTRA_SERVICES: Record<string, { id: string; label: string; price: number }[]> = {
   'end-of-tenancy': [
     { id: 'oven', label: 'Oven deep clean', price: 40 },

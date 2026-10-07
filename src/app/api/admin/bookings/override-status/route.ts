@@ -9,7 +9,7 @@ import { AuditService } from '@/lib/services/audit.service';
 
 // SECURITY (S3): break-glass status override, now with guardrails. There is
 // deliberately NO force path around the money blocks: every money-crossing
-// operation has its own safer tool (admin/refund + retry-refund for refunds,
+// operation has its own safer tool (admin/refund + the stuck-money queue for refunds,
 // release-funds for stuck transfers, dispute resolution for pause/split), so
 // this tool never needs to cross a money boundary — a force flag would simply
 // re-open the S3 hole behind one extra click.

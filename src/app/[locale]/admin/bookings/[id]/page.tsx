@@ -63,5 +63,18 @@ export default async function AdminBookingDetailPage({ params }: PageProps) {
     JSON.stringify(booking, (_key, value) => (typeof value === 'bigint' ? value.toString() : value))
   );
 
-  return <BookingDetailClient booking={serialized} />;
+  // B4: money figures from the ledger (charged, executed by Stripe, remaining),
+  // never from requested refund amounts. remainingPence null = reconciling.
+  const { loadBookingLedger } = await import('@/lib/money/ledger-db');
+  const { bookingRefundState, remainingRefundablePence } = await import('@/lib/money/ledger');
+  const ledger = await loadBookingLedger(prisma, id);
+  const money = ledger
+    ? {
+        chargedPence: ledger.chargedPence,
+        executedPence: bookingRefundState(ledger.chargedPence, ledger.slices).executedPence,
+        remainingPence: remainingRefundablePence(ledger.chargedPence, ledger.slices),
+      }
+    : { chargedPence: 0, executedPence: 0, remainingPence: 0 };
+
+  return <BookingDetailClient booking={serialized} money={money} />;
 }

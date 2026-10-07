@@ -4,6 +4,7 @@ import { z } from 'zod';
 
 import { getAdminSession } from '@/lib/auth/session';
 import { prisma } from '@/lib/db/prisma';
+import { EDITABLE_PLATFORM_CONFIG_KEYS } from '@/lib/pricing/rates';
 
 export async function GET() {
   try {
@@ -19,9 +20,14 @@ export async function GET() {
   }
 }
 
+// B4 (RENA-075): only the allowlisted keys are editable, and only to a
+// non-negative number; scheduler markers and anything else are refused.
 const updateSchema = z.object({
-  key: z.string(),
-  value: z.string(),
+  key: z.enum(EDITABLE_PLATFORM_CONFIG_KEYS),
+  value: z
+    .string()
+    .trim()
+    .regex(/^\d+(\.\d+)?$/, 'value must be a non-negative number'),
 });
 
 export async function POST(req: NextRequest) {

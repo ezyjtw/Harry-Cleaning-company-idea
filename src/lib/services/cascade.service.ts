@@ -38,7 +38,7 @@ import { EnhancedNotificationService } from './enhanced-notification.service';
 import { MatchingService } from './matching.service';
 import { pricingService } from './pricing.service';
 import type { ServiceSlug } from './pricing.service';
-import { refundBooking } from './refund.service';
+import { refundBooking, remainingRefundableFor } from './refund.service';
 
 // ─── Window computation ────────────────────────────────────────
 
@@ -1643,6 +1643,7 @@ async function revertAdminReassign(
       provisionalSource: null,
       reassignPreviousStatus: null,
       reassignPreviousCleanerId: null,
+      reassignRevertConflictAt: null,
     },
   });
   if (!res.ok) {
@@ -1780,6 +1781,14 @@ async function raiseRevertConflict(args: {
     bookingId: args.bookingId,
     cleanerId: args.cleanerId,
   });
+  // B4: the stuck-money queue state (REASSIGN_REVERT_CONFLICT); the first
+  // refusal stamps it, a landed revert clears it.
+  await prisma.booking
+    .updateMany({
+      where: { id: args.bookingId, reassignRevertConflictAt: null },
+      data: { reassignRevertConflictAt: new Date() },
+    })
+    .catch(() => {});
   const already = await prisma.auditLog.count({
     where: {
       entityId: args.bookingId,
@@ -1819,6 +1828,34 @@ async function raiseRevertConflict(args: {
       })
       .catch(() => {});
   }
+}
+
+/**
+ * B4 stuck-money action "Retry revert": one more attempt at the refused
+ * revert, with the trigger the refusal recorded (declined or expired copy).
+ */
+export async function retryAdminRevert(
+  bookingId: string,
+  actorId: string
+): Promise<{ ok: boolean; outcome: string }> {
+  const last = await prisma.auditLog.findFirst({
+    where: { entityId: bookingId, action: 'ADMIN_REASSIGN_REVERT_REFUSED' },
+    orderBy: { createdAt: 'desc' },
+    select: { metadata: true },
+  });
+  const trigger =
+    ((last?.metadata as { trigger?: unknown } | null)?.trigger as string | undefined) ??
+    'Approval window expired';
+  const r = await revertAdminReassign(bookingId, trigger);
+  await AuditService.log({
+    userId: actorId,
+    action: 'REASSIGN_REVERT_RETRIED',
+    entityType: 'Booking',
+    entityId: bookingId,
+    metadata: { outcome: r === true ? 'REVERTED' : r === false ? 'NOT_APPLICABLE' : r },
+  }).catch(() => {});
+  if (r === true) return { ok: true, outcome: 'REVERTED' };
+  return { ok: false, outcome: r === false ? 'NOT_APPLICABLE' : r };
 }
 
 /** B3: a top-up was charged but its assignment refused (flagged for B4). */
@@ -1885,8 +1922,6 @@ async function autoRefundExhausted(bookingId: string): Promise<boolean> {
     const booking = await prisma.booking.findUnique({
       where: { id: bookingId },
       select: {
-        totalAmountCharged: true,
-        totalPrice: true,
         paymentStatus: true,
         status: true,
       },
@@ -1897,8 +1932,11 @@ async function autoRefundExhausted(bookingId: string): Promise<boolean> {
       return false;
     }
 
-    const refundAmount = Number(booking.totalAmountCharged ?? booking.totalPrice);
-    if (refundAmount <= 0) return false;
+    // N4 (B4): the remainder from the ledger, never the full charge again; a
+    // slice still being reconciled blocks it (null) until the scheduler reads it.
+    const remainderPence = await remainingRefundableFor(bookingId);
+    if (remainderPence === null || remainderPence <= 0) return false;
+    const refundAmount = remainderPence / 100;
 
     const result = await refundBooking(
       bookingId,

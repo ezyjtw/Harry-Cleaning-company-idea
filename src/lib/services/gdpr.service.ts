@@ -1,9 +1,20 @@
+import type { DisputeStatus } from '@prisma/client';
+
 import { revokeAllSessions } from '@/lib/auth/device-session';
 import { prisma } from '@/lib/db/prisma';
 import { bookingCity, bookingPostcode } from '@/lib/utils/booking-address';
 
 import { AuditService } from './audit.service';
 import { DocumentStorageService } from './document-storage.service';
+
+// A dispute blocks deletion until it is settled, including while its
+// resolution money step is still pending (B4 RESOLVING states).
+const OPEN_DISPUTE_STATUSES: DisputeStatus[] = [
+  'OPEN',
+  'UNDER_REVIEW',
+  'RESOLVING_REFUND',
+  'RESOLVING_RELEASE',
+];
 
 export type ConsentType = 'marketing' | 'analytics' | 'essential' | 'data_processing';
 
@@ -146,7 +157,7 @@ export class GdprService {
           },
         }),
         prisma.dispute.count({
-          where: { booking: { cleanerId: userId }, status: { in: ['OPEN', 'UNDER_REVIEW'] } },
+          where: { booking: { cleanerId: userId }, status: { in: OPEN_DISPUTE_STATUSES } },
         }),
         prisma.topupRecord.count({
           where: { booking: { cleanerId: userId }, status: 'PENDING' },
@@ -215,7 +226,7 @@ export class GdprService {
       prisma.booking.count({ where: { clientId: userId, status: { in: LIVE_STATUSES } } }),
       prisma.recurringAgreement.count({ where: { clientId: userId, status: 'ACTIVE' } }),
       prisma.dispute.count({
-        where: { booking: { clientId: userId }, status: { in: ['OPEN', 'UNDER_REVIEW'] } },
+        where: { booking: { clientId: userId }, status: { in: OPEN_DISPUTE_STATUSES } },
       }),
     ]);
 

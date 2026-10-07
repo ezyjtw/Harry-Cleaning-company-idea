@@ -90,17 +90,11 @@ const ADDONS: Record<string, Array<{ name: string; price: number }>> = {
   ],
 };
 
+// B4 (RENA-075): cleaner_fee_pct and customer_fee_pct are gone; the rates are
+// code (src/lib/pricing/rates.ts) and the money_ledger migration deleted the
+// rows. N8 (James-ruled): every row below is create-if-missing, so an admin's
+// edit is never reset by a deploy.
 const PLATFORM_CONFIG = [
-  {
-    key: 'cleaner_fee_pct',
-    value: '0.10',
-    description: 'Platform fee deducted from cleaner payout (10%)',
-  },
-  {
-    key: 'customer_fee_pct',
-    value: '0.06',
-    description: 'Service fee added on top for customer (6%)',
-  },
   {
     key: 'same_day_multiplier',
     value: '1.30',
@@ -204,7 +198,7 @@ async function main() {
   for (const config of PLATFORM_CONFIG) {
     await prisma.platformConfig.upsert({
       where: { key: config.key },
-      update: { value: config.value, description: config.description },
+      update: {},
       create: config,
     });
   }

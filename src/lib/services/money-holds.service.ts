@@ -174,3 +174,28 @@ export async function clearShortfall(
   await resumeIfUnheld(bookingId, { trigger: 'ADMIN', actorId });
   return { ok: true };
 }
+
+/**
+ * Admin: a chargeback that arrived after the payout (CHARGEBACK_AFTER_RELEASE)
+ * has been dealt with outside the platform (recovered from the cleaner, or
+ * absorbed); recorded and audited, no money moves here.
+ */
+export async function acknowledgeChargebackAfterRelease(
+  holdId: string,
+  actorId: string
+): Promise<{ ok: boolean; error?: string }> {
+  const r = await prisma.chargebackHold.updateMany({
+    where: { id: holdId, status: 'AFTER_RELEASE' },
+    data: { status: 'CLOSED', closedAt: new Date() },
+  });
+  if (r.count !== 1) return { ok: false, error: 'Not an open chargeback after release' };
+  const hold = await prisma.chargebackHold.findUniqueOrThrow({ where: { id: holdId } });
+  await AuditService.log({
+    userId: actorId,
+    action: 'CHARGEBACK_HOLD_CLOSED',
+    entityType: 'Booking',
+    entityId: hold.bookingId,
+    metadata: { stripeDisputeId: hold.stripeDisputeId, outcome: 'AFTER_RELEASE_ACKNOWLEDGED' },
+  }).catch(() => {});
+  return { ok: true };
+}
