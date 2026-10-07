@@ -3,9 +3,10 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { signIn } from 'next-auth/react';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useId } from 'react';
 
 import ShellCameraNotice from '@/components/ShellCameraNotice';
+import SharedFieldError, { fieldErrorProps } from '@/components/ui/FieldError';
 import PasswordInput from '@/components/ui/PasswordInput';
 import PasswordRequirements from '@/components/ui/PasswordRequirements';
 import SimpleMarkdown, { stripLeadingH1 } from '@/components/ui/SimpleMarkdown';
@@ -289,10 +290,24 @@ function Input({
   );
 }
 
-function FieldError({ message }: { message?: string }) {
-  if (!message) return null;
-  return <p className="mt-1.5 font-jost text-[12px] text-danger">{message}</p>;
+// RENA-054 (B2b, amendment 4): the shared primitive with the join wizard's
+// own look; the paired input carries aria-invalid and aria-describedby
+// (joinErrorProps) only while the error exists.
+function FieldError({ message, field }: { message?: string; field?: string }) {
+  if (!field) {
+    if (!message) return null;
+    return <p className="mt-1.5 font-jost text-[12px] text-danger">{message}</p>;
+  }
+  return (
+    <SharedFieldError
+      fieldId={`join-${field}`}
+      message={message}
+      className="mt-1.5 font-jost text-[12px] text-danger"
+    />
+  );
 }
+const joinErrorProps = (field: string, message?: string) =>
+  fieldErrorProps(`join-${field}`, message);
 
 function PillToggle({
   label,
@@ -327,6 +342,7 @@ function CustomAddInput({
 }) {
   const [value, setValue] = useState('');
   const [error, setError] = useState('');
+  const errorFieldId = `join-add-${useId().replace(/:/g, '')}`;
 
   function handleAdd() {
     const trimmed = value.trim();
@@ -351,6 +367,7 @@ function CustomAddInput({
           type="text"
           placeholder={placeholder}
           value={value}
+          {...fieldErrorProps(errorFieldId, error)}
           onChange={(e) => {
             setValue(e.target.value);
             if (error) setError('');
@@ -371,7 +388,11 @@ function CustomAddInput({
           Add
         </button>
       </div>
-      {error && <p className="mt-1.5 font-jost text-[12px] text-danger">{error}</p>}
+      <SharedFieldError
+        fieldId={errorFieldId}
+        message={error}
+        className="mt-1.5 font-jost text-[12px] text-danger"
+      />
     </div>
   );
 }
@@ -1652,32 +1673,35 @@ export default function JoinAsCleanerPage() {
               <div>
                 <Label>First name</Label>
                 <Input
+                  {...joinErrorProps('firstName', errors.firstName)}
                   type="text"
                   required
                   value={form.firstName}
                   onChange={(e) => set('firstName', e.target.value)}
                 />
-                <FieldError message={errors.firstName} />
+                <FieldError message={errors.firstName} field="firstName" />
               </div>
               <div>
                 <Label>Last name</Label>
                 <Input
+                  {...joinErrorProps('lastName', errors.lastName)}
                   type="text"
                   required
                   value={form.lastName}
                   onChange={(e) => set('lastName', e.target.value)}
                 />
-                <FieldError message={errors.lastName} />
+                <FieldError message={errors.lastName} field="lastName" />
               </div>
               <div>
                 <Label>Email</Label>
                 <Input
+                  {...joinErrorProps('email', errors.email)}
                   type="email"
                   required
                   value={form.email}
                   onChange={(e) => set('email', e.target.value)}
                 />
-                <FieldError message={errors.email} />
+                <FieldError message={errors.email} field="email" />
                 {accountExists && (
                   <p className="mt-1 font-jost text-[12px]">
                     <Link href="/login?callbackUrl=/join" className="text-primary underline">
@@ -1689,16 +1713,18 @@ export default function JoinAsCleanerPage() {
               <div>
                 <Label>Phone</Label>
                 <Input
+                  {...joinErrorProps('phone', errors.phone)}
                   type="tel"
                   required
                   value={form.phone}
                   onChange={(e) => set('phone', e.target.value)}
                 />
-                <FieldError message={errors.phone} />
+                <FieldError message={errors.phone} field="phone" />
               </div>
               <div>
                 <Label>Postcode</Label>
                 <Input
+                  {...joinErrorProps('postcode', errors.postcode)}
                   type="text"
                   required
                   placeholder="e.g. E4 6AP"
@@ -1712,7 +1738,7 @@ export default function JoinAsCleanerPage() {
                     if (norm) set('postcode', norm);
                   }}
                 />
-                <FieldError message={errors.postcode} />
+                <FieldError message={errors.postcode} field="postcode" />
               </div>
               <div>
                 <Label>Date of Birth</Label>
@@ -1804,7 +1830,7 @@ export default function JoinAsCleanerPage() {
                     )}
                   </select>
                 </div>
-                <FieldError message={errors.dateOfBirth} />
+                <FieldError message={errors.dateOfBirth} field="dateOfBirth" />
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
@@ -1815,12 +1841,13 @@ export default function JoinAsCleanerPage() {
                     autoComplete="new-password"
                     placeholder="Min. 8 characters"
                     value={form.password}
+                    {...joinErrorProps('password', errors.password)}
                     onChange={(e) => set('password', e.target.value)}
                     wrapperClassName="mt-1.5"
                     className={`input-base bg-surface ${errors.password ? 'input-error' : ''}`}
                   />
                   <PasswordRequirements password={form.password} />
-                  <FieldError message={errors.password} />
+                  <FieldError message={errors.password} field="password" />
                 </div>
                 <div>
                   <Label>Confirm Password</Label>
@@ -1830,11 +1857,12 @@ export default function JoinAsCleanerPage() {
                     autoComplete="new-password"
                     placeholder="Re-enter password"
                     value={form.confirmPassword}
+                    {...joinErrorProps('confirmPassword', errors.confirmPassword)}
                     onChange={(e) => set('confirmPassword', e.target.value)}
                     wrapperClassName="mt-1.5"
                     className={`input-base bg-surface ${errors.confirmPassword ? 'input-error' : ''}`}
                   />
-                  <FieldError message={errors.confirmPassword} />
+                  <FieldError message={errors.confirmPassword} field="confirmPassword" />
                 </div>
               </div>
               <div>
@@ -2030,7 +2058,7 @@ export default function JoinAsCleanerPage() {
                     <p className="mt-2 font-jost text-[11px] text-ink-3">
                       JPG, PNG or WebP. Max 5 MB. A clear headshot works best.
                     </p>
-                    <FieldError message={errors.profilePhoto} />
+                    <FieldError message={errors.profilePhoto} field="profilePhoto" />
                   </div>
                 </div>
               </div>
@@ -2046,6 +2074,7 @@ export default function JoinAsCleanerPage() {
             <div>
               <Label>Years of Experience</Label>
               <Input
+                {...joinErrorProps('yearsExperience', errors.yearsExperience)}
                 type="number"
                 min="0"
                 max="50"
@@ -2053,7 +2082,7 @@ export default function JoinAsCleanerPage() {
                 value={form.yearsExperience}
                 onChange={(e) => set('yearsExperience', e.target.value)}
               />
-              <FieldError message={errors.yearsExperience} />
+              <FieldError message={errors.yearsExperience} field="yearsExperience" />
             </div>
 
             <div>
@@ -2068,7 +2097,7 @@ export default function JoinAsCleanerPage() {
                   />
                 ))}
               </div>
-              <FieldError message={errors.serviceTypes} />
+              <FieldError message={errors.serviceTypes} field="serviceTypes" />
             </div>
 
             <div>
@@ -2118,7 +2147,7 @@ export default function JoinAsCleanerPage() {
                   }
                 }}
               />
-              <FieldError message={errors.languages} />
+              <FieldError message={errors.languages} field="languages" />
             </div>
 
             <div>
@@ -2128,10 +2157,11 @@ export default function JoinAsCleanerPage() {
                 required
                 value={form.bio}
                 onChange={(e) => set('bio', e.target.value)}
+                {...joinErrorProps('bio', errors.bio)}
                 placeholder="Tell potential customers about yourself, your experience, and what makes your service special..."
                 className="mt-1.5 w-full rounded-[10px] bg-surface px-4 py-2.5 font-jost text-[14px] font-light text-ink placeholder:text-ink-3/50 focus:outline-none focus:ring-2 focus:ring-primary/20 transition resize-none border border-line"
               />
-              <FieldError message={errors.bio} />
+              <FieldError message={errors.bio} field="bio" />
             </div>
           </div>
         )}
@@ -2159,6 +2189,7 @@ export default function JoinAsCleanerPage() {
                           inputMode="decimal"
                           required
                           value={form.serviceRates[svc] || ''}
+                          {...joinErrorProps(`rate_${svc}`, errors[`rate_${svc}`])}
                           onChange={(e) =>
                             set('serviceRates', {
                               ...form.serviceRates,
@@ -2171,7 +2202,7 @@ export default function JoinAsCleanerPage() {
                       <p className="mt-1.5 font-jost text-[11px] text-ink-3">
                         Typical range: {info.range}
                       </p>
-                      <FieldError message={errors[`rate_${svc}`]} />
+                      <FieldError message={errors[`rate_${svc}`]} field={`rate_${svc}`} />
                     </div>
                   );
                 })}
@@ -2201,6 +2232,7 @@ export default function JoinAsCleanerPage() {
             <div>
               <Label>Typical Working Hours / Week</Label>
               <Input
+                {...joinErrorProps('hoursPerWeek', errors.hoursPerWeek)}
                 type="number"
                 min="1"
                 max="80"
@@ -2208,7 +2240,7 @@ export default function JoinAsCleanerPage() {
                 value={form.hoursPerWeek}
                 onChange={(e) => set('hoursPerWeek', e.target.value)}
               />
-              <FieldError message={errors.hoursPerWeek} />
+              <FieldError message={errors.hoursPerWeek} field="hoursPerWeek" />
             </div>
 
             <div>
@@ -2218,6 +2250,7 @@ export default function JoinAsCleanerPage() {
                 travel time will see your profile.
               </p>
               <Input
+                {...joinErrorProps('maxTravelMinutes', errors.maxTravelMinutes)}
                 type="number"
                 min="5"
                 max="120"
@@ -2226,7 +2259,7 @@ export default function JoinAsCleanerPage() {
                 value={form.maxTravelMinutes}
                 onChange={(e) => set('maxTravelMinutes', e.target.value)}
               />
-              <FieldError message={errors.maxTravelMinutes} />
+              <FieldError message={errors.maxTravelMinutes} field="maxTravelMinutes" />
             </div>
           </div>
         )}
@@ -2248,7 +2281,7 @@ export default function JoinAsCleanerPage() {
                 uploadedLabel="Photo ID uploaded"
                 onFile={(dataUrl) => set('photoIdFile', dataUrl)}
               />
-              <FieldError message={errors.photoIdFile} />
+              <FieldError message={errors.photoIdFile} field="photoIdFile" />
             </div>
 
             {/* ---- Right to Work ---- */}
@@ -2274,7 +2307,7 @@ export default function JoinAsCleanerPage() {
                   <option value="share_code">Home Office Share Code</option>
                   <option value="visa">Work Visa</option>
                 </select>
-                <FieldError message={errors.rightToWorkDocType} />
+                <FieldError message={errors.rightToWorkDocType} field="rightToWorkDocType" />
               </div>
 
               {form.rightToWorkDocType === 'share_code' && (
@@ -2286,12 +2319,13 @@ export default function JoinAsCleanerPage() {
                   <input
                     type="text"
                     value={form.rightToWorkShareCode}
+                    {...joinErrorProps('rightToWorkShareCode', errors.rightToWorkShareCode)}
                     onChange={(e) => set('rightToWorkShareCode', e.target.value.toUpperCase())}
                     placeholder="e.g. A1B2C3D4E"
                     maxLength={9}
                     className="input-base mt-1.5 block bg-surface"
                   />
-                  <FieldError message={errors.rightToWorkShareCode} />
+                  <FieldError message={errors.rightToWorkShareCode} field="rightToWorkShareCode" />
                 </div>
               )}
 
@@ -2321,7 +2355,7 @@ export default function JoinAsCleanerPage() {
                   uploadedLabel="Right to work document uploaded"
                   onFile={(dataUrl) => set('rightToWorkDocFile', dataUrl)}
                 />
-                <FieldError message={errors.rightToWorkDocFile} />
+                <FieldError message={errors.rightToWorkDocFile} field="rightToWorkDocFile" />
               </div>
             </div>
 
@@ -2386,7 +2420,7 @@ export default function JoinAsCleanerPage() {
                   </button>
                 ))}
               </div>
-              <FieldError message={errors.dbsOption} />
+              <FieldError message={errors.dbsOption} field="dbsOption" />
             </div>
 
             {/* Existing DBS Details */}
@@ -2399,22 +2433,24 @@ export default function JoinAsCleanerPage() {
                   <div>
                     <Label>Certificate Number</Label>
                     <Input
+                      {...joinErrorProps('dbsCertNumber', errors.dbsCertNumber)}
                       type="text"
                       placeholder="12-digit number"
                       maxLength={12}
                       value={form.dbsCertNumber}
                       onChange={(e) => set('dbsCertNumber', e.target.value.replace(/[^0-9]/g, ''))}
                     />
-                    <FieldError message={errors.dbsCertNumber} />
+                    <FieldError message={errors.dbsCertNumber} field="dbsCertNumber" />
                   </div>
                   <div>
                     <Label>Issue Date</Label>
                     <Input
+                      {...joinErrorProps('dbsCertIssueDate', errors.dbsCertIssueDate)}
                       type="date"
                       value={form.dbsCertIssueDate}
                       onChange={(e) => set('dbsCertIssueDate', e.target.value)}
                     />
-                    <FieldError message={errors.dbsCertIssueDate} />
+                    <FieldError message={errors.dbsCertIssueDate} field="dbsCertIssueDate" />
                   </div>
                 </div>
                 <div>
@@ -2430,7 +2466,7 @@ export default function JoinAsCleanerPage() {
                     uploadedLabel="DBS certificate uploaded"
                     onFile={(dataUrl) => set('dbsCertFile', dataUrl)}
                   />
-                  <FieldError message={errors.dbsCertFile} />
+                  <FieldError message={errors.dbsCertFile} field="dbsCertFile" />
                 </div>
               </div>
             )}
@@ -2666,7 +2702,7 @@ export default function JoinAsCleanerPage() {
                   </div>
                 </div>
               </div>
-              <FieldError message={errors.selfiePhoto} />
+              <FieldError message={errors.selfiePhoto} field="selfiePhoto" />
             </div>
 
             <div className="rounded-[10px] border border-line bg-primary-soft/50 px-4 py-3">
@@ -2699,7 +2735,10 @@ export default function JoinAsCleanerPage() {
                 as a self-employed cleaner.
               </span>
             </label>
-            <FieldError message={errors.acknowledgeSelfEmployment} />
+            <FieldError
+              message={errors.acknowledgeSelfEmployment}
+              field="acknowledgeSelfEmployment"
+            />
           </div>
         )}
 
@@ -3000,10 +3039,13 @@ export default function JoinAsCleanerPage() {
                 and consent to a background check as part of the verification process.
               </span>
             </label>
-            <FieldError message={errors.agreedToTerms} />
+            <FieldError message={errors.agreedToTerms} field="agreedToTerms" />
 
             {errors.submit && (
-              <div className="rounded-[10px] border border-danger/20 bg-red-50 px-4 py-3 font-jost text-[13px] font-light text-danger">
+              <div
+                role="alert"
+                className="rounded-[10px] border border-danger/20 bg-red-50 px-4 py-3 font-jost text-[13px] font-light text-danger"
+              >
                 {errors.submit}
                 {/* H99 P2: an expired session at submit is a re-auth, never a
                     dead end — the draft lives in this browser and survives the

@@ -11,6 +11,7 @@ import {
   eotSizeLabel,
   airbnbSizeLabel,
 } from '@/lib/constants/services';
+import { loadJson } from '@/lib/load-state';
 import type { Cleaner } from '@/lib/types';
 import { normalizeUkPostcode } from '@/lib/validation/inputs';
 
@@ -144,26 +145,33 @@ function CleanersContent({
 
   const [propertySize, setPropertySize] = useState<number | null>(null);
 
+  // RENA-053 (B2b): a failed load is its own state, never the zero-results
+  // copy. Retry re-runs the same postcode; filters and sort live in state and
+  // survive. The server-rendered seed never sets it, so the served markup is
+  // unchanged.
+  const [loadFailure, setLoadFailure] = useState<'offline' | 'error' | null>(null);
+  const lastPostcode = useRef<string | undefined>(undefined);
   const fetchCleaners = useCallback(async (postcodeFilter?: string) => {
+    lastPostcode.current = postcodeFilter;
     setLoading(true);
-    try {
-      const params = new URLSearchParams();
-      if (postcodeFilter) params.set('postcode', postcodeFilter);
-      params.set('limit', '50');
-      const res = await fetch(`/api/cleaners?${params.toString()}`);
-      if (res.ok) {
-        const data = await res.json();
-        const mapped: Cleaner[] = mapApiCleaners(data.cleaners);
-        setAllCleaners(mapped);
-        if (postcodeFilter) {
-          setCleanerCount(data.count);
-        }
+    const params = new URLSearchParams();
+    if (postcodeFilter) params.set('postcode', postcodeFilter);
+    params.set('limit', '50');
+    const result = await loadJson<{ cleaners?: unknown; count?: number }>(
+      `/api/cleaners?${params.toString()}`
+    );
+    if (result.ok) {
+      setLoadFailure(null);
+      const mapped: Cleaner[] = mapApiCleaners(result.data.cleaners as Record<string, unknown>[]);
+      setAllCleaners(mapped);
+      if (postcodeFilter) {
+        setCleanerCount(result.data.count ?? null);
       }
-    } catch {
-      // silently fail — show empty state
-    } finally {
-      setLoading(false);
+    } else {
+      // The directory is public: every failure here is offline or retryable.
+      setLoadFailure(result.failure === 'offline' ? 'offline' : 'error');
     }
+    setLoading(false);
   }, []);
 
   useEffect(() => {
@@ -434,6 +442,25 @@ function CleanersContent({
             <p className="py-16 text-center font-jost text-[14px] font-light text-ink-3">
               Loading cleaners...
             </p>
+          ) : loadFailure ? (
+            <div className="py-16 text-center" data-testid="cleaners-load-error" role="status">
+              <p className="font-jost text-[16px] font-medium text-ink">
+                {loadFailure === 'offline' ? 'You\u2019re offline' : 'Couldn\u2019t load cleaners'}
+              </p>
+              <p className="mt-1 font-jost text-[14px] font-light text-ink-3">
+                {loadFailure === 'offline'
+                  ? 'Check your connection, then try again.'
+                  : 'Something went wrong on our side. Your search is kept.'}
+              </p>
+              <button
+                type="button"
+                data-testid="cleaners-retry"
+                onClick={() => fetchCleaners(lastPostcode.current)}
+                className="mt-5 inline-flex rounded-full bg-ink px-6 py-2.5 font-jost text-[13px] font-medium text-white transition hover:bg-ink/90"
+              >
+                Try again
+              </button>
+            </div>
           ) : (
             <>
               <p className="mb-6 font-jost text-[13px] font-light text-ink-3">

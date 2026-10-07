@@ -5,6 +5,7 @@ import { useState } from 'react';
 
 import { CustomerBackLink, useCustomerShell } from '@/components/app/customer';
 import JunkMailHint from '@/components/JunkMailHint';
+import FieldError, { fieldErrorProps } from '@/components/ui/FieldError';
 
 const SUBJECT_OPTIONS = [
   'General Enquiry',
@@ -60,6 +61,10 @@ export default function ContactPage() {
     }
 
     setErrors(newErrors);
+    // RENA-054 (B2b): take the person to the first problem, where its
+    // describedby error is read out (no alert role on field errors).
+    const first = (['name', 'email', 'message'] as const).find((k) => newErrors[k]);
+    if (first) requestAnimationFrame(() => document.getElementById(first)?.focus());
     return Object.keys(newErrors).length === 0;
   }
 
@@ -184,6 +189,7 @@ export default function ContactPage() {
         <form onSubmit={handleSubmit} className="mt-10 space-y-6" noValidate>
           {serverError && (
             <div
+              role="alert"
               className="bg-red-50 p-4 font-jost text-sm text-red-700"
               style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
             >
@@ -201,6 +207,7 @@ export default function ContactPage() {
             </label>
             <input
               id="name"
+              {...fieldErrorProps('name', errors.name)}
               name="name"
               type="text"
               required
@@ -212,7 +219,11 @@ export default function ContactPage() {
               className="mt-1 block w-full bg-cream px-4 py-2.5 font-jost font-light text-ink placeholder:text-ink-3 focus:outline-none focus:ring-1 focus:ring-ink"
               placeholder="Your full name"
             />
-            {errors.name && <p className="mt-1 font-jost text-sm text-red-600">{errors.name}</p>}
+            <FieldError
+              fieldId="name"
+              message={errors.name}
+              className="mt-1 font-jost text-sm text-red-600"
+            />
           </div>
 
           {/* Email */}
@@ -225,6 +236,7 @@ export default function ContactPage() {
             </label>
             <input
               id="email"
+              {...fieldErrorProps('email', errors.email)}
               name="email"
               type="email"
               required
@@ -236,7 +248,11 @@ export default function ContactPage() {
               className="mt-1 block w-full bg-cream px-4 py-2.5 font-jost font-light text-ink placeholder:text-ink-3 focus:outline-none focus:ring-1 focus:ring-ink"
               placeholder="you@example.com"
             />
-            {errors.email && <p className="mt-1 font-jost text-sm text-red-600">{errors.email}</p>}
+            <FieldError
+              fieldId="email"
+              message={errors.email}
+              className="mt-1 font-jost text-sm text-red-600"
+            />
           </div>
 
           {/* Phone */}
@@ -313,6 +329,7 @@ export default function ContactPage() {
             </label>
             <textarea
               id="message"
+              {...fieldErrorProps('message', errors.message)}
               name="message"
               required
               rows={5}
@@ -324,9 +341,11 @@ export default function ContactPage() {
               className="mt-1 block w-full bg-cream px-4 py-2.5 font-jost font-light text-ink placeholder:text-ink-3 focus:outline-none focus:ring-1 focus:ring-ink"
               placeholder="Tell us how we can help..."
             />
-            {errors.message && (
-              <p className="mt-1 font-jost text-sm text-red-600">{errors.message}</p>
-            )}
+            <FieldError
+              fieldId="message"
+              message={errors.message}
+              className="mt-1 font-jost text-sm text-red-600"
+            />
           </div>
 
           {/* Submit */}

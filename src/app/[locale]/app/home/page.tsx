@@ -8,7 +8,8 @@
 // No dashes, no zeros, ever.
 
 import Link from 'next/link';
-import { useCallback, useEffect, useState } from 'react';
+import { signOut } from 'next-auth/react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import {
   CustomerAccountMenu,
@@ -24,8 +25,10 @@ import {
   pastDayWord,
   UNPAID_EXPIRY_LINE,
 } from '@/components/app/customer';
+import PaneLoadFailure from '@/components/app/PaneLoadFailure';
 import { serviceLabelFromSlug } from '@/lib/constants/services';
 import { registerPane } from '@/lib/freshness';
+import { endSessionToLogin, loadJson, type LoadFailure } from '@/lib/load-state';
 
 interface HomeBooking {
   id: string;
@@ -83,14 +86,38 @@ export default function CustomerHomePage() {
   // from a payment, cancellation or reschedule, and on activation (coalesced
   // at 15 s). Refetches keep the painted cards (stale while revalidate); only
   // the first load shows the skeleton.
+  // RENA-019 (B2b, amendment 1): the bookings call decides the pane's state
+  // (offline, a 401 to the R6 belt, a 403 access error, a retryable error, or
+  // ready); only a successful empty answer renders No Cleans. The profile
+  // call is best effort and only ever drops the first name. A refetch that
+  // fails keeps the painted cards, except a 401, which always ends the session.
+  const [failure, setFailure] = useState<Exclude<LoadFailure, 'unauthorised'> | null>(null);
+  const painted = useRef(false);
+  const leaving = useRef(false);
   const load = useCallback(() => {
     Promise.all([
-      fetch('/api/auth/profile').then((r) => (r.ok ? r.json() : null)),
-      fetch('/api/bookings?pageSize=50').then((r) => (r.ok ? r.json() : null)),
+      fetch('/api/auth/profile')
+        .then((r) => (r.ok ? r.json() : null))
+        .catch(() => null),
+      loadJson<{ data?: Record<string, unknown>[] }>('/api/bookings?pageSize=50'),
     ])
-      .then(([prof, data]) => {
+      .then(([prof, result]) => {
         const u = prof?.id ? prof : prof?.user;
         if (u?.name) setFirstName(String(u.name).split(' ')[0]);
+        if (!result.ok) {
+          if (result.failure === 'unauthorised') {
+            // Keep the skeleton up while the belt leaves: never a flash of
+            // No Cleans on the way to /login.
+            leaving.current = true;
+            void endSessionToLogin('/app/home', signOut);
+            return;
+          }
+          if (!painted.current) setFailure(result.failure);
+          return;
+        }
+        painted.current = true;
+        setFailure(null);
+        const data = result.data;
         const raw: Record<string, unknown>[] = data?.data || [];
         const items = raw.map(toHomeBooking);
         const todayIso = new Date().toISOString().split('T')[0];
@@ -120,7 +147,9 @@ export default function CustomerHomePage() {
         setUnreviewed(pending[0] ?? null);
       })
       .catch(() => {})
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (!leaving.current) setLoading(false);
+      });
   }, []);
 
   useEffect(() => {
@@ -160,6 +189,15 @@ export default function CustomerHomePage() {
           <div className="skeleton-pulse h-40 rounded-xl" />
           <div className="skeleton-pulse h-12 rounded-xl" />
         </div>
+      ) : failure ? (
+        <PaneLoadFailure
+          failure={failure}
+          testId="home-failure"
+          onRetry={() => {
+            setLoading(true);
+            load();
+          }}
+        />
       ) : (
         <div className="space-y-4">
           {/* Honest unpaid state — unmissable, above the hero. Finish is the

@@ -16,6 +16,7 @@ import CleanerIdentity from '@/components/CleanerIdentity';
 import CleanerProfileModal from '@/components/CleanerProfileModal';
 import SameDayComingSoonBanner from '@/components/SameDayComingSoonBanner';
 import StarRating from '@/components/StarRating';
+import SharedFieldError, { fieldErrorProps } from '@/components/ui/FieldError';
 import VerificationBadge from '@/components/VerificationBadge';
 import { useAuth } from '@/hooks/useAuth';
 import { SAME_DAY_FEATURE_ENABLED } from '@/lib/config/features';
@@ -352,6 +353,10 @@ function calculateSuggestedHours(rooms: RoomConfig, category: ServiceCategory): 
 }
 
 type WizardPhase = 'quote' | 'cleaner';
+
+// RENA-020 (B2b): one-shot marker naming the road whose answers ride the
+// inline sign-in round trip on the website.
+const SIGNIN_FLOW_MARKER = 'rena-flow-signin';
 
 export default function BookingWizardPage({ params }: { params: { category: string } }) {
   const category = params.category as ServiceCategory;
@@ -701,12 +706,12 @@ export default function BookingWizardPage({ params }: { params: { category: stri
       (el as HTMLElement | null)?.focus?.({ preventScroll: true });
     });
   }, []);
-  const FieldError = ({ k }: { k: string }) =>
-    fieldErrors[k] ? (
-      <p role="alert" className="mt-2 font-jost text-sm text-danger">
-        {fieldErrors[k]}
-      </p>
-    ) : null;
+  // RENA-054 (B2b, amendment 4): the shared primitive; the field (its focus
+  // target, which failValidation focuses) carries describedby while it errs.
+  const FieldError = ({ k }: { k: string }) => (
+    <SharedFieldError fieldId={k} message={fieldErrors[k]} />
+  );
+  const describedBy = (k: string) => fieldErrorProps(k, fieldErrors[k])['aria-describedby'];
   const [confirmedBookingId, setConfirmedBookingId] = useState('');
   // RENA-020 (B2a): the token the server minted for a guest booking rides the
   // Stripe return_url, or the confirmation page cannot read the booking.
@@ -988,11 +993,61 @@ export default function BookingWizardPage({ params }: { params: { category: stri
   // platform's own expiring shape, H53).
   const flowStoreKey = `rena-flow:${category}:${preSelectedCleanerId ?? '-'}`;
   const flowRestored = useRef(false);
+  // RENA-020 (B2b): the guest's answers ride the inline sign-in round trip on
+  // the website. The guest email is not kept (after sign-in the account's
+  // own address is used); the payment step never is.
+  const saveFlowForSignin = () => {
+    try {
+      sessionStorage.setItem(
+        flowStoreKey,
+        JSON.stringify({
+          ts: Date.now(),
+          phase,
+          postcode,
+          rooms,
+          selectedHours,
+          cleanerBringsProducts,
+          selectedCleanerIds,
+          backupCleanerIds,
+          autoAssignBackup,
+          dateTimeSelection,
+          keyAccess,
+          keyAccessNote,
+          specialInstructions,
+          cleanerNote,
+          address,
+          gridDate,
+          soloDate,
+          scheduling,
+          shellTimeStage,
+          shellFixedStage,
+          shellBookStage,
+        })
+      );
+      sessionStorage.setItem(SIGNIN_FLOW_MARKER, flowStoreKey);
+    } catch {
+      /* best effort: the sign-in still works, the answers are re-entered */
+    }
+  };
   useEffect(() => {
-    if (!inCustomerShell || flowRestored.current) return;
+    if (flowRestored.current) return;
+    // RENA-020 (B2b): the website restores too, once, when the guest left
+    // through the inline sign-in link (a one-shot marker naming this road's
+    // key, written on that click); otherwise the restore stays in-shell only.
+    let viaSignin = false;
+    try {
+      viaSignin = sessionStorage.getItem(SIGNIN_FLOW_MARKER) === flowStoreKey;
+    } catch {
+      /* storage unavailable: no restore */
+    }
+    if (!inCustomerShell && !viaSignin) return;
     flowRestored.current = true;
     try {
       const raw = sessionStorage.getItem(flowStoreKey);
+      if (viaSignin) {
+        sessionStorage.removeItem(SIGNIN_FLOW_MARKER);
+        if (!inCustomerShell) sessionStorage.removeItem(flowStoreKey);
+      }
       if (!raw) return;
       const s = JSON.parse(raw);
       if (!s || typeof s !== 'object' || !s.ts || Date.now() - s.ts > 60 * 60 * 1000) {
@@ -1256,6 +1311,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
     <div
       id="booking-address"
       tabIndex={-1}
+      aria-describedby={describedBy('booking-address')}
       className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-ink/[0.06] sm:p-8 scroll-mt-24"
     >
       <h2 className="font-newsreader font-semibold text-base text-ink">Cleaning Address</h2>
@@ -2185,6 +2241,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                   }}
                   onBlur={checkGuestEmailAccount}
                   aria-invalid={!!emailError}
+                  aria-describedby={emailError ? 'guest-email-input-error' : undefined}
                   placeholder="you@example.com"
                   className={`mt-4 w-full rounded-lg bg-cream px-4 py-3.5 font-jost font-light text-ink ring-1 transition-all focus:outline-none focus:ring-2 ${
                     emailError
@@ -2193,7 +2250,12 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                   }`}
                 />
                 {emailError && (
-                  <p className="mt-1.5 font-jost text-[12px] text-danger">{emailError}</p>
+                  <p
+                    id="guest-email-input-error"
+                    className="mt-1.5 font-jost text-[12px] text-danger"
+                  >
+                    {emailError}
+                  </p>
                 )}
                 {!emailError && emailHasAccount && (
                   <p
@@ -2201,7 +2263,11 @@ export default function BookingWizardPage({ params }: { params: { category: stri
                     className="mt-2 rounded-lg bg-primary-soft px-3 py-2 font-jost text-[12px] text-primary"
                   >
                     This email has a Rena account —{' '}
-                    <a href={signinHref} className="font-medium underline">
+                    <a
+                      href={signinHref}
+                      onClick={saveFlowForSignin}
+                      className="font-medium underline"
+                    >
                       sign in
                     </a>{' '}
                     and this booking will link automatically. Or just continue as a guest.
@@ -2736,7 +2802,12 @@ export default function BookingWizardPage({ params }: { params: { category: stri
           {/* Date and time selection via calendar — item 6: the WHEN stage's
               one question in-shell. */}
           {shellWhen && (
-            <div id="booking-datetime" tabIndex={-1} className="scroll-mt-24">
+            <div
+              id="booking-datetime"
+              tabIndex={-1}
+              aria-describedby={describedBy('booking-datetime')}
+              className="scroll-mt-24"
+            >
               {/* ROUND 3 LANE 5: in-shell the one time-picking grammar — the
                   slot grid, her free times only. Browsers keep the picker
                   byte-identically. */}
@@ -3102,6 +3173,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
 
           {bookingError && (
             <div
+              role="alert"
               className={
                 inCustomerShell
                   ? 'order-7 mb-4 p-3 rounded bg-red-50 font-jost text-sm text-red-800'
@@ -3386,7 +3458,10 @@ export default function BookingWizardPage({ params }: { params: { category: stri
             {addressCard}
 
             {bookingError && (
-              <div className="mb-4 p-3 rounded bg-red-50 font-jost text-sm text-red-800">
+              <div
+                role="alert"
+                className="mb-4 p-3 rounded bg-red-50 font-jost text-sm text-red-800"
+              >
                 {bookingError}
               </div>
             )}
@@ -3771,7 +3846,12 @@ export default function BookingWizardPage({ params }: { params: { category: stri
               </div>
             </div>
 
-            <div id="booking-datetime" tabIndex={-1} className="scroll-mt-24">
+            <div
+              id="booking-datetime"
+              tabIndex={-1}
+              aria-describedby={describedBy('booking-datetime')}
+              className="scroll-mt-24"
+            >
               <DateTimePicker
                 cleanerId={fixedSelectedCleaner.id}
                 durationHours={effectiveHours}
@@ -4038,6 +4118,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
 
             {bookingError && (
               <div
+                role="alert"
                 className={
                   inCustomerShell
                     ? 'order-7 mb-4 p-3 rounded bg-red-50 font-jost text-sm text-red-800'
@@ -4250,6 +4331,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
       <div
         className={inCustomerShell ? 'mt-10 flex flex-col gap-10' : 'mt-10 space-y-10'}
         id={inCustomerShell ? 'booking-cleaner' : undefined}
+        aria-describedby={inCustomerShell ? describedBy('booking-cleaner') : undefined}
       >
         {/* Results view toggle (M2 — replaces the removed method fork) */}
         {/* ROUTE 1 CORRECTION: the slot grid IS by-your-availability — the
@@ -4285,7 +4367,12 @@ export default function BookingWizardPage({ params }: { params: { category: stri
             cards with honest per-slot counts from the fan-out inversion.
            ════════════════════════════════════════════════════════════ */}
         {inCustomerShell && shellTimeStage === 'when' && (
-          <div id="booking-datetime" tabIndex={-1} className="scroll-mt-24">
+          <div
+            id="booking-datetime"
+            tabIndex={-1}
+            aria-describedby={describedBy('booking-datetime')}
+            className="scroll-mt-24"
+          >
             {/* Date strip */}
             <div className="flex gap-2 overflow-x-auto pb-1">
               {gridDays.map((d) => {
@@ -4745,7 +4832,12 @@ export default function BookingWizardPage({ params }: { params: { category: stri
 
               {/* When to book — the WHEN room's one question in-shell. */}
               {(!inCustomerShell || shellTimeStage === 'when') && (
-                <div id="booking-datetime" tabIndex={-1} className="scroll-mt-24">
+                <div
+                  id="booking-datetime"
+                  tabIndex={-1}
+                  aria-describedby={describedBy('booking-datetime')}
+                  className="scroll-mt-24"
+                >
                   <DateTimePicker
                     cleanerId={selectedCleaner.id}
                     durationHours={effectiveHours}
@@ -5024,6 +5116,7 @@ export default function BookingWizardPage({ params }: { params: { category: stri
 
               {bookingError && (
                 <div
+                  role="alert"
                   className={
                     inCustomerShell
                       ? 'order-7 mb-4 p-3 rounded bg-red-50 font-jost text-sm text-red-800'

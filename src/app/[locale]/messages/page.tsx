@@ -9,6 +9,7 @@ import ConversationInfoSheet from '@/components/messages/ConversationInfoSheet';
 import { Avatar, ConversationRow, MessageBubble } from '@/components/messages/primitives';
 import { useAuth } from '@/hooks/useAuth';
 import { serviceLabelFromSlug } from '@/lib/constants/services';
+import { markStale } from '@/lib/freshness';
 import { isCustomerShellUA, isShellUA } from '@/lib/shell';
 import { detectContactInfo } from '@/lib/utils/pii';
 
@@ -213,6 +214,10 @@ export default function MessagesPage() {
   const openThread = useCallback((id: string) => {
     setActiveConversationId(id);
     if (typeof window === 'undefined') return;
+    // RENA-084 mechanism 3 (B2b): reading a thread changes the unread badges
+    // the dashboards show, so they refetch the moment they are shown again
+    // (including a back-forward cache restore).
+    markStale(['account', 'cleaner', 'home']);
     if (window.matchMedia('(min-width: 768px)').matches) return;
     const current = (window.history.state ?? {}) as Record<string, unknown>;
     if (current.__renaThread === id) return;

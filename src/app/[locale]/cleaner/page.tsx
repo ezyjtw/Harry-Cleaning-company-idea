@@ -13,6 +13,7 @@ import VerifyEmailBanner from '@/components/VerifyEmailBanner';
 import { useAuth } from '@/hooks/useAuth';
 import { SAME_DAY_FEATURE_ENABLED } from '@/lib/config/features';
 import { bedroomsLabel, serviceLabelFromSlug } from '@/lib/constants/services';
+import { registerPane } from '@/lib/freshness';
 
 interface UpcomingJob {
   id: string;
@@ -185,8 +186,15 @@ export default function CleanerDashboard() {
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
+    // RENA-084 mechanism 3 (B2b): the dashboard joins the freshness contract
+    // (back-forward cache restore, tab return, stale markers); a refetch that
+    // fails keeps the painted dashboard.
+    const unregister = registerPane('cleaner', () => {
+      loadDashboard().catch(() => {});
+    });
     return () => {
       cancelled = true;
+      unregister();
     };
   }, [authLoading, isAuthenticated, isCleaner, loadDashboard]);
 

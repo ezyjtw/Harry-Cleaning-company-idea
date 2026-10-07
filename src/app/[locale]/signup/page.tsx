@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { signIn } from 'next-auth/react';
 import { useEffect, useState } from 'react';
 
+import FieldError, { fieldErrorProps } from '@/components/ui/FieldError';
 import PasswordInput from '@/components/ui/PasswordInput';
 import PasswordRequirements from '@/components/ui/PasswordRequirements';
 import { safeCallbackUrl } from '@/lib/auth/callback-url';
@@ -308,6 +309,7 @@ export default function SignupPage() {
             </label>
             <input
               id="firstName"
+              {...fieldErrorProps('firstName', errors.firstName)}
               type="text"
               required
               autoComplete="given-name"
@@ -317,9 +319,11 @@ export default function SignupPage() {
               style={inputStyle('firstName')}
               placeholder="Your first name"
             />
-            {errors.firstName && (
-              <p className="mt-1.5 font-jost text-xs font-light text-red-500">{errors.firstName}</p>
-            )}
+            <FieldError
+              fieldId="firstName"
+              message={errors.firstName}
+              className="mt-1.5 font-jost text-xs font-light text-red-500"
+            />
           </div>
           <div>
             <label
@@ -330,6 +334,7 @@ export default function SignupPage() {
             </label>
             <input
               id="lastName"
+              {...fieldErrorProps('lastName', errors.lastName)}
               type="text"
               required
               autoComplete="family-name"
@@ -339,9 +344,11 @@ export default function SignupPage() {
               style={inputStyle('lastName')}
               placeholder="Your last name"
             />
-            {errors.lastName && (
-              <p className="mt-1.5 font-jost text-xs font-light text-red-500">{errors.lastName}</p>
-            )}
+            <FieldError
+              fieldId="lastName"
+              message={errors.lastName}
+              className="mt-1.5 font-jost text-xs font-light text-red-500"
+            />
           </div>
           <div>
             <label
@@ -352,6 +359,7 @@ export default function SignupPage() {
             </label>
             <input
               id="signup-email"
+              {...fieldErrorProps('signup-email', errors.email)}
               type="email"
               required
               autoComplete="email"
@@ -361,9 +369,11 @@ export default function SignupPage() {
               style={inputStyle('email')}
               placeholder="you@example.com"
             />
-            {errors.email && (
-              <p className="mt-1.5 font-jost text-xs font-light text-red-500">{errors.email}</p>
-            )}
+            <FieldError
+              fieldId="signup-email"
+              message={errors.email}
+              className="mt-1.5 font-jost text-xs font-light text-red-500"
+            />
           </div>
           <div>
             <label
@@ -394,6 +404,7 @@ export default function SignupPage() {
               </label>
               <PasswordInput
                 id="signup-password"
+                {...fieldErrorProps('signup-password', errors.password)}
                 required
                 minLength={8}
                 autoComplete="new-password"
@@ -405,11 +416,11 @@ export default function SignupPage() {
                 placeholder="Min. 8 characters"
               />
               <PasswordRequirements password={form.password} />
-              {errors.password && (
-                <p className="mt-1.5 font-jost text-xs font-light text-red-500">
-                  {errors.password}
-                </p>
-              )}
+              <FieldError
+                fieldId="signup-password"
+                message={errors.password}
+                className="mt-1.5 font-jost text-xs font-light text-red-500"
+              />
             </div>
             <div>
               <label
@@ -420,6 +431,7 @@ export default function SignupPage() {
               </label>
               <PasswordInput
                 id="confirm-password"
+                {...fieldErrorProps('confirm-password', errors.confirmPassword)}
                 required
                 minLength={8}
                 autoComplete="new-password"
@@ -430,11 +442,11 @@ export default function SignupPage() {
                 style={inputStyle('confirmPassword')}
                 placeholder="Re-enter password"
               />
-              {errors.confirmPassword && (
-                <p className="mt-1.5 font-jost text-xs font-light text-red-500">
-                  {errors.confirmPassword}
-                </p>
-              )}
+              <FieldError
+                fieldId="confirm-password"
+                message={errors.confirmPassword}
+                className="mt-1.5 font-jost text-xs font-light text-red-500"
+              />
             </div>
           </div>
           <button

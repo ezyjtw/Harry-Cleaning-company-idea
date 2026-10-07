@@ -76,7 +76,7 @@ export default function Navbar() {
         <>
           <div className="fixed inset-0 z-40 bg-ink/20" onClick={() => setOpen(false)} />
           <nav
-            className="absolute right-4 top-[60px] z-50 w-[300px] max-h-[calc(100vh-80px)] overflow-y-auto rounded-xl bg-white shadow-xl md:right-14 md:top-[72px]"
+            className="absolute right-4 top-[60px] z-50 w-[300px] max-h-[calc(100vh-80px)] overflow-y-auto supports-[height:100dvh]:max-h-[calc(100dvh-80px)] rounded-xl bg-white shadow-xl md:right-14 md:top-[72px]"
             style={{ border: '1px solid rgba(27,42,74,0.08)' }}
             aria-label="Main navigation"
           >

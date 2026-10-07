@@ -8,10 +8,13 @@
 // for browsers.
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { signOut } from 'next-auth/react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { CustomerAccountMenu, CustomerAvatar, CustomerBell } from '@/components/app/customer';
+import PaneLoadFailure from '@/components/app/PaneLoadFailure';
 import { serviceLabelFromSlug } from '@/lib/constants/services';
+import { endSessionToLogin, loadJson, type LoadFailure } from '@/lib/load-state';
 
 interface RecentCleaner {
   id: string;
@@ -66,10 +69,29 @@ export default function CustomerBookPage() {
   // consistent with YOUR CLEANERS (no Book door, the honest line).
   const [recentHidden, setRecentHidden] = useState(false);
 
-  useEffect(() => {
-    fetch('/api/bookings?status=COMPLETED,REVIEWED&pageSize=100')
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data) => {
+  // RENA-019 (B2b, amendment 1): the bookings call decides the QUICKEST slot.
+  // A failure is its own card there (offline, access, retryable error), never
+  // an absent "book again" card; a 401 runs the R6 belt. The service rows are
+  // static doors and always render. The my-cleaners visibility call stays
+  // best effort.
+  const [failure, setFailure] = useState<Exclude<LoadFailure, 'unauthorised'> | null>(null);
+  const leaving = useRef(false);
+  const load = useCallback(() => {
+    loadJson<{ data?: Record<string, unknown>[] }>(
+      '/api/bookings?status=COMPLETED,REVIEWED&pageSize=100'
+    )
+      .then((result) => {
+        if (!result.ok) {
+          if (result.failure === 'unauthorised') {
+            leaving.current = true;
+            void endSessionToLogin('/app/book', signOut);
+            return;
+          }
+          setFailure(result.failure);
+          return;
+        }
+        setFailure(null);
+        const data = result.data;
         const raw: Record<string, unknown>[] = data?.data || [];
         // Newest-first API order: the first row with a cleaner IS the most
         // recent completed clean.
@@ -99,8 +121,14 @@ export default function CustomerBookPage() {
         }
       })
       .catch(() => {})
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (!leaving.current) setLoading(false);
+      });
   }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
 
   const lastWhen = (() => {
     if (!recent?.lastDate) return null;
@@ -132,6 +160,16 @@ export default function CustomerBookPage() {
         </div>
       ) : (
         <div className="space-y-6">
+          {failure && (
+            <PaneLoadFailure
+              failure={failure}
+              testId="book-failure"
+              onRetry={() => {
+                setLoading(true);
+                load();
+              }}
+            />
+          )}
           {recent && (
             <section data-testid="recent-cleaner">
               <p className="font-jost text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-3">

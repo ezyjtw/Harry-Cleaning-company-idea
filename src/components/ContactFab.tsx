@@ -25,11 +25,16 @@ export default function ContactFab() {
   }, []);
   if (pathname === '/contact') return null;
   if (inShell) return null;
+  // RENA-098 (B2b): on a cleaner's profile page the phone-width Book bar owns
+  // the bottom edge; the FAB stood over its right end, where Book sits. It
+  // stands down below md there (the bar is md:hidden); every other route
+  // renders exactly as before.
+  const underBookBar = /^\/cleaners\/[^/]+$/.test(pathname ?? '');
 
   return (
     <Link
       href="/contact"
-      className="fixed bottom-4 right-4 z-50 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary text-white shadow-lg transition-all duration-300 hover:bg-primary-hover"
+      className={`fixed bottom-4 right-4 z-50 ${underBookBar ? 'hidden md:flex' : 'flex'} h-14 w-14 items-center justify-center rounded-2xl bg-primary text-white shadow-lg transition-all duration-300 hover:bg-primary-hover`}
       aria-label="Contact us"
     >
       <svg

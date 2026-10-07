@@ -147,7 +147,11 @@ export default function ReportSheet({ target, reviewId, partnerId, onClose, onRe
               className="mt-3 w-full rounded-[12px] border border-line bg-surface px-3 py-2 font-jost text-sm text-ink placeholder-ink-3"
             />
             {error && (
-              <p className="mt-2 font-jost text-[13px] text-danger" data-testid="report-error">
+              <p
+                role="alert"
+                className="mt-2 font-jost text-[13px] text-danger"
+                data-testid="report-error"
+              >
                 {error}
               </p>
             )}
