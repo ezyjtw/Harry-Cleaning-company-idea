@@ -12,6 +12,7 @@ export const STUCK_MONEY_ACTIONS: readonly AbnormalAction[] = [
   'RETRY_REFUND_REMAINDER',
   'RECONCILE_REVERSAL',
   'RECONCILE_BOOKING_REFUNDS',
+  'APPLY_DASHBOARD_REFUND',
   'RELEASE_NOW',
   'RESUME_RELEASE',
   'CLEAR_SHORTFALL',
@@ -63,6 +64,17 @@ export async function runStuckMoneyAction(
       const { recoverStaleRefunding } = await import('@/lib/services/refund.service');
       const r = await recoverStaleRefunding(bookingId);
       return { ok: true, message: `Transfer is now ${r.transferStatus ?? 'unknown'}` };
+    }
+    case 'APPLY_DASHBOARD_REFUND': {
+      const { applyExternalRefund } = await import('@/lib/services/refund.service');
+      const r = await applyExternalRefund(refId);
+      return {
+        ok: r !== 'DEFERRED',
+        message:
+          r === 'DEFERRED'
+            ? 'Still waiting: money in flight or a reversal pending'
+            : `Dashboard refund ${r.toLowerCase()}`,
+      };
     }
     case 'RELEASE_NOW': {
       const { releaseBookingFunds } = await import('@/lib/services/transfer.service');

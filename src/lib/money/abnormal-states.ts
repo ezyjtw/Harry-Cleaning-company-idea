@@ -25,6 +25,7 @@ export type AbnormalStateName =
   | 'CHARGEBACK_AFTER_RELEASE'
   | 'CHARGEBACK_LOST'
   | 'REFUNDING_STALE'
+  | 'DASHBOARD_REFUND_PENDING'
   | 'TOPUP_UNKNOWN'
   | 'TOPUP_FAILED'
   | 'TOPUP_STALE_PENDING'
@@ -43,6 +44,7 @@ export type AbnormalAction =
   | 'RETRY_REFUND_REMAINDER'
   | 'RECONCILE_REVERSAL'
   | 'RECONCILE_BOOKING_REFUNDS'
+  | 'APPLY_DASHBOARD_REFUND'
   | 'RELEASE_NOW'
   | 'RESUME_RELEASE'
   | 'CLEAR_SHORTFALL'
@@ -551,6 +553,35 @@ export async function listAbnormalStates(now = new Date()): Promise<AbnormalRow[
       detail: 'The original cleaner is no longer free at that time',
       persistent: false,
       actions: ['RETRY_REVERT'],
+      links: [],
+    });
+  }
+
+  // A Stripe dashboard refund whose cleaner-side consequences have not run
+  // (deferred behind money in flight, or a reversal that did not land).
+  const external = await prisma.refundRecord.findMany({
+    where: { triggeredBy: 'STRIPE_DASHBOARD', finalizedAt: null, createdAt: { lt: stale } },
+    select: {
+      id: true,
+      bookingId: true,
+      executedPence: true,
+      failureReason: true,
+      createdAt: true,
+    },
+    orderBy: { createdAt: 'asc' },
+    take: LIMIT,
+  });
+  for (const r of external) {
+    rows.push({
+      key: `DASHBOARD_REFUND_PENDING:${r.id}`,
+      state: 'DASHBOARD_REFUND_PENDING',
+      bookingId: r.bookingId,
+      ageSeconds: ageOf(r.createdAt, now),
+      amountPence: r.executedPence,
+      refId: r.id,
+      detail: r.failureReason ?? 'Waiting for money in flight on this booking to settle',
+      persistent: false,
+      actions: ['APPLY_DASHBOARD_REFUND'],
       links: [],
     });
   }

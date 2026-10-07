@@ -1123,6 +1123,122 @@ describe.skipIf(!enabled)('money ledger against Postgres (B4)', () => {
     expect(fake.transfersById.size).toBe(0);
   });
 
+  // ─── Gate delta ruling 1: dashboard refunds join the one ledger ─────
+
+  it('D1. a 25 percent dashboard refund before release scales the unreleased cleaner amount; the payout pays the rest', async () => {
+    const b = await paidBooking({ originalPence: 6000, earningsPence: 5000 });
+    fake.addDashboardRefund(b.pi, b.charge, 1500);
+    await refund.handleChargeRefunded(fake.chargeRefundedEvent(b.charge, b.pi, 6000));
+    const row = await bookingRow(b.id);
+    expect(row.paymentStatus).toBe('PARTIALLY_REFUNDED');
+    expect(row.transferStatus).toBe('PENDING');
+    expect(Number(row.cleanerEarnings)).toBe(37.5);
+    const rec = await prisma.refundRecord.findFirstOrThrow({ where: { bookingId: b.id } });
+    expect(rec.triggeredBy).toBe('STRIPE_DASHBOARD');
+    expect(rec.finalizedExecutedPence).toBe(1500);
+    expect((await transfer.releaseBookingFunds(b.id)).status).toBe('RELEASED');
+    expect(Array.from(fake.transfersById.values()).reduce((t, x) => t + x.amount, 0)).toBe(3750);
+  });
+
+  it('D2. a 25 percent dashboard refund after a split-transfer release reverses the cleaner share across both slices', async () => {
+    const b = await paidBooking({
+      originalPence: 6000,
+      earningsPence: 7000,
+      topups: [{ pence: 2000 }],
+    });
+    expect((await transfer.releaseBookingFunds(b.id)).status).toBe('RELEASED');
+    fake.addDashboardRefund(b.pi, b.charge, 2000);
+    await refund.handleChargeRefunded(fake.chargeRefundedEvent(b.charge, b.pi, 6000));
+    const rec = await prisma.refundRecord.findFirstOrThrow({ where: { bookingId: b.id } });
+    const rev = await prisma.transferReversal.findMany({ where: { refundRecordId: rec.id } });
+    // 7000 x 2000 / 8000 = 1750, in proportion to the slices' 6000 and 1000.
+    expect(rev.reduce((t, v) => t + v.amountPence, 0)).toBe(1750);
+    expect(rev.map((v) => v.amountPence).sort((x, y) => x - y)).toEqual([250, 1500]);
+    expect(new Set(rev.map((v) => v.idempotencyKey)).size).toBe(2);
+    expect(rev.every((v) => v.status === 'SUCCEEDED')).toBe(true);
+    const row = await bookingRow(b.id);
+    expect(row.transferStatus).toBe('RELEASED');
+    expect(row.paymentStatus).toBe('PARTIALLY_REFUNDED');
+    expect(rec.finalizedExecutedPence).toBe(2000);
+  });
+
+  it('D3. a dashboard refund of the whole original while a top-up remains: PARTIALLY_REFUNDED, the cleaner share scaled', async () => {
+    const b = await paidBooking({
+      originalPence: 6000,
+      earningsPence: 7000,
+      topups: [{ pence: 2000 }],
+    });
+    fake.addDashboardRefund(b.pi, b.charge, 6000);
+    await refund.handleChargeRefunded(fake.chargeRefundedEvent(b.charge, b.pi, 6000));
+    const row = await bookingRow(b.id);
+    expect(row.paymentStatus).toBe('PARTIALLY_REFUNDED');
+    expect(row.transferStatus).toBe('PENDING');
+    // 7000 less 7000 x 6000 / 8000 = 1750.
+    expect(Number(row.cleanerEarnings)).toBe(17.5);
+    expect(await refund.remainingRefundableFor(b.id)).toBe(2000);
+  });
+
+  it(`D4. a duplicate charge.refunded for a post-release dashboard refund, delivered twice at once, records and reverses once (${REPS} reps)`, async () => {
+    for (let i = 0; i < REPS; i++) {
+      fake.reset();
+      await wipeBookings();
+      const b = await paidBooking({ originalPence: 6000, earningsPence: 5000 });
+      expect((await transfer.releaseBookingFunds(b.id)).status).toBe('RELEASED');
+      fake.addDashboardRefund(b.pi, b.charge, 1500);
+      const ev = fake.chargeRefundedEvent(b.charge, b.pi, 6000);
+      await Promise.all([refund.handleChargeRefunded(ev), refund.handleChargeRefunded(ev)]);
+      expect(await prisma.refundRecord.count({ where: { bookingId: b.id } })).toBe(1);
+      const rev = await prisma.transferReversal.findMany({ where: { slice: { bookingId: b.id } } });
+      expect(
+        rev.filter((v) => v.status === 'SUCCEEDED').reduce((t, v) => t + v.amountPence, 0)
+      ).toBe(1250);
+      expect(
+        fake.callsTo('transfers.createReversal').filter((c) => c.outcome === 'ok')
+      ).toHaveLength(1);
+      const notices = await prisma.notification.findMany({
+        where: { userId: ids.customer, title: { contains: 'refund issued' } },
+      });
+      expect(
+        notices.filter((x) => (x.data as { bookingId?: string } | null)?.bookingId === b.id)
+      ).toHaveLength(1);
+    }
+  }, 300_000);
+
+  it('D5. a dashboard refund racing an in-flight Rena refund waits, then applies once the Rena refund settles', async () => {
+    const b = await paidBooking({ originalPence: 6000, earningsPence: 5000 });
+    fake.refundStatusOnCreate = 'pending';
+    const rena = await refund.refundBooking(b.id, 20, 'Rena refund in flight');
+    expect(rena.code).toBe('OUTCOME_UNKNOWN');
+    expect((await bookingRow(b.id)).transferStatus).toBe('REFUNDING');
+    // The dashboard refund lands while the Rena refund is still pending.
+    fake.addDashboardRefund(b.pi, b.charge, 1000);
+    await refund.handleChargeRefunded(fake.chargeRefundedEvent(b.charge, b.pi, 6000));
+    const dash = await prisma.refundRecord.findFirstOrThrow({
+      where: { bookingId: b.id, triggeredBy: 'STRIPE_DASHBOARD' },
+    });
+    expect(dash.finalizedAt).toBeNull();
+    expect(
+      (await abnormal.listAbnormalStates(new Date(Date.now() + 11 * 60_000))).some(
+        (r) => r.state === 'DASHBOARD_REFUND_PENDING' && r.refId === dash.id
+      )
+    ).toBe(true);
+    // The Rena refund settles; the next event applies both, in order.
+    Array.from(fake.refundsById.values()).forEach((re) => (re.status = 'succeeded'));
+    await refund.handleChargeRefunded(fake.chargeRefundedEvent(b.charge, b.pi, 6000));
+    const row = await bookingRow(b.id);
+    expect(row.transferStatus).toBe('PENDING');
+    expect(row.paymentStatus).toBe('PARTIALLY_REFUNDED');
+    // 5000 less 1667 (2000 of 6000) is 3333; less 833 (1000 of the 4000 left) is 2500.
+    expect(Number(row.cleanerEarnings)).toBe(25);
+    const recs = await prisma.refundRecord.findMany({ where: { bookingId: b.id } });
+    expect(recs.every((r) => r.finalizedExecutedPence === r.executedPence && r.finalizedAt)).toBe(
+      true
+    );
+    // Applying again changes nothing.
+    expect(await refund.applyExternalRefund(dash.id)).toBe('DONE');
+    expect(Number((await bookingRow(b.id)).cleanerEarnings)).toBe(25);
+  });
+
   // ─── 10 ─────────────────────────────────────────────────────
   // The backfill rehearsal runs as scripts/b4-migration-rehearsal.ts on a
   // scratch database (production-shaped legacy rows, migrate deploy, counts,

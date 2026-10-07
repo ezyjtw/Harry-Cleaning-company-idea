@@ -28,6 +28,8 @@ const STATE_HELP: Record<AbnormalStateName, string> = {
   CHARGEBACK_AFTER_RELEASE:
     'A chargeback arrived after the cleaner was paid. Deal with it, then record it.',
   CHARGEBACK_LOST: 'A chargeback was lost. The payout stays held until an admin decides.',
+  DASHBOARD_REFUND_PENDING:
+    'A refund made in the Stripe dashboard has not yet adjusted the cleaner side. Apply runs it now (it reverses the cleaner share after a payout).',
   REFUNDING_STALE:
     'A refund has held this booking over ten minutes. Reconcile reads Stripe and settles interrupted records.',
   TOPUP_UNKNOWN: 'A top-up outcome is unknown. Reconcile reads the payment intent.',
@@ -56,6 +58,7 @@ const ACTION_LABEL: Record<AbnormalAction, string> = {
   RETRY_REFUND_REMAINDER: 'Retry remainder',
   RECONCILE_REVERSAL: 'Reconcile reversal',
   RECONCILE_BOOKING_REFUNDS: 'Reconcile',
+  APPLY_DASHBOARD_REFUND: 'Apply',
   RELEASE_NOW: 'Release now',
   RESUME_RELEASE: 'Resume release',
   CLEAR_SHORTFALL: 'Clear shortfall',

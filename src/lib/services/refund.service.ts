@@ -41,7 +41,6 @@ import {
   loadBookingLedger,
   recomputeBookingRefundState,
   recomputeRefundRecord,
-  remainingShareablePence,
   type BookingLedger,
 } from '@/lib/money/ledger-db';
 import stripe from '@/lib/stripe';
@@ -180,7 +179,7 @@ export async function refundBooking(
   const reversalTargetPence = isPostRelease
     ? cleanerSharePence({
         cleanerRemainingPence: cleanerRemainingPostRelease,
-        remainingShareablePence: remainingShareablePence(ledger),
+        remainingShareablePence: await shareableBasisPence(ledger),
         refundShareablePence: refundShareable,
       })
     : 0;
@@ -678,6 +677,11 @@ async function applyExecutedDelta(
     .filter((s) => s.status === 'SUCCEEDED' && !flaggedPis.has(s.stripePaymentIntentId))
     .reduce((sum, s) => sum + s.executedPence, 0);
   const shareableDelta = shareableExecuted - (ctx.finalizedShareablePence ?? 0);
+  // The shareable money whose consequences have not yet been applied, before
+  // this delta (B4 gate delta: a refund executed at Stripe but not yet applied,
+  // such as a deferred dashboard refund, never counts as applied).
+  const basisBefore =
+    (await shareableBasisPence(ledger, recordId)) - (ctx.finalizedShareablePence ?? 0);
   const fullyRefunded = ledger.booking.paymentStatus === 'REFUNDED';
 
   const bookingUpdate: Record<string, unknown> = {
@@ -693,8 +697,7 @@ async function applyExecutedDelta(
       if (ledger.booking.platformCommissionAmount !== null)
         bookingUpdate.platformCommissionAmount = 0;
     } else if (shareableDelta > 0) {
-      // remainingShareable now excludes this delta; before it, it included it.
-      const before = remainingShareablePence(ledger) + shareableDelta;
+      const before = basisBefore;
       const share = cleanerSharePence({
         cleanerRemainingPence: earningsPence,
         remainingShareablePence: before,
@@ -755,8 +758,7 @@ async function applyExecutedDelta(
         : ctx.isPostRelease
           ? Math.round((ctx.reversalTargetPence * s.executedPence) / Math.max(1, shareableExecuted))
           : Math.round(
-              (toPence(ledger.booking.cleanerEarnings) * s.executedPence) /
-                Math.max(1, remainingShareablePence(ledger) + shareableDelta)
+              (toPence(ledger.booking.cleanerEarnings) * s.executedPence) / Math.max(1, basisBefore)
             );
     await enqueueXeroPush({
       bookingId,
@@ -1036,7 +1038,12 @@ async function bumpSliceRetry(sliceId: string, retryCount: number, result: strin
 async function finalizeAfterReconcile(recordId: string): Promise<void> {
   const rec = await prisma.refundRecord.findUnique({
     where: { id: recordId },
-    select: { context: true, createdAt: true, slices: { select: { status: true } } },
+    select: {
+      context: true,
+      createdAt: true,
+      triggeredBy: true,
+      slices: { select: { status: true } },
+    },
   });
   if (!rec || rec.slices.some((s) => isUnresolved(s.status) || s.status === 'PENDING')) return;
   if (rec.context) {
@@ -1051,6 +1058,8 @@ async function finalizeAfterReconcile(recordId: string): Promise<void> {
       });
     }
     await finalizeRefundRecord(recordId);
+  } else if (rec.triggeredBy === 'STRIPE_DASHBOARD') {
+    await applyExternalRefund(recordId);
   } else {
     // A migrated legacy record: its money was finalised by the old code. The
     // record status and the booking state are recomputed; nothing else runs.
@@ -1204,13 +1213,23 @@ export async function handleChargeRefunded(charge: {
       await writeSliceFromRefund(slice.id, booking.id, r);
       const rec = await prisma.refundSlice.findUniqueOrThrow({
         where: { id: slice.id },
-        select: { refundRecordId: true },
+        select: { refundRecordId: true, record: { select: { triggeredBy: true } } },
       });
-      await finalizeAfterReconcile(rec.refundRecordId);
+      // A dashboard refund seen again runs its own (idempotent) apply step,
+      // never the legacy finaliser (which would close it with no consequence).
+      if (rec.record.triggeredBy === 'STRIPE_DASHBOARD') {
+        await applyExternalRefund(rec.refundRecordId);
+      } else {
+        await finalizeAfterReconcile(rec.refundRecordId);
+      }
       continue;
     }
     if (r.metadata?.refundRecordId) continue; // ours, matched by the reconciler
-    // A refund issued outside Rena (the Stripe dashboard).
+    // A refund issued outside Rena (the Stripe dashboard). It joins the one
+    // ledger (B4 gate ruling 1): recorded once (the unique refund id makes a
+    // duplicate event a no-op), then its cleaner-side consequences run
+    // exactly as a Rena refund's would (applyExternalRefund).
+    let createdRecordId: string | null = null;
     try {
       await prisma.$transaction(async (tx) => {
         const rec = await tx.refundRecord.create({
@@ -1223,10 +1242,9 @@ export async function handleChargeRefunded(charge: {
             triggeredBy: 'STRIPE_DASHBOARD',
             status: 'SUCCEEDED',
             stripeRefundId: r.id,
-            finalizedExecutedPence: r.amount,
-            finalizedAt: new Date(),
           },
         });
+        createdRecordId = rec.id;
         await tx.refundSlice.create({
           data: {
             refundRecordId: rec.id,
@@ -1247,27 +1265,159 @@ export async function handleChargeRefunded(charge: {
       // P2002 on the refund id: already recorded (a duplicate event).
       if ((err as { code?: string }).code !== 'P2002') throw err;
     }
+    if (createdRecordId) await applyExternalRefund(createdRecordId);
   }
-  const state = await prisma.$transaction((tx) => recomputeBookingRefundState(tx, booking.id));
-  // Gate review finding 7: a booking fully refunded outside the platform
-  // before its payout must not pay the cleaner. The payout is stopped
-  // (REFUNDED, guarded on the unreleased states) and audited; a partial
-  // dashboard refund changes nothing here (parked: an admin decision).
-  if (!state.unresolved && state.paymentStatus === 'REFUNDED') {
-    const stopped = await prisma.booking.updateMany({
-      where: { id: booking.id, transferStatus: { in: ['PENDING', 'FAILED', 'PAUSED'] } },
-      data: { transferStatus: 'REFUNDED' },
+  await prisma.$transaction((tx) => recomputeBookingRefundState(tx, booking.id));
+}
+
+/**
+ * The cleaner-side consequences of a refund made outside Rena (B4 gate
+ * ruling 1), exactly as a Rena refund's: before release the booking is
+ * claimed REFUNDING and finalisation scales the unreleased cleaner amount by
+ * the cleaner share (a full refund stops the payout); after release the
+ * cleaner share is reversed across the transfer slices in proportion, under
+ * per-slice keys, then finalised. Single flight (a CAS on the record's
+ * attempt); idempotent (the share is computed once and stored; reversals
+ * count what already landed). DEFERRED when the booking's money is in
+ * flight (a Rena refund, a payout), a slice is still unresolved, or a
+ * reversal did not land: the scheduler re-runs it and stuck-money lists it.
+ */
+export async function applyExternalRefund(
+  recordId: string
+): Promise<'APPLIED' | 'DEFERRED' | 'DONE'> {
+  const rec = await prisma.refundRecord.findUnique({
+    where: { id: recordId },
+    include: { slices: { select: { stripePaymentIntentId: true } } },
+  });
+  if (!rec || rec.triggeredBy !== 'STRIPE_DASHBOARD' || rec.finalizedAt) return 'DONE';
+  const bookingId = rec.bookingId;
+  const ledger = await loadBookingLedger(prisma, bookingId);
+  if (!ledger) return 'DONE';
+  let ctx = rec.context as unknown as RecordContext | null;
+  const attempt = rec.attempt + 1;
+
+  if (!ctx) {
+    const ts = ledger.booking.transferStatus;
+    if (ts === 'REFUNDED') {
+      // No payout will ever run; nothing on the cleaner side to adjust.
+      await prisma.refundRecord.updateMany({
+        where: { id: recordId, finalizedAt: null },
+        data: { finalizedExecutedPence: rec.executedPence, finalizedAt: new Date() },
+      });
+      return 'DONE';
+    }
+    if (!['PENDING', 'FAILED', 'PAUSED', 'RELEASED'].includes(ts)) return 'DEFERRED';
+    if (ledger.slices.some((sl) => isUnresolved(sl.status))) return 'DEFERRED';
+    const isPostRelease = ts === 'RELEASED';
+    if (isPostRelease && ledger.transferSlices.some((t) => t.amountPence === null)) {
+      return 'DEFERRED';
+    }
+    const pi = rec.slices[0]?.stripePaymentIntentId;
+    const flagged = ledger.topups.some((t) => t.flagged && t.stripePaymentIntentId === pi);
+    const refundShareable = flagged ? 0 : rec.executedPence;
+    // The ledger already counts this refund as executed: the shareable money
+    // before it is what remains now plus this refund.
+    const reversalTargetPence = isPostRelease
+      ? cleanerSharePence({
+          cleanerRemainingPence: ledger.transferSlices.reduce(
+            (sum, t) => sum + Math.max(0, (t.amountPence ?? 0) - t.reversedPence),
+            0
+          ),
+          remainingShareablePence: await shareableBasisPence(ledger, recordId),
+          refundShareablePence: refundShareable,
+        })
+      : 0;
+    const newCtx: RecordContext = {
+      prevTransferStatus: ts,
+      isPostRelease,
+      adjustEarnings: true,
+      reason: rec.reason,
+      triggeredBy: 'STRIPE_DASHBOARD',
+      reversalTargetPence,
+      finalizedShareablePence: 0,
+      xeroSliceIds: [],
+    };
+    const won = await prisma
+      .$transaction(async (tx) => {
+        const r1 = await tx.refundRecord.updateMany({
+          where: { id: recordId, finalizedAt: null, attempt: rec.attempt },
+          data: { attempt, context: newCtx as unknown as Prisma.InputJsonValue },
+        });
+        if (r1.count !== 1) throw new ClaimMissed();
+        const b = await tx.booking.updateMany({
+          where: { id: bookingId, transferStatus: ts },
+          data: { transferStatus: 'REFUNDING' },
+        });
+        if (b.count !== 1) throw new ClaimMissed();
+        return true;
+      })
+      .catch((err) => {
+        if (err instanceof ClaimMissed) return false;
+        throw err;
+      });
+    if (!won) return 'DEFERRED';
+    ctx = newCtx;
+  } else {
+    // A later round (the reversal did not land before): single flight.
+    const r1 = await prisma.refundRecord.updateMany({
+      where: { id: recordId, finalizedAt: null, attempt: rec.attempt },
+      data: { attempt },
     });
-    if (stopped.count === 1) {
-      await AuditService.log({
-        action: 'PAYOUT_STOPPED_FULL_REFUND',
-        entityType: 'Booking',
-        entityId: booking.id,
-        metadata: { chargeId: charge.id },
-      }).catch(() => {});
-      log.warn('refund', 'payout_stopped_full_refund', { bookingId: booking.id });
+    if (r1.count !== 1) return 'DEFERRED';
+  }
+
+  if (ctx.isPostRelease && ctx.reversalTargetPence > 0) {
+    const rev = await reverseCleanerShare(recordId, bookingId, ctx.reversalTargetPence, attempt);
+    if (rev.outcome !== 'OK') {
+      // The booking stays REFUNDING (no payout moves meanwhile); retried by
+      // the scheduler, listed in stuck-money.
+      await prisma.refundRecord.update({
+        where: { id: recordId },
+        data: { failureReason: rev.reason },
+      });
+      log.error('refund', 'external_refund_reversal_pending', {
+        bookingId,
+        refundRecordId: recordId,
+      });
+      return 'DEFERRED';
     }
   }
+  await finalizeRefundRecord(recordId);
+  log.warn('refund', 'external_refund_applied', { bookingId, refundRecordId: recordId });
+  return 'APPLIED';
+}
+
+class ClaimMissed extends Error {}
+
+/**
+ * The basis of the one cleaner-share formula: charged money that carries a
+ * share (net of a held shortfall and of flagged top-ups) less the shareable
+ * money whose consequences have already been applied by other records. A
+ * record's applied part is its finalised shareable money (context records) or
+ * its finalised executed money (migrated legacy records, applied by the old
+ * code). Executed-but-unapplied money (a refund still in flight, a deferred
+ * dashboard refund) is still in the basis, so refunds applied in any order
+ * leave the cleaner the same amount.
+ */
+async function shareableBasisPence(
+  ledger: BookingLedger,
+  excludeRecordId?: string
+): Promise<number> {
+  const flaggedPence = ledger.topups
+    .filter((t) => t.flagged)
+    .reduce((x, t) => x + t.amountPence, 0);
+  const records = await prisma.refundRecord.findMany({
+    where: {
+      bookingId: ledger.booking.id,
+      ...(excludeRecordId ? { id: { not: excludeRecordId } } : {}),
+    },
+    select: { context: true, finalizedExecutedPence: true },
+  });
+  const applied = records.reduce((sum, r) => {
+    const c = r.context as { finalizedShareablePence?: number } | null;
+    return sum + (c ? (c.finalizedShareablePence ?? 0) : r.finalizedExecutedPence);
+  }, 0);
+  return Math.max(0, ledger.chargedPence - flaggedPence - applied);
 }
 
 /** The cleaner's share of a chargeback or refund amount (Xero, the dispute webhook). */
@@ -1286,7 +1436,7 @@ export async function cleanerShareForAmountPence(
     : toPence(ledger.booking.cleanerEarnings);
   return cleanerSharePence({
     cleanerRemainingPence: cleanerRemaining,
-    remainingShareablePence: remainingShareablePence(ledger),
+    remainingShareablePence: await shareableBasisPence(ledger),
     refundShareablePence: amountPence,
   });
 }
@@ -1389,6 +1539,24 @@ export async function reconcileUnresolvedRefunds(limit = 50): Promise<{ processe
       if (status === 'SUCCEEDED' || status === 'FAILED') processed++;
     } catch (err) {
       log.error('refund', 'reversal_reconcile_threw', { transferReversalId: r.id }, err);
+    }
+  }
+  // Dashboard refunds whose consequences were deferred (B4 gate ruling 1).
+  const external = await prisma.refundRecord.findMany({
+    where: {
+      triggeredBy: 'STRIPE_DASHBOARD',
+      finalizedAt: null,
+      createdAt: { lt: new Date(now.getTime() - 60_000) },
+    },
+    orderBy: { createdAt: 'asc' },
+    select: { id: true },
+    take: limit,
+  });
+  for (const r of external) {
+    try {
+      if ((await applyExternalRefund(r.id)) === 'APPLIED') processed++;
+    } catch (err) {
+      log.error('refund', 'external_refund_apply_threw', { refundRecordId: r.id }, err);
     }
   }
   return { processed };
