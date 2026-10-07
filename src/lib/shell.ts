@@ -102,3 +102,23 @@ export function shellHandoffApp(
   if (role === 'CLEANER' && isRenaShell(headers)) return 'PRO';
   return null;
 }
+
+/**
+ * B5 (RENA-031/082): hand a just-created account to the native shell. The
+ * message carries only the short-lived, single-use handoff code and
+ * non-secret display data (never a Bearer or a bridge code); the shell
+ * redeems the code by native fetch. Returns false when there is no native
+ * bridge to post to, so the caller keeps its website path.
+ */
+export function postSignedUpToShell(msg: {
+  handoffCode: string;
+  email: string;
+  role: 'CLIENT' | 'CLEANER';
+}): boolean {
+  if (typeof window === 'undefined') return false;
+  const bridge = (window as unknown as { ReactNativeWebView?: { postMessage(m: string): void } })
+    .ReactNativeWebView;
+  if (!bridge || typeof bridge.postMessage !== 'function') return false;
+  bridge.postMessage(JSON.stringify({ type: 'signedUp', ...msg }));
+  return true;
+}

@@ -20,7 +20,7 @@ import {
 } from '@/lib/constants/services';
 import { useAnalytics } from '@/lib/hooks/useAnalytics';
 import { CURRENT_AGREEMENT } from '@/lib/legal/self-employment-acknowledgment';
-import { isShellUA, shellCameraCapable } from '@/lib/shell';
+import { isShellUA, postSignedUpToShell, shellCameraCapable } from '@/lib/shell';
 import {
   dataUrlBytes,
   DOC_IMAGE_MAX_PX,
@@ -1019,6 +1019,8 @@ export default function JoinAsCleanerPage() {
   const [form, setForm] = useState<FormData>(INITIAL_FORM);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitted, setSubmitted] = useState(false);
+  // B5: the Pro shell is redeeming the handoff (shell only).
+  const [handingOff, setHandingOff] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   const [mounted, setMounted] = useState(false);
@@ -1551,6 +1553,23 @@ export default function JoinAsCleanerPage() {
         }
       }
 
+      // B5 (RENA-031): in the Pro shell the native handoff replaces the
+      // website portal. The page posts only the single-use code; the shell
+      // redeems it natively and lands on Today. This runs after the wizard's
+      // last network call (the uploads above). Website behaviour unchanged.
+      if (
+        isShellUA() &&
+        typeof result.handoffCode === 'string' &&
+        postSignedUpToShell({
+          handoffCode: result.handoffCode,
+          email: form.email.toLowerCase().trim(),
+          role: 'CLEANER',
+        })
+      ) {
+        setHandingOff(true);
+        return;
+      }
+
       if (signedIn) {
         router.push('/cleaner');
         return;
@@ -1567,6 +1586,15 @@ export default function JoinAsCleanerPage() {
   /* ================================================================ */
   /*  RENDER — Success screen (fallback if auto-login fails)          */
   /* ================================================================ */
+
+  if (handingOff) {
+    return (
+      <div className="mx-auto max-w-2xl px-4 py-24 text-center bg-page min-h-screen flex flex-col items-center justify-center">
+        <h1 className="font-newsreader text-2xl font-medium text-ink">Your application is in.</h1>
+        <p className="mt-3 font-jost text-sm font-light text-ink-2">Signing you in&hellip;</p>
+      </div>
+    );
+  }
 
   if (submitted) {
     return (
