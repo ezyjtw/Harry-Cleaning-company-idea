@@ -89,7 +89,7 @@ const services: {
       'Quick turnaround times to fit between check-out and check-in',
     ],
     price: 'From £45',
-    priceNote: 'Fixed price based on property size',
+    priceNote: 'Cleaner-set prices by property size',
     idealFor: 'Airbnb hosts, holiday lets, and short-stay properties',
     image: '/images/Air BnB cleaning.webp',
   },

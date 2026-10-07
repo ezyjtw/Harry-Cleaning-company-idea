@@ -30,8 +30,8 @@ Support URL: **https://www.renacleaning.co.uk/en/contact** · support@renacleani
 > **Your cleaning work, your way.**
 >
 > Rena Pro is the app for independent cleaners on the Rena network. Get matched
-> with customers near you, accept the jobs that suit you, and keep 90% of what you
-> earn — you set your own rates and hours.
+> with customers near you, accept the jobs that suit you, and keep 90% on hourly
+> cleans and 85% on End of Tenancy and Airbnb. You set your own rates and hours.
 >
 > **Built for your workday**
 >
@@ -47,7 +47,8 @@ Support URL: **https://www.renacleaning.co.uk/en/contact** · support@renacleani
 >
 > **Why cleaners choose Rena**
 >
-> - Keep 90% of your earnings — one of the lowest platform fees around.
+> - Keep 90% on hourly cleans and 85% on End of Tenancy and Airbnb, one of the
+>   lowest platform fees around.
 > - Choose your own customers, rates, and hours.
 > - Every customer is verified; payments are handled securely.
 > - Face ID keeps your account private on your phone.

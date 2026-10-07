@@ -30,15 +30,15 @@ const serviceRates = [
   },
   {
     type: 'End of Tenancy',
-    description: 'Fixed price by property size',
+    description: 'Cleaner-set price by property size',
     rate: '\u00A3150 \u2013 \u00A3580',
-    typical: 'Fixed by property size',
+    typical: 'Set by your cleaner, per property size',
   },
   {
     type: 'Airbnb / Short-Let',
-    description: 'Fixed price turnaround between guests',
+    description: "Turnaround between guests, at your cleaner's price",
     rate: '\u00A345 \u2013 \u00A3165',
-    typical: 'Fixed by property size',
+    typical: 'Set by your cleaner, per property size',
   },
   {
     type: 'Same-Day Cleaning',
@@ -50,7 +50,12 @@ const serviceRates = [
 ];
 
 const comparisonFeatures = [
-  { feature: 'Service fee', rena: 'All-inclusive', competitor1: 'Hidden', competitor2: '10\u201316%' },
+  {
+    feature: 'Service fee',
+    rena: 'All-inclusive',
+    competitor1: 'Hidden',
+    competitor2: '10\u201316%',
+  },
   { feature: 'Choose your cleaner', rena: 'Yes', competitor1: 'Limited', competitor2: 'No' },
   { feature: 'Transparent pricing', rena: 'Yes', competitor1: 'Partial', competitor2: 'No' },
   { feature: 'Payment protection', rena: 'Yes', competitor1: 'No', competitor2: 'No' },
@@ -108,7 +113,9 @@ export default function PricingPage() {
                 </svg>
               </div>
               <div>
-                <p className="font-newsreader text-xl font-medium text-ink">One all-inclusive price</p>
+                <p className="font-newsreader text-xl font-medium text-ink">
+                  One all-inclusive price
+                </p>
                 <p className="mt-2 font-jost text-sm font-light text-ink-2">
                   Your price covers the clean plus customer support, our satisfaction guarantee,
                   held-payment protection, and platform maintenance. The full total is always shown
@@ -326,7 +333,8 @@ export default function PricingPage() {
                 </table>
               </div>
               <p className="mt-3 font-jost text-xs font-light text-ink-3">
-                Prices shown are typical cleaner rates. Your all-inclusive total is shown at checkout.
+                Prices shown are typical cleaner rates. Your all-inclusive total is shown at
+                checkout.
               </p>
             </div>
           </div>

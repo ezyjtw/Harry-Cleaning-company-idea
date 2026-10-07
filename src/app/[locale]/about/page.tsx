@@ -7,7 +7,7 @@ export const metadata: Metadata = {
   alternates: { canonical: `${BASE_URL}/about` },
   title: 'About Rena — Our Mission to Transform Home Cleaning',
   description:
-    'Learn about Rena, the cleaning marketplace that puts cleaners first. One all-inclusive price for customers, and cleaners keep 90%. Discover our mission, values, and how we vet every cleaner.',
+    'Learn about Rena, the cleaning marketplace that puts cleaners first. One all-inclusive price for customers, and cleaners keep 90% on hourly cleans and 85% on End of Tenancy and Airbnb. Discover our mission, values, and how we vet every cleaner.',
   openGraph: {
     title: 'About Rena — Our Mission to Transform Home Cleaning',
     description:
@@ -41,7 +41,7 @@ const values = [
   {
     title: 'Fairness',
     description:
-      'Our model means cleaners keep 90% of their rate and customers pay one fair, all-inclusive price — far less than other platforms. Cleaners earn more, customers pay less. Everyone wins.',
+      'Our model means cleaners keep 90% on hourly cleans and 85% on End of Tenancy and Airbnb, and customers pay one fair, all-inclusive price — far less than other platforms. Cleaners earn more, customers pay less. Everyone wins.',
     icon: (
       <svg
         className="h-8 w-8"
@@ -133,8 +133,8 @@ export default function AboutPage() {
             <p>
               We grew up in a busy family of five, and our mum kept the house running — working all
               day, then coming home and cleaning all evening. Whenever we suggested she just get a
-              cleaner, she had a famous line ready: &ldquo;A cleaner cleans but doesn&rsquo;t tidy
-              — they&rsquo;d be no good for our mess.&rdquo;
+              cleaner, she had a famous line ready: &ldquo;A cleaner cleans but doesn&rsquo;t tidy —
+              they&rsquo;d be no good for our mess.&rdquo;
             </p>
             <p>
               As we got older, we realised the line was cover for the real reason:{' '}
@@ -361,7 +361,9 @@ export default function AboutPage() {
       {/* Values */}
       <section className="bg-cream py-16">
         <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
-          <h2 className="text-center text-3xl font-semibold text-ink font-newsreader">Our Values</h2>
+          <h2 className="text-center text-3xl font-semibold text-ink font-newsreader">
+            Our Values
+          </h2>
           <div className="mx-auto mt-4 flex justify-center">
             <div className="w-8 h-px bg-gold" />
           </div>
@@ -373,7 +375,9 @@ export default function AboutPage() {
                 style={{ border: '0.5px solid rgba(14,14,12,0.1)' }}
               >
                 <div className="flex h-12 w-12 items-center justify-center">{value.icon}</div>
-                <h3 className="mt-4 text-lg font-semibold text-ink font-newsreader">{value.title}</h3>
+                <h3 className="mt-4 text-lg font-semibold text-ink font-newsreader">
+                  {value.title}
+                </h3>
                 <p className="mt-2 font-jost font-light text-ink-2">{value.description}</p>
               </div>
             ))}
@@ -388,7 +392,8 @@ export default function AboutPage() {
             Ready to experience the difference?
           </h2>
           <p className="mt-3 font-jost font-light text-cream/70">
-            Join a growing community of customers and cleaners building something fairer, one clean at a time.
+            Join a growing community of customers and cleaners building something fairer, one clean
+            at a time.
           </p>
           <div className="mt-6 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
             <Link

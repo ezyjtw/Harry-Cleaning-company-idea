@@ -1,0 +1,23 @@
+Logged-out Chromium render (fresh context), control main 2c09138 vs branch, same rig database.
+=== /join 
+-Set your own hours, choose your clients, and keep 90% of what you earn. Rena takes care of payments, customer support, and finding you bookings — so you can focus on what you do best.
++Set your own hours, choose your clients, and keep 90% on hourly cleans and 85% on End of Tenancy and Airbnb. Rena takes care of payments, customer support, and finding you bookings — so you can focus on what you do best.
+=== /about 
+-Our model means cleaners keep 90% of their rate and customers pay one fair, all-inclusive price — far less than other platforms. Cleaners earn more, customers pay less. Everyone wins.
++Our model means cleaners keep 90% on hourly cleans and 85% on End of Tenancy and Airbnb, and customers pay one fair, all-inclusive price — far less than other platforms. Cleaners earn more, customers pay less. Everyone wins.
+=== /pricing 
+-Fixed price by property size
+-	£150 – £580	Fixed by property size
++Cleaner-set price by property size
++	£150 – £580	Set by your cleaner, per property size
+-Fixed price turnaround between guests
+-	£45 – £165	Fixed by property size
++Turnaround between guests, at your cleaner's price
++	£45 – £165	Set by your cleaner, per property size
+=== /services 
+-Fixed price based on property size
++Cleaner-set prices by property size
+=== /services/end-of-tenancy (no visible change)
+=== /services/airbnb (no visible change)
+=== /services/regular (no visible change)
+=== /services/deep (no visible change)

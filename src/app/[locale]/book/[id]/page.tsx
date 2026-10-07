@@ -45,31 +45,28 @@ const SERVICE_TYPES = [
   {
     value: 'regular',
     label: 'Regular Cleaning',
-    multiplier: 1,
     description: 'Routine upkeep — dusting, hoovering, mopping, and surface cleaning.',
   },
   {
     value: 'same-day',
     label: 'Same Day Cleaning',
-    multiplier: 1.3,
+    rateName: 'same-day',
     description: 'Need it today? Book before 12 pm for same-day service.',
   },
   {
     value: 'deep',
     label: 'Deep Cleaning',
-    multiplier: 1.45,
+    rateName: 'deep',
     description: 'A thorough top-to-bottom clean including behind appliances and inside cupboards.',
   },
   {
     value: 'end-of-tenancy',
     label: 'End of Tenancy Cleaning',
-    multiplier: 1.45, // Fixed-price service — uses deep rate for cleaner payout
     description: 'Professional move-out clean to get your deposit back or prepare for new tenants.',
   },
   {
     value: 'airbnb',
     label: 'Airbnb Cleaning',
-    multiplier: 1.45, // Fixed-price service — uses deep rate for cleaner payout
     description:
       'Quick turnaround cleans between guests — fresh linen, restocked supplies, spotless spaces.',
   },
@@ -1413,11 +1410,8 @@ export default function BookingPage({ params }: { params: { id: string } }) {
                       ) : (
                         <>
                           Cleaning ({form.duration}h
-                          {selectedService.multiplier !== 1 && (
-                            <>
-                              {' '}
-                              &times; {selectedService.multiplier}x {selectedService.label}
-                            </>
+                          {selectedService.rateName && (
+                            <> at your cleaner&apos;s {selectedService.rateName} rate</>
                           )}
                           )
                         </>
@@ -1512,11 +1506,8 @@ export default function BookingPage({ params }: { params: { id: string } }) {
                     ) : (
                       <>
                         Cleaning ({form.duration}h
-                        {selectedService.multiplier !== 1 && (
-                          <>
-                            {' '}
-                            &times; {selectedService.multiplier}x {selectedService.label}
-                          </>
+                        {selectedService.rateName && (
+                          <> at your cleaner&apos;s {selectedService.rateName} rate</>
                         )}
                         )
                       </>
