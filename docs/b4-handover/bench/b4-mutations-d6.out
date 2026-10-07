@@ -1,0 +1,5 @@
+dashboard apply: attempt CAS, booking claim and reversal key all dropped [test D4]: GREEN (NOT caught) Tests  1 passed | 37 skipped (38)
+dashboard apply CAS: attempt compare dropped, two appliers of one record [test D6]: GREEN (NOT caught) Tests  1 passed | 37 skipped (38)
+dashboard apply CAS: attempt compare and booking claim dropped, two appliers [test D6]: RED (caught) Tests  1 failed | 37 skipped (38)
+dashboard apply: attempt CAS, booking claim and reversal key all dropped, two appliers [test D6]: RED (caught) Tests  1 failed | 37 skipped (38)
+dashboard apply: attempt CAS, booking claim, reversal key and the in-flight reversal pre-check all dropped [test D6]: RED (caught) Tests  1 failed | 37 skipped (38)

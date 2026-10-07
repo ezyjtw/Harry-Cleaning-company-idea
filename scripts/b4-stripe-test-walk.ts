@@ -59,6 +59,15 @@ async function main() {
   preflightEnv();
 
   const stripe = (await import('../src/lib/stripe')).default;
+  // The session's network secret is injected by the egress proxy. The SDK's
+  // NodeHttpClient builds its own https.Agent and ignores HTTPS_PROXY, so it
+  // would reach Stripe directly with the placeholder key (401). Route this
+  // script's client through the proxy; src/ is untouched.
+  if (process.env.HTTPS_PROXY) {
+    const { default: HttpsProxyAgent } = await import('https-proxy-agent');
+    (stripe.getApiField('httpClient') as unknown as { _agent: unknown })._agent =
+      new HttpsProxyAgent(process.env.HTTPS_PROXY);
+  }
   const balance = await stripe.balance.retrieve().catch((err: { statusCode?: number }) => {
     refuse(`Stripe did not authenticate (status ${err?.statusCode ?? 'unknown'})`);
   });

@@ -439,6 +439,22 @@ describe.skipIf(!enabled)('money ledger against Postgres (B4)', () => {
     expect((await bookingRow(b.id)).paymentStatus).toBe('PARTIALLY_REFUNDED');
   });
 
+  // ─── P1 (gate ruling 4) ─────────────────────────────────────
+
+  it('P1. the refund ceiling is exact in pence: one penny over the remainder is refused with nothing sent; the exact remainder executes', async () => {
+    const b = await paidBooking({ originalPence: 6000 });
+    expect((await refund.refundBooking(b.id, 20, 'first part')).status).not.toBe('FAILED');
+    const sentBefore = fake.callsTo('refunds.create').length;
+    const over = await refund.refundBooking(b.id, 40.01, 'one penny over');
+    expect(over.status).toBe('FAILED');
+    expect(over.reason).toMatch(/exceeds refundable £40\.00/);
+    expect(fake.callsTo('refunds.create')).toHaveLength(sentBefore);
+    expect(await prisma.refundRecord.count({ where: { bookingId: b.id } })).toBe(1);
+    const exact = await refund.refundBooking(b.id, 40, 'the exact remainder');
+    expect(exact.status).not.toBe('FAILED');
+    expect((await bookingRow(b.id)).paymentStatus).toBe('REFUNDED');
+  });
+
   // ─── 5 ──────────────────────────────────────────────────────
 
   it('5. anchored plus top-up slices, then a full post-release refund reverses each slice proportionally with its own key', async () => {
@@ -1301,6 +1317,45 @@ describe.skipIf(!enabled)('money ledger against Postgres (B4)', () => {
     expect(Number((await bookingRow(b.id)).cleanerEarnings)).toBe(25);
   });
 
+  it(`D6. a deferred dashboard refund applied twice at once (the reconciler beside a re-delivered event) reverses once (${REPS} reps)`, async () => {
+    for (let i = 0; i < REPS; i++) {
+      fake.reset();
+      await wipeBookings();
+      const b = await paidBooking({ originalPence: 6000, earningsPence: 5000 });
+      expect((await transfer.releaseBookingFunds(b.id)).status).toBe('RELEASED');
+      // The event lands while a payout is in flight: recorded, not applied.
+      await prisma.booking.update({ where: { id: b.id }, data: { transferStatus: 'RELEASING' } });
+      fake.addDashboardRefund(b.pi, b.charge, 1500);
+      const ev = fake.chargeRefundedEvent(b.charge, b.pi, 6000);
+      await refund.handleChargeRefunded(ev);
+      const dash = await prisma.refundRecord.findFirstOrThrow({
+        where: { bookingId: b.id, triggeredBy: 'STRIPE_DASHBOARD' },
+      });
+      expect(dash.finalizedAt).toBeNull();
+      await prisma.booking.update({ where: { id: b.id }, data: { transferStatus: 'RELEASED' } });
+      // Appliers of the same existing record at once: the reconciler twice
+      // (two scheduler ticks) and the re-delivered event.
+      const settled = await Promise.allSettled([
+        refund.applyExternalRefund(dash.id),
+        refund.applyExternalRefund(dash.id),
+        refund.handleChargeRefunded(ev),
+      ]);
+      expect(settled.every((s) => s.status === 'fulfilled')).toBe(true);
+      await refund.applyExternalRefund(dash.id);
+      const rev = await prisma.transferReversal.findMany({ where: { refundRecordId: dash.id } });
+      // round(5000 x 1500 / 6000) = 1250, reversed once.
+      expect(
+        rev.filter((v) => v.status === 'SUCCEEDED').reduce((t, v) => t + v.amountPence, 0)
+      ).toBe(1250);
+      expect(
+        fake.callsTo('transfers.createReversal').filter((c) => c.outcome === 'ok')
+      ).toHaveLength(1);
+      const after = await prisma.refundRecord.findUniqueOrThrow({ where: { id: dash.id } });
+      expect(after.finalizedAt).not.toBeNull();
+      expect((await bookingRow(b.id)).transferStatus).toBe('RELEASED');
+    }
+  });
+
   // ─── Gate delta ruling 2: TOPUP_WITHOUT_ASSIGNMENT recovery ─────
 
   /** The B3 fixture: a provisional reassignment whose top-up lands after the new cleaner's slot was taken. */
@@ -1630,6 +1685,34 @@ describe.skipIf(!enabled)('money ledger against Postgres (B4)', () => {
     await processDueReleases();
     expect((await bookingRow(held.id)).transferStatus).toBe('RELEASED');
   });
+
+  it('S2. a full batch of bookings waiting on reconciliation never crowds a releasable booking out of the release job', async () => {
+    // A whole-database sweep, like S1: the same dedicated-database refusal.
+    const foreign = await prisma.booking.count({
+      where: { OR: [{ clientId: null }, { clientId: { not: ids.customer } }] },
+    });
+    if (foreign > 0) {
+      throw new Error(
+        `S2 refuses: ${foreign} booking(s) in this database are not fixtures; run against a dedicated database`
+      );
+    }
+    const { processDueReleases } = await import('@/lib/services/scheduler.service');
+    // Older due dates first, so a batch without the filter would take them all
+    // (the release batch is 50).
+    const waiting: string[] = [];
+    for (let i = 0; i < 50; i++) {
+      const w = await paidBooking({ extra: { releaseDueAt: new Date(Date.now() - DAY_MS - i) } });
+      await legacyUnread(w.id, w.pi);
+      waiting.push(w.id);
+    }
+    const clean = await paidBooking({ extra: { releaseDueAt: new Date(Date.now() - 60_000) } });
+    await processDueReleases();
+    expect((await bookingRow(clean.id)).transferStatus).toBe('RELEASED');
+    const still = await prisma.booking.count({
+      where: { id: { in: waiting }, transferStatus: 'PENDING' },
+    });
+    expect(still).toBe(50);
+  }, 120_000);
 
   it('11. queue: each fixture state is listed with its action, and the action works with the fake', async () => {
     // REFUND_UNKNOWN → reconcile.

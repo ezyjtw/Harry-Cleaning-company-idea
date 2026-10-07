@@ -78,6 +78,16 @@ new-format money mutation (James-ruled wording). After that point:
   code does not know (nor RefundRecord status RETRYING or PARTIAL);
 - a booking held by a chargeback or a shortfall sits PAUSED; the old code
   has no way to resume it except dispute resolution or break-glass.
+- a shortfall is lifted only by the admin's "Accept shortfall and release"
+  (gate ruling 5), recorded in three new nullable Booking columns
+  (`shortfallAcceptedAt`, `shortfallAcceptedById`, `shortfallAcceptReason`)
+  beside `amountShortfallPence`. The old code ignores all four: a booking
+  still held by a shortfall would be paid by the old release job, and the
+  who, when and why of an acceptance stay in the columns and the
+  SHORTFALL_ACCEPTED audit rows, unread;
+- a Stripe dashboard refund recorded as a STRIPE_DASHBOARD record but not
+  yet applied (`finalizedAt` null) has had no cleaner-side consequence; the
+  old code would pay the full unscaled earnings.
 
 Before any rollback deploy, in this order, on James's word:
 
@@ -88,6 +98,8 @@ Before any rollback deploy, in this order, on James's word:
    `SELECT count(*) FROM "TransferSlice" WHERE "kind" <> 'ADOPTED';`
    `SELECT id, status FROM "Dispute" WHERE status IN ('RESOLVING_REFUND','RESOLVING_RELEASE');`
    `SELECT id FROM "Booking" WHERE "transferStatus" IN ('UNKNOWN','REFUNDING');`
+   `SELECT id FROM "Booking" WHERE "amountShortfallPence" > 0 AND "shortfallAcceptedAt" IS NULL AND "transferStatus" = 'PAUSED';`
+   `SELECT id FROM "RefundRecord" WHERE "triggeredBy" = 'STRIPE_DASHBOARD' AND "finalizedAt" IS NULL;`
    If any count is non-zero, every such booking is reconciled by hand in the
    Stripe dashboard before the old code runs, and the decision is James's.
 3. Return resolving disputes to a state the old code understands:

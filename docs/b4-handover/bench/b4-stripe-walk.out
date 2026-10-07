@@ -1,0 +1,40 @@
+Stripe test mode confirmed (livemode false). Walk tag b4walk_muym3xx9.
+Connected account acct_1TtlaPBtudmKMwFO: transfers active.
+
+PASS  1. payout across original and top-up
+  ok   release RELEASED (RELEASED)
+  ok   one transfer per charge (2 transfers)
+  ok   transfers sum to the cleaner earnings (5400 of 5400)
+  ok   slice cmuym42ax000eqky8022wf6om amount equals Stripe (4000)
+  ok   transfer tr_3UO2GuBpCo27if4j0cATIIf6 to the cleaner account
+  ok   transfer tr_3UO2GuBpCo27if4j0cATIIf6 grouped by booking
+  ok   transfer tr_3UO2GuBpCo27if4j0cATIIf6 anchored to one of the booking's charges
+  ok   slice cmuym4366000hqky8q1otw3s9 amount equals Stripe (1400)
+  ok   transfer tr_3UO2GvBpCo27if4j32P4HFbT to the cleaner account
+  ok   transfer tr_3UO2GvBpCo27if4j32P4HFbT grouped by booking
+  ok   transfer tr_3UO2GvBpCo27if4j32P4HFbT anchored to one of the booking's charges
+PASS  2. partial refund before release
+  ok   refund PARTIALLY_REFUNDED (PARTIALLY_REFUNDED)
+  ok   Stripe holds exactly one 1500 refund, succeeded (re_3UO2GzBpCo27if4j2BZpgghg:1500:succeeded)
+  ok   unreleased cleaner amount scaled by the cleaner share (4050 expected 4050)
+  ok   release pays the scaled amount (4050)
+PASS  3. post-release refund with reversals
+  ok   refund PARTIALLY_REFUNDED (PARTIALLY_REFUNDED)
+  ok   LIFO: the 2000 refund landed on the top-up charge (2000)
+  ok   reversals equal the cleaner share (1662 expected 1662)
+  ok   the reversal is spread across both transfer slices
+  ok   no refund slice unresolved
+PASS  4. dispute resolved as refund-customer
+  ok   dispute RESOLVED (RESOLVED )
+  ok   Stripe refunded the whole charge (6000:succeeded)
+  ok   booking REFUNDED (REFUNDED)
+  ok   no payout to the cleaner
+PASS  5. partial Stripe-dashboard refund after release
+  ok   dashboard-style refund succeeded (succeeded)
+  ok   the real charge.refunded event was read from Stripe
+  ok   one dashboard record (duplicate ignored) (1)
+  ok   the dashboard refund is applied to the cleaner side
+  ok   reversals equal the cleaner share, once (1350 expected 1350)
+  ok   booking PARTIALLY_REFUNDED (PARTIALLY_REFUNDED)
+
+B4 Stripe test-mode walk: 5 of 5 cases pass.
