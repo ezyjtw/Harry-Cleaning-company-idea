@@ -9,7 +9,9 @@
 //
 // TopupRecord statuses: PENDING, SUCCEEDED, FAILED, UNKNOWN, EXPIRED, DECLINED
 
+import { assignCleaner, type AssignFailure } from '@/lib/booking/assign';
 import { prisma } from '@/lib/db/prisma';
+import { log } from '@/lib/log';
 import stripe from '@/lib/stripe';
 
 import { AuditService } from './audit.service';
@@ -28,7 +30,16 @@ function isUnknownOutcome(err: unknown): boolean {
 
 // ─── Types ────────────────────────────────────────────────────
 
-export type TopupOutcome = 'SUCCEEDED' | 'REQUIRES_ACTION' | 'REQUIRES_CARD' | 'FAILED' | 'UNKNOWN';
+export type TopupOutcome =
+  | 'SUCCEEDED'
+  | 'REQUIRES_ACTION'
+  | 'REQUIRES_CARD'
+  | 'FAILED'
+  | 'UNKNOWN'
+  // B3: the money was taken but the assignment was refused (the cleaner lost
+  // the slot, or the booking changed state): recorded SUCCEEDED and flagged
+  // TOPUP_WITHOUT_ASSIGNMENT for the B4 money queue.
+  | 'TAKEN_UNASSIGNED';
 
 export interface TopupResult {
   outcome: TopupOutcome;
@@ -177,7 +188,21 @@ async function executeOffSessionTopup(
     );
 
     if (pi.status === 'succeeded') {
-      await writeTopupSuccess(booking, topupRecord, pi.id, amountPounds, attempt, 'off_session');
+      const written = await writeTopupSuccess(
+        booking,
+        topupRecord,
+        pi.id,
+        amountPounds,
+        attempt,
+        'off_session'
+      );
+      if (written === 'TOPUP_WITHOUT_ASSIGNMENT') {
+        return {
+          outcome: 'TAKEN_UNASSIGNED',
+          topupRecordId: topupRecord.id,
+          reason: 'Payment taken but the assignment could not be made',
+        };
+      }
       return { outcome: 'SUCCEEDED', topupRecordId: topupRecord.id };
     }
 
@@ -333,7 +358,7 @@ async function writeTopupSuccess(
   amountPounds: number,
   attempt: number,
   paymentMethodType: 'off_session' | 'on_session' = 'off_session'
-): Promise<void> {
+): Promise<'ASSIGNED' | 'TOPUP_WITHOUT_ASSIGNMENT'> {
   // M1: the booking is being reassigned to the PRICIER cleaner — every money
   // snapshot field must be recomputed against THAT cleaner's real rates via the
   // shared helper (previously only price+cleaner were rewritten, so the new
@@ -380,47 +405,74 @@ async function writeTopupSuccess(
     const factor = oldTotal > 0 ? newTotal / oldTotal : 1;
     const scale = (v: unknown) => Math.round(Number(v ?? 0) * factor * 100) / 100;
 
-    await prisma.$transaction([
-      prisma.booking.update({
-        where: { id: booking.id },
-        data: {
-          status: full.reassignPreviousStatus ?? 'CONFIRMED',
-          totalPrice: newTotal,
-          totalAmountCharged:
-            Math.round((Number(full.totalAmountCharged ?? full.totalPrice) + amountPounds) * 100) /
-            100,
-          cleanerEarnings: scale(full.cleanerEarnings),
-          cleanerPayoutAmount: scale(full.cleanerPayoutAmount),
-          platformFee: scale(full.platformFee),
-          platformCommissionAmount: scale(full.platformCommissionAmount),
-          platformFeeAmount: scale(full.platformFeeAmount),
-          renaEarns: scale(full.renaEarns),
-          customerSubtotal: scale(full.customerSubtotal),
-          customerServiceFee: scale(full.customerServiceFee),
-          cascadePhase: null,
-          cascadeExpiresAt: null,
-          cascadeBackupExpiresAt: null,
-          provisionalCleanerId: null,
-          provisionalPrice: null,
-          topupAmount: null,
-          approvalExpiresAt: null,
-          topupApproved: false,
-          provisionalSource: null,
-          reassignPreviousStatus: null,
-          reassignPreviousCleanerId: null,
-        },
-      }),
-      prisma.topupRecord.update({
-        where: { id: topupRecord.id },
-        data: {
-          stripePaymentIntentId,
-          status: 'SUCCEEDED',
-          paymentMethodType,
-          attempt,
-          failureReason: null,
-        },
-      }),
-    ]);
+    // B3: the pre-adjust status re-enters the blocking set for the same
+    // cleaner, whose slot was free for others during the approval window — so
+    // the restore runs through the assignment helper (locked slot re-read,
+    // CAS on the provisional state) with the top-up record in the same
+    // transaction.
+    const claimed = await assignCleaner({
+      bookingId: booking.id,
+      cleanerId: booking.provisionalCleanerId,
+      expect: {
+        status: 'AWAITING_CLEANER',
+        cascadePhase: 'PROVISIONAL_APPROVAL',
+        provisionalCleanerId: booking.provisionalCleanerId,
+      },
+      requireUnexpiredOffer: false,
+      // Money already taken: only a true double booking refuses (I1 read).
+      slotPolicy: 'overlap',
+      actor: { kind: 'SYSTEM' },
+      afterClaim: async (tx) => {
+        await tx.topupRecord.update({
+          where: { id: topupRecord.id },
+          data: {
+            stripePaymentIntentId,
+            status: 'SUCCEEDED',
+            paymentMethodType,
+            attempt,
+            failureReason: null,
+          },
+        });
+      },
+      data: {
+        status: full.reassignPreviousStatus ?? 'CONFIRMED',
+        totalPrice: newTotal,
+        totalAmountCharged:
+          Math.round((Number(full.totalAmountCharged ?? full.totalPrice) + amountPounds) * 100) /
+          100,
+        cleanerEarnings: scale(full.cleanerEarnings),
+        cleanerPayoutAmount: scale(full.cleanerPayoutAmount),
+        platformFee: scale(full.platformFee),
+        platformCommissionAmount: scale(full.platformCommissionAmount),
+        platformFeeAmount: scale(full.platformFeeAmount),
+        renaEarns: scale(full.renaEarns),
+        customerSubtotal: scale(full.customerSubtotal),
+        customerServiceFee: scale(full.customerServiceFee),
+        cascadePhase: null,
+        cascadeExpiresAt: null,
+        cascadeBackupExpiresAt: null,
+        provisionalCleanerId: null,
+        provisionalPrice: null,
+        topupAmount: null,
+        approvalExpiresAt: null,
+        topupApproved: false,
+        provisionalSource: null,
+        reassignPreviousStatus: null,
+        reassignPreviousCleanerId: null,
+      },
+    });
+    if (!claimed.ok) {
+      await flagTopupWithoutAssignment({
+        bookingId: booking.id,
+        topupRecordId: topupRecord.id,
+        stripePaymentIntentId,
+        paymentMethodType,
+        attempt,
+        amountPounds,
+        reason: claimed.reason,
+      });
+      return 'TOPUP_WITHOUT_ASSIGNMENT';
+    }
 
     await AuditService.log({
       action: 'TOPUP_SUCCEEDED',
@@ -435,7 +487,7 @@ async function writeTopupSuccess(
         scaleFactor: factor,
       },
     }).catch(() => {});
-    return;
+    return 'ASSIGNED';
   }
 
   const capturedSoFar = Number(full.totalAmountCharged ?? full.totalPrice);
@@ -460,42 +512,68 @@ async function writeTopupSuccess(
   // approved and paid. Earnings/commission/fee stay quote-derived.
   snapshot.totalPrice = capturedTotal;
 
-  await prisma.$transaction([
-    prisma.booking.update({
-      where: { id: booking.id },
-      data: {
-        status: 'ACCEPTED',
-        cleanerId: booking.provisionalCleanerId,
-        acceptedAt: new Date(),
-        // Full money snapshot for the NEW cleaner (M1). Note totalPrice comes
-        // from the helper's fresh quote — same source the provisionalPrice was
-        // derived from at offer time.
-        ...snapshot,
-        cascadePhase: null,
-        cascadeExpiresAt: null,
-        cascadeBackupExpiresAt: null,
-        provisionalCleanerId: null,
-        provisionalPrice: null,
-        topupAmount: null,
-        approvalExpiresAt: null,
-        topupApproved: false,
-        reserveCleanerIds: [],
-        provisionalSource: null,
-        reassignPreviousStatus: null,
-        reassignPreviousCleanerId: null,
-      },
-    }),
-    prisma.topupRecord.update({
-      where: { id: topupRecord.id },
-      data: {
-        stripePaymentIntentId,
-        status: 'SUCCEEDED',
-        paymentMethodType,
-        attempt,
-        failureReason: null,
-      },
-    }),
-  ]);
+  // B3 (RENA-012): the provisional cleaner's final assignment runs through
+  // the assignment helper — locked slot re-read and CAS on the provisional
+  // state — with the top-up record written in the same transaction.
+  const newCleanerId = booking.provisionalCleanerId;
+  const claimed = await assignCleaner({
+    bookingId: booking.id,
+    cleanerId: newCleanerId,
+    expect: {
+      status: 'AWAITING_CLEANER',
+      cascadePhase: 'PROVISIONAL_APPROVAL',
+      provisionalCleanerId: newCleanerId,
+    },
+    requireUnexpiredOffer: false,
+    // Money already taken: only a true double booking refuses (I1 read).
+    slotPolicy: 'overlap',
+    actor: { kind: 'SYSTEM' },
+    afterClaim: async (tx) => {
+      await tx.topupRecord.update({
+        where: { id: topupRecord.id },
+        data: {
+          stripePaymentIntentId,
+          status: 'SUCCEEDED',
+          paymentMethodType,
+          attempt,
+          failureReason: null,
+        },
+      });
+    },
+    data: {
+      status: 'ACCEPTED',
+      cleanerId: newCleanerId,
+      acceptedAt: new Date(),
+      // Full money snapshot for the NEW cleaner (M1). Note totalPrice comes
+      // from the helper's fresh quote — same source the provisionalPrice was
+      // derived from at offer time.
+      ...snapshot,
+      cascadePhase: null,
+      cascadeExpiresAt: null,
+      cascadeBackupExpiresAt: null,
+      provisionalCleanerId: null,
+      provisionalPrice: null,
+      topupAmount: null,
+      approvalExpiresAt: null,
+      topupApproved: false,
+      reserveCleanerIds: [],
+      provisionalSource: null,
+      reassignPreviousStatus: null,
+      reassignPreviousCleanerId: null,
+    },
+  });
+  if (!claimed.ok) {
+    await flagTopupWithoutAssignment({
+      bookingId: booking.id,
+      topupRecordId: topupRecord.id,
+      stripePaymentIntentId,
+      paymentMethodType,
+      attempt,
+      amountPounds,
+      reason: claimed.reason,
+    });
+    return 'TOPUP_WITHOUT_ASSIGNMENT';
+  }
 
   await AuditService.log({
     action: 'TOPUP_SUCCEEDED',
@@ -526,6 +604,49 @@ async function writeTopupSuccess(
   console.log(
     `[Topup] Acceptance email for ${booking.id} after top-up finalize — ${sent ? 'sent' : 'NOT sent'}`
   );
+  return 'ASSIGNED';
+}
+
+// B3: money taken, assignment refused. The record is the truth of the
+// charge (SUCCEEDED, so no retry ever charges twice) and carries the flag the
+// B4 queue reads; the booking stays in its provisional state and its window
+// runs out as normal. The admin stuck-money page lists these until B4.
+export const TOPUP_WITHOUT_ASSIGNMENT = 'TOPUP_WITHOUT_ASSIGNMENT';
+
+async function flagTopupWithoutAssignment(args: {
+  bookingId: string;
+  topupRecordId: string;
+  stripePaymentIntentId: string;
+  paymentMethodType: 'off_session' | 'on_session';
+  attempt: number;
+  amountPounds: number;
+  reason: AssignFailure;
+}): Promise<void> {
+  await prisma.topupRecord.update({
+    where: { id: args.topupRecordId },
+    data: {
+      stripePaymentIntentId: args.stripePaymentIntentId,
+      status: 'SUCCEEDED',
+      paymentMethodType: args.paymentMethodType,
+      attempt: args.attempt,
+      failureReason: `${TOPUP_WITHOUT_ASSIGNMENT}: ${args.reason}`,
+    },
+  });
+  await AuditService.log({
+    action: TOPUP_WITHOUT_ASSIGNMENT,
+    entityType: 'Booking',
+    entityId: args.bookingId,
+    metadata: {
+      topupRecordId: args.topupRecordId,
+      amount: args.amountPounds,
+      reason: args.reason,
+    },
+  }).catch(() => {});
+  log.error('topup', 'topup_without_assignment', {
+    bookingId: args.bookingId,
+    topupRecordId: args.topupRecordId,
+    reason: args.reason,
+  });
 }
 
 // ─── Webhook handler for topup PI outcomes ────────────────────

@@ -19,6 +19,7 @@
 // sweep filters on status='SCHEDULED' + paymentStatus='PENDING', so a clean
 // being rescheduled can never be charged mid-flight.
 
+import { assignCleaner } from '@/lib/booking/assign';
 import { prisma } from '@/lib/db/prisma';
 import stripe from '@/lib/stripe';
 import {
@@ -343,8 +344,15 @@ export async function rescheduleUnpaidOccurrence(params: {
       error: 'Your cleaner is not free at that time — pick another slot, or skip this clean.',
     };
   }
-  const claim = await prisma.booking.updateMany({
-    where: { id: params.bookingId, status: 'CLEANER_CANCELLED' },
+  // B3 (RENA-012): SCHEDULED blocks the agreement cleaner's new slot, so the
+  // move runs through the assignment helper (lock, new slot re-read, CAS).
+  const claim = await assignCleaner({
+    bookingId: params.bookingId,
+    cleanerId: booking.cleanerId,
+    expect: { status: 'CLEANER_CANCELLED' },
+    requireUnexpiredOffer: false,
+    slot: { date: when, startTime: params.startTime, durationHours: Number(booking.duration) },
+    actor: { kind: 'CUSTOMER' },
     data: {
       status: 'SCHEDULED',
       date: when,
@@ -354,7 +362,14 @@ export async function rescheduleUnpaidOccurrence(params: {
       cancelledByCleanerId: null,
     },
   });
-  if (claim.count === 0) {
+  if (!claim.ok && claim.reason === 'SLOT_TAKEN') {
+    return {
+      ok: false,
+      status: 422,
+      error: 'Your cleaner is not free at that time — pick another slot, or skip this clean.',
+    };
+  }
+  if (!claim.ok) {
     return {
       ok: false,
       status: 409,

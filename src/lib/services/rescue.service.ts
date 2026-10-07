@@ -33,6 +33,7 @@
 // Auto-rescue (system proactively finds a replacement) is explicitly OUT —
 // ledgered post-launch.
 
+import { assignCleaner } from '@/lib/booking/assign';
 import { serviceLabelFromSlug } from '@/lib/constants/services';
 import { prisma } from '@/lib/db/prisma';
 import {
@@ -470,8 +471,16 @@ export async function rescueRebook(params: {
   // any delta via the existing partial-refund / top-up machinery.
   const now = new Date();
   const cascade = computeCascadeWindows(when, params.startTime, now);
-  const claim = await prisma.booking.updateMany({
-    where: { id: bookingId, status: 'CLEANER_CANCELLED' },
+  // B3 (RENA-012): the new cleaner's PRIMARY_OFFER blocks their slot, so the
+  // claim runs through the assignment helper — their lock, the new slot
+  // re-read inside it, CAS on CLEANER_CANCELLED.
+  const claim = await assignCleaner({
+    bookingId,
+    cleanerId: newCleanerId,
+    expect: { status: 'CLEANER_CANCELLED' },
+    requireUnexpiredOffer: false,
+    slot: { date: when, startTime: params.startTime, durationHours: Number(booking.duration) },
+    actor: { kind: 'CUSTOMER' },
     data: {
       status: 'AWAITING_CLEANER',
       cleanerId: newCleanerId,
@@ -488,7 +497,14 @@ export async function rescueRebook(params: {
         : { cascadePhase: 'PRIMARY_OFFER' }),
     },
   });
-  if (claim.count === 0) {
+  if (!claim.ok && claim.reason === 'SLOT_TAKEN') {
+    return {
+      ok: false,
+      status: 422,
+      error: 'That cleaner is not genuinely free at that time — pick another slot or cleaner.',
+    };
+  }
+  if (!claim.ok) {
     // Lost the race (sweep refunded, or a concurrent choice landed first).
     return { ok: false, status: 409, error: 'This booking was just resolved — check its status' };
   }

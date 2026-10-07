@@ -244,6 +244,21 @@ export async function POST(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ result: 'paid', outcome: topupResult.outcome });
     }
 
+    // B3: the charge went through but the cleaner could no longer be assigned.
+    // The money is recorded and flagged for review; the booking is NOT failed
+    // over (that would tell the customer the payment failed), and the copy
+    // says what actually happened.
+    if (topupResult.outcome === 'TAKEN_UNASSIGNED') {
+      return NextResponse.json(
+        {
+          error:
+            'Your payment went through, but that cleaner is no longer free at this time. Our team has been alerted and will contact you about it.',
+          outcome: topupResult.outcome,
+        },
+        { status: 409 }
+      );
+    }
+
     if (topupResult.outcome === 'REQUIRES_ACTION' || topupResult.outcome === 'REQUIRES_CARD') {
       return NextResponse.json({
         result: 'requires_payment',

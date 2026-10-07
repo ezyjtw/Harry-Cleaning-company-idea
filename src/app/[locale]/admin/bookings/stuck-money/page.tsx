@@ -49,8 +49,16 @@ export default async function StuckMoneyPage() {
       where: { status: { in: ['REVERSAL_ONLY', 'UNKNOWN'] } },
       orderBy: { createdAt: 'desc' },
     }),
+    // B3: a top-up taken whose assignment was refused is recorded SUCCEEDED
+    // with the TOPUP_WITHOUT_ASSIGNMENT flag; it is stuck money until B4's
+    // queue owns it.
     prisma.topupRecord.findMany({
-      where: { status: 'UNKNOWN' },
+      where: {
+        OR: [
+          { status: 'UNKNOWN' },
+          { status: 'SUCCEEDED', failureReason: { startsWith: 'TOPUP_WITHOUT_ASSIGNMENT' } },
+        ],
+      },
       orderBy: { createdAt: 'desc' },
     }),
   ]);

@@ -1,6 +1,7 @@
-import type { BookingStatus, PropertySize } from '@prisma/client';
+import type { BookingStatus, Prisma, PropertySize } from '@prisma/client';
 
 import { revokeAllSessions } from '@/lib/auth/device-session';
+import { assignCleaner } from '@/lib/booking/assign';
 import { normalizeToPricingSlug, propertySizeEnumToSlug } from '@/lib/constants/services';
 import { prisma } from '@/lib/db/prisma';
 
@@ -39,26 +40,6 @@ export interface DisputeResolveResult {
 }
 
 export class AdminOperationsService {
-  /**
-   * Manually assign a cleaner to a booking
-   */
-  static async assignCleaner(bookingId: string, cleanerId: string, adminId?: string) {
-    const booking = await prisma.booking.update({
-      where: { id: bookingId },
-      data: { cleanerId, status: 'AWAITING_CLEANER', adminNotes: `Manually assigned by admin` },
-    });
-
-    await AuditService.log({
-      userId: adminId,
-      action: 'ADMIN_ASSIGN_CLEANER',
-      entityType: 'Booking',
-      entityId: bookingId,
-      metadata: { cleanerId },
-    });
-
-    return booking;
-  }
-
   /**
    * Reassign a booking to a different cleaner.
    *
@@ -144,23 +125,18 @@ export class AdminOperationsService {
 
     // ── EQUAL (|diff| <= threshold) → direct swap, adjust split, no refund ──
     if (priceCase === 'EQUAL') {
-      const claim = await prisma.booking.updateMany({
-        where: {
-          id: bookingId,
-          status: { in: REASSIGN_ELIGIBLE },
-          transferStatus: { in: ['PENDING', 'FAILED'] },
-        },
-        data: {
-          cleanerId: newCleanerId,
-          status: 'ACCEPTED',
-          acceptedAt: new Date(),
-          cleanerEarnings: quote.cleanerPayout,
-          platformFee: quote.customerPlatformFee,
-          ...cascadeTeardownFields(),
-          adminNotes: `Reassigned (equal price): ${reason}. Previous cleaner: ${booking.cleanerId}`,
-        },
+      // B3 (RENA-012): through the assignment helper, pinned to the exact
+      // status and cleaner read (the TOCTOU law), with the new cleaner's slot
+      // re-read under their lock.
+      await AdminOperationsService.claimReassign(bookingId, newCleanerId, booking, {
+        cleanerId: newCleanerId,
+        status: 'ACCEPTED',
+        acceptedAt: new Date(),
+        cleanerEarnings: quote.cleanerPayout,
+        platformFee: quote.customerPlatformFee,
+        ...cascadeTeardownFields(),
+        adminNotes: `Reassigned (equal price): ${reason}. Previous cleaner: ${booking.cleanerId}`,
       });
-      if (claim.count === 0) throw new Error('Booking changed state — reassign aborted');
 
       await AdminOperationsService.notifyReassign(booking, newCleanerId);
       await AuditService.log({
@@ -183,23 +159,15 @@ export class AdminOperationsService {
     // correct even if the refund later fails. totalPrice is set via the refund
     // override on success; on refund failure it stays at the old (paid) value —
     // the correct refundable base for an admin retry, not a strand.
-    const claim = await prisma.booking.updateMany({
-      where: {
-        id: bookingId,
-        status: { in: REASSIGN_ELIGIBLE },
-        transferStatus: { in: ['PENDING', 'FAILED'] },
-      },
-      data: {
-        cleanerId: newCleanerId,
-        status: 'ACCEPTED',
-        acceptedAt: new Date(),
-        cleanerEarnings: quote.cleanerPayout,
-        platformFee: quote.customerPlatformFee,
-        ...cascadeTeardownFields(),
-        adminNotes: `Reassigned (cheaper): ${reason}. Previous cleaner: ${booking.cleanerId}`,
-      },
+    await AdminOperationsService.claimReassign(bookingId, newCleanerId, booking, {
+      cleanerId: newCleanerId,
+      status: 'ACCEPTED',
+      acceptedAt: new Date(),
+      cleanerEarnings: quote.cleanerPayout,
+      platformFee: quote.customerPlatformFee,
+      ...cascadeTeardownFields(),
+      adminNotes: `Reassigned (cheaper): ${reason}. Previous cleaner: ${booking.cleanerId}`,
     });
-    if (claim.count === 0) throw new Error('Booking changed state — reassign aborted');
 
     const refundAmount = Math.round(Math.abs(diff) * 100) / 100;
     const { refundBooking } = await import('./refund.service');
@@ -242,6 +210,37 @@ export class AdminOperationsService {
       };
     }
     return { outcome: 'REASSIGNED', priceCase: 'CHEAPER', refundAmount };
+  }
+
+  /** B3: the EQUAL and CHEAPER claim, through the assignment helper. */
+  private static async claimReassign(
+    bookingId: string,
+    newCleanerId: string,
+    booking: { status: BookingStatus; cleanerId: string },
+    data: Prisma.BookingUncheckedUpdateManyInput
+  ): Promise<void> {
+    const claim = await assignCleaner({
+      bookingId,
+      cleanerId: newCleanerId,
+      expect: { status: booking.status, cleanerId: booking.cleanerId },
+      expectWhere: {
+        status: { in: REASSIGN_ELIGIBLE },
+        transferStatus: { in: ['PENDING', 'FAILED'] },
+      },
+      requireUnexpiredOffer: false,
+      // Admin placements may sit outside template hours (as before); only a
+      // true double booking refuses.
+      slotPolicy: 'overlap',
+      actor: { kind: 'ADMIN' },
+      data,
+    });
+    if (!claim.ok) {
+      throw new Error(
+        claim.reason === 'SLOT_TAKEN'
+          ? 'The new cleaner is not free at that time — reassign aborted'
+          : 'Booking changed state — reassign aborted'
+      );
+    }
   }
 
   /**

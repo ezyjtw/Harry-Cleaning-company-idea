@@ -86,9 +86,17 @@ export interface SlotQuery {
  * Batch form: of these cleaner USER ids, which are genuinely free for the slot?
  * Empty input → empty set. A slot whose start has passed → empty set.
  */
+/** A Prisma client or an interactive transaction (B3: the assignment helper
+ *  re-reads availability inside its locked transaction). */
+export type SlotDb = Pick<
+  typeof prisma,
+  'cleanerProfile' | 'availabilityDateSlot' | 'availabilityOverride' | 'booking'
+>;
+
 export async function filterSlotAvailableCleaners(
   cleanerUserIds: string[],
-  slot: SlotQuery
+  slot: SlotQuery,
+  db: SlotDb = prisma
 ): Promise<Set<string>> {
   const ids = Array.from(new Set(cleanerUserIds));
   if (ids.length === 0) return new Set();
@@ -119,7 +127,7 @@ export async function filterSlotAvailableCleaners(
   const endMin = startMin === null ? null : startMin + slot.durationHours * 60;
   const durationMins = slot.durationHours * 60;
 
-  const profiles = await prisma.cleanerProfile.findMany({
+  const profiles = await db.cleanerProfile.findMany({
     where: { userId: { in: ids } },
     select: {
       id: true,
@@ -133,11 +141,11 @@ export async function filterSlotAvailableCleaners(
   const userIds = profiles.map((p) => p.userId);
 
   const [dateSlots, overrides, bookings] = await Promise.all([
-    prisma.availabilityDateSlot.findMany({
+    db.availabilityDateSlot.findMany({
       where: { cleanerProfileId: { in: profileIds }, date: { gte: startOfDay, lte: endOfDay } },
       select: { cleanerProfileId: true, date: true, startTime: true, endTime: true },
     }),
-    prisma.availabilityOverride.findMany({
+    db.availabilityOverride.findMany({
       where: {
         cleanerProfileId: { in: profileIds },
         date: { gte: startOfDay, lte: endOfDay },
@@ -146,7 +154,7 @@ export async function filterSlotAvailableCleaners(
       select: { cleanerProfileId: true, date: true, startTime: true, endTime: true },
     }),
     // Same conflict source as search: bookings that actually BLOCK (H63).
-    prisma.booking.findMany({
+    db.booking.findMany({
       where: {
         cleanerId: { in: userIds },
         date: { gte: startOfDay, lte: endOfDay },
@@ -186,9 +194,10 @@ export async function filterSlotAvailableCleaners(
 /** Single-cleaner form (accept-time guard, rebooking validation). */
 export async function cleanerAvailableForSlot(
   cleanerUserId: string,
-  slot: SlotQuery
+  slot: SlotQuery,
+  db: SlotDb = prisma
 ): Promise<boolean> {
-  const set = await filterSlotAvailableCleaners([cleanerUserId], slot);
+  const set = await filterSlotAvailableCleaners([cleanerUserId], slot, db);
   return set.has(cleanerUserId);
 }
 
