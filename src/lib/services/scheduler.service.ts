@@ -43,6 +43,7 @@ export interface SchedulerSummary {
 
 import { processNextBatch } from '@/lib/infrastructure/job-processor';
 import { log } from '@/lib/log';
+import { refundMoneyUnsettledWhere } from '@/lib/money/ledger-db';
 import stripe from '@/lib/stripe';
 
 import {
@@ -225,7 +226,7 @@ async function processExpiredCascadeWindows(): Promise<HandlerResult> {
 
 const RELEASE_BATCH_LIMIT = 50;
 
-async function processDueReleases(): Promise<HandlerResult> {
+export async function processDueReleases(): Promise<HandlerResult> {
   const { prisma } = await import('@/lib/db/prisma');
   const now = new Date();
 
@@ -233,6 +234,10 @@ async function processDueReleases(): Promise<HandlerResult> {
     where: {
       releaseDueAt: { lte: now },
       transferStatus: 'PENDING',
+      // Waiting on refund reconciliation (ruling 6): left out of the batch so
+      // it cannot crowd out releasable bookings; releaseBookingFunds refuses
+      // it too.
+      refundRecords: { none: refundMoneyUnsettledWhere },
     },
     select: { id: true },
     take: RELEASE_BATCH_LIMIT,

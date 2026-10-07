@@ -1,6 +1,8 @@
 // B4 money ledger: the database half. Reads a booking's ledger and writes
 // the derived states (ledger.ts) inside the caller's transaction.
 
+import type { Prisma } from '@prisma/client';
+
 import { prisma } from '@/lib/db/prisma';
 import { TOPUP_WITHOUT_ASSIGNMENT } from '@/lib/services/topup-flag';
 
@@ -266,6 +268,24 @@ export async function holdReasonsFor(db: Db, bookingId: string): Promise<MoneyHo
     shortfallAccepted: !!b.shortfallAcceptedAt,
     chargebackStatuses: b.chargebackHolds.map((h) => h.status),
   });
+}
+
+/**
+ * Refund money on the booking whose outcome or cleaner-side consequence is
+ * not yet settled (B4 gate ruling 6): a slice PENDING, UNKNOWN or
+ * NEEDS_RECONCILE, or a Stripe-dashboard refund not yet applied to the
+ * cleaner's share. Every money mover, scheduled or manual, waits on it.
+ */
+export const refundMoneyUnsettledWhere = {
+  OR: [
+    { slices: { some: { status: { in: ['PENDING', 'UNKNOWN', 'NEEDS_RECONCILE'] } } } },
+    { triggeredBy: 'STRIPE_DASHBOARD', finalizedAt: null },
+  ],
+} satisfies Prisma.RefundRecordWhereInput;
+
+export async function refundMoneyUnsettled(db: Db, bookingId: string): Promise<boolean> {
+  const n = await db.refundRecord.count({ where: { bookingId, ...refundMoneyUnsettledWhere } });
+  return n > 0;
 }
 
 export { prisma };

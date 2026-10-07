@@ -16,6 +16,7 @@ import { firstNameOf, outwardCode } from '@/lib/booking/cleaner-view';
 import { serviceLabelFromSlug } from '@/lib/constants/services';
 import { prisma } from '@/lib/db/prisma';
 import { log } from '@/lib/log';
+import { refundMoneyUnsettledWhere } from '@/lib/money/ledger-db';
 import {
   advanceFromPrimaryAfterPayment,
   computeCascadeWindows,
@@ -423,8 +424,15 @@ async function handleLateOccurrencePayment(
       date: true,
       // B4: any record that may have moved money counts (not only SUCCEEDED),
       // so a duplicate late-payment event never starts a second refund.
+      // Gate ruling 6: so does any record whose money is still unsettled (a
+      // legacy record can say FAILED while its slice is still being read).
       refundRecords: {
-        where: { status: { in: ['SUCCEEDED', 'PARTIAL', 'PENDING', 'UNKNOWN'] } },
+        where: {
+          OR: [
+            { status: { in: ['SUCCEEDED', 'PARTIAL', 'PENDING', 'UNKNOWN'] } },
+            refundMoneyUnsettledWhere,
+          ],
+        },
         select: { id: true },
       },
     },

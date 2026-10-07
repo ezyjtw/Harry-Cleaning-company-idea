@@ -1484,6 +1484,153 @@ describe.skipIf(!enabled)('money ledger against Postgres (B4)', () => {
 
   // ─── 11 ─────────────────────────────────────────────────────
 
+  // ─── Gate ruling 6: scheduler jobs obey the never-guess guard ─────────
+
+  /** The migration's worst legacy shape: the record says FAILED, its slice holds a refund id not yet read. */
+  async function legacyUnread(bookingId: string, pi: string) {
+    n += 1;
+    const tag = `${Date.now().toString(36)}${n}`;
+    const rec = await prisma.refundRecord.create({
+      data: {
+        bookingId,
+        amount: 10,
+        requestedPence: 1000,
+        reason: 'legacy integration refund',
+        status: 'FAILED',
+        slices: {
+          create: {
+            stripePaymentIntentId: pi,
+            requestedPence: 1000,
+            stripeRefundId: `re_legacy_${tag}`,
+            status: 'NEEDS_RECONCILE',
+            idempotencyKey: `legacy_rs_it_${tag}`,
+          },
+        },
+      },
+      include: { slices: true },
+    });
+    return rec.slices[0].id;
+  }
+
+  it('S1. with a NEEDS_RECONCILE slice the release job, cascade exhaustion, the dispute retry job and the late-payment path move no money; once read, release runs', async () => {
+    // S1 runs scheduler sweeps that read the whole database. It refuses to run
+    // where any booking is not its own (a shared rig): a sweep would move
+    // those bookings' money too. Point DATABASE_URL at a dedicated database.
+    const foreign = await prisma.booking.count({
+      where: { OR: [{ clientId: null }, { clientId: { not: ids.customer } }] },
+    });
+    if (foreign > 0) {
+      throw new Error(
+        `S1 refuses: ${foreign} booking(s) in this database are not fixtures; run against a dedicated database`
+      );
+    }
+    const { processDueReleases } = await import('@/lib/services/scheduler.service');
+    const { processExhaustedRefunds } = await import('@/lib/services/cascade.service');
+    const past = { releaseDueAt: new Date(Date.now() - 60_000) };
+
+    // Release job: the guarded booking waits, a clean one beside it releases.
+    const held = await paidBooking({ extra: past });
+    const heldSlice = await legacyUnread(held.id, held.pi);
+    const clean = await paidBooking({ extra: past });
+    await processDueReleases();
+    expect((await bookingRow(clean.id)).transferStatus).toBe('RELEASED');
+    expect((await bookingRow(held.id)).transferStatus).toBe('PENDING');
+    // The function itself refuses (the admin Release now and every resume use it).
+    const direct = await transfer.releaseBookingFunds(held.id, { trigger: 'ADMIN' });
+    expect(direct.status).toBe('SKIPPED');
+    expect(direct.code).toBe('LEDGER_RECONCILIATION_PENDING');
+    expect(fake.callsTo('transfers.create').every((c) => !String(c.key).includes(held.id))).toBe(
+      true
+    );
+
+    // A Stripe dashboard refund not yet applied to the cleaner side waits too.
+    const dash = await paidBooking({ extra: past });
+    await prisma.refundRecord.create({
+      data: {
+        bookingId: dash.id,
+        amount: 15,
+        requestedPence: 1500,
+        executedPence: 1500,
+        reason: 'Stripe dashboard refund',
+        triggeredBy: 'STRIPE_DASHBOARD',
+        status: 'SUCCEEDED',
+        slices: {
+          create: {
+            stripePaymentIntentId: dash.pi,
+            requestedPence: 1500,
+            executedPence: 1500,
+            status: 'SUCCEEDED',
+            idempotencyKey: `it_dash_${dash.id}`,
+          },
+        },
+      },
+    });
+    expect((await transfer.releaseBookingFunds(dash.id)).code).toBe(
+      'LEDGER_RECONCILIATION_PENDING'
+    );
+
+    // Cascade exhaustion's safety sweep.
+    const exhausted = await paidBooking({ status: 'CASCADE_EXHAUSTED' });
+    await legacyUnread(exhausted.id, exhausted.pi);
+    await processExhaustedRefunds();
+    expect((await bookingRow(exhausted.id)).status).toBe('CASCADE_EXHAUSTED');
+
+    // The dispute money retry job, refund leg and release leg.
+    const dRefund = await disputed();
+    await legacyUnread(dRefund.id, dRefund.pi);
+    await prisma.booking.update({ where: { id: dRefund.id }, data: { status: 'CANCELLED' } });
+    const dRelease = await disputed();
+    await legacyUnread(dRelease.id, dRelease.pi);
+    await prisma.booking.update({
+      where: { id: dRelease.id },
+      data: { status: 'COMPLETED', transferStatus: 'PENDING' },
+    });
+    const due = {
+      resolvingSince: new Date(Date.now() - 5 * 60_000),
+      nextRetryAt: new Date(Date.now() - 1000),
+      resolvedById: ids.admin,
+    };
+    await prisma.dispute.update({
+      where: { id: dRefund.disputeId },
+      data: { ...due, status: 'RESOLVING_REFUND', resolutionOutcome: 'refund-customer' },
+    });
+    await prisma.dispute.update({
+      where: { id: dRelease.disputeId },
+      data: { ...due, status: 'RESOLVING_RELEASE', resolutionOutcome: 'release-to-cleaner' },
+    });
+    await dispute.retryResolvingDisputes();
+    expect(
+      (await prisma.dispute.findUniqueOrThrow({ where: { id: dRefund.disputeId } })).status
+    ).toBe('RESOLVING_REFUND');
+    expect(
+      (await prisma.dispute.findUniqueOrThrow({ where: { id: dRelease.disputeId } })).status
+    ).toBe('RESOLVING_RELEASE');
+    expect((await bookingRow(dRelease.id)).transferStatus).toBe('PENDING');
+
+    // The late-payment path (webhook or stranded sweep): no write, no refund.
+    const late = await paidBooking({ status: 'CANCELLED' });
+    await prisma.booking.update({
+      where: { id: late.id },
+      data: { paymentStatus: 'CANCELED' },
+    });
+    await legacyUnread(late.id, late.pi);
+    await payment.processPaymentSuccess({
+      bookingId: late.id,
+      pi: { id: late.pi, created: 1, currency: 'gbp', amountReceived: 6000, chargeId: late.charge },
+    });
+    expect((await bookingRow(late.id)).paymentStatus).toBe('CANCELED');
+
+    // Not one refund, and only the clean booking paid.
+    expect(fake.callsTo('refunds.create')).toHaveLength(0);
+    expect(fake.callsTo('transfers.create').length).toBeGreaterThan(0);
+    expect(Array.from(fake.transfersById.values()).reduce((t, x) => t + x.amount, 0)).toBe(5000);
+
+    // It waits, it is not stranded: once Stripe has been read, the job releases it.
+    await prisma.refundSlice.update({ where: { id: heldSlice }, data: { status: 'FAILED' } });
+    await processDueReleases();
+    expect((await bookingRow(held.id)).transferStatus).toBe('RELEASED');
+  });
+
   it('11. queue: each fixture state is listed with its action, and the action works with the fake', async () => {
     // REFUND_UNKNOWN → reconcile.
     const u = await paidBooking();

@@ -20,7 +20,7 @@
 import { prisma } from '@/lib/db/prisma';
 import { log } from '@/lib/log';
 import { isUnknownStripeOutcome, nextRetryAt, toPence } from '@/lib/money/ledger';
-import { holdReasonsFor } from '@/lib/money/ledger-db';
+import { holdReasonsFor, refundMoneyUnsettled } from '@/lib/money/ledger-db';
 import stripe from '@/lib/stripe';
 
 import { AuditService } from './audit.service';
@@ -35,6 +35,8 @@ export interface ReleaseResult {
   status: 'RELEASED' | 'FAILED' | 'UNKNOWN' | 'ALREADY_RELEASED' | 'SKIPPED';
   transferId?: string;
   reason?: string;
+  /** LEDGER_RECONCILIATION_PENDING when a refund on the booking is unsettled. */
+  code?: string;
 }
 
 // SECURITY (S5): who/what asked for this release — recorded on every executed
@@ -111,6 +113,18 @@ export async function releaseBookingFunds(
   }
   if (['PAUSED', 'REFUNDED', 'REFUNDING'].includes(booking.transferStatus)) {
     return { status: 'SKIPPED', reason: `Transfer is ${booking.transferStatus}` };
+  }
+
+  // The same never-guess guard as every manual money action (B4 gate ruling
+  // 6): while a refund on this booking is unresolved, in flight, or a Stripe
+  // dashboard refund not yet applied, the cleaner's share is not knowable and
+  // nothing is paid. The transfer stays PENDING; the next tick tries again.
+  if (await refundMoneyUnsettled(prisma, bookingId)) {
+    return {
+      status: 'SKIPPED',
+      code: 'LEDGER_RECONCILIATION_PENDING',
+      reason: 'A refund on this booking is still being reconciled with Stripe',
+    };
   }
 
   // Holds first (N7): a held booking pauses instead of releasing.
