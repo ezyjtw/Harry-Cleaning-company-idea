@@ -698,6 +698,95 @@ describe.skipIf(!enabled)('money ledger against Postgres (B4)', () => {
     expect((await bookingRow(short.id)).transferStatus).toBe('RELEASED');
   });
 
+  // ─── 9 ──────────────────────────────────────────────────────
+
+  it('9. add-on splits: the parent rate (90 hourly, 85 fixed), an own split honoured, products 90; the transfer equals cleanerEarnings', async () => {
+    const { pricingService, addonSplit } = await import('@/lib/services/pricing.service');
+    const { computeMoneySnapshot } = await import('@/lib/services/money-snapshot.service');
+    const { getTransferAmountPence } = await import('@/lib/services/transfer-amount');
+    // Pure: the split per add-on, rounded per add-on, share + commission = price.
+    expect(addonSplit(['a'], [{ id: 'a', price: 20 }], 0.1)).toEqual({
+      total: 20,
+      cleanerShare: 18,
+      commission: 2,
+    });
+    expect(addonSplit(['a'], [{ id: 'a', price: 40 }], 0.15)).toEqual({
+      total: 40,
+      cleanerShare: 34,
+      commission: 6,
+    });
+    expect(
+      addonSplit(
+        ['a', 'b'],
+        [
+          { id: 'a', price: 20 },
+          { id: 'b', price: 10, cleanerSharePct: '0.5' },
+        ],
+        0.1
+      )
+    ).toEqual({ total: 30, cleanerShare: 23, commission: 7 });
+    expect(addonSplit(['x'], [{ id: 'a', price: 20 }], 0.1)).toEqual({
+      total: 0,
+      cleanerShare: 0,
+      commission: 0,
+    });
+
+    await prisma.cleanerProfile.update({
+      where: { userId: ids.cleaner },
+      data: { eotPrices: { '2bed': 200 } },
+    });
+    const regular = await prisma.serviceType.findUniqueOrThrow({ where: { slug: 'regular' } });
+    const eot = await prisma.serviceType.findUniqueOrThrow({ where: { slug: 'eot' } });
+    const made = await Promise.all([
+      prisma.serviceAddon.create({
+        data: { serviceTypeId: regular.id, name: 'B4 test parent rate', price: 20 },
+      }),
+      prisma.serviceAddon.create({
+        data: {
+          serviceTypeId: regular.id,
+          name: 'B4 test own split',
+          price: 10,
+          cleanerSharePct: 0.5,
+        },
+      }),
+      prisma.serviceAddon.create({
+        data: { serviceTypeId: eot.id, name: 'B4 test eot', price: 40 },
+      }),
+    ]);
+    try {
+      const hourly = await pricingService.calculateQuote({
+        cleanerId: ids.cleaner,
+        serviceSlug: 'regular',
+        hours: 3,
+        addons: [made[0].id, made[1].id, 'products'],
+      });
+      // £60 clean less 10% = 54; add-ons 18 + 5; products 4.50.
+      expect(hourly.addonCleanerShare).toBe(23);
+      expect(hourly.addonCommission).toBe(7);
+      expect(hourly.cleanerPayout).toBe(81.5);
+      expect(hourly.cleanerCommission).toBe(6 + 0.5 + 7);
+      const fixed = await pricingService.calculateQuote({
+        cleanerId: ids.cleaner,
+        serviceSlug: 'eot',
+        propertySize: '2bed',
+        addons: [made[2].id],
+      });
+      // £200 less 15% = 170; add-on 40 at 85% = 34.
+      expect(fixed.addonCleanerShare).toBe(34);
+      expect(fixed.cleanerPayout).toBe(204);
+      const snap = await computeMoneySnapshot({
+        cleanerId: ids.cleaner,
+        serviceType: 'regular',
+        duration: 3,
+        extras: [made[0].id, made[1].id, 'products'],
+      } as never);
+      expect(snap.cleanerEarnings).toBe(hourly.cleanerPayout);
+      expect(getTransferAmountPence(snap.cleanerEarnings)).toBe(8150);
+    } finally {
+      await prisma.serviceAddon.deleteMany({ where: { id: { in: made.map((m) => m.id) } } });
+    }
+  });
+
   // ─── N7 chargebacks ─────────────────────────────────────────
 
   it('N7. a chargeback holds an unreleased payout until won; after release it is CHARGEBACK_AFTER_RELEASE', async () => {
