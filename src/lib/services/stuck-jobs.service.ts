@@ -325,8 +325,6 @@ export async function cancelRefund(
         select: {
           id: true,
           status: true,
-          totalPrice: true,
-          refundRecords: { where: { status: 'SUCCEEDED' }, select: { amount: true } },
         },
       },
     },
@@ -348,8 +346,19 @@ export async function cancelRefund(
     };
   }
 
-  const refundedSoFar = c.booking.refundRecords.reduce((s, r) => s + Number(r.amount), 0);
-  const remainder = Math.round((Number(c.booking.totalPrice) - refundedSoFar) * 100) / 100;
+  // N5 (B4): the remainder from the ledger (what was charged less what Stripe
+  // executed), never totalPrice less requested amounts.
+  const { remainingRefundableFor } = await import('./refund.service');
+  const remainderPence = await remainingRefundableFor(c.bookingId);
+  if (remainderPence === null) {
+    return {
+      ok: false,
+      error:
+        'An earlier refund on this booking is still being reconciled with Stripe. Try again once Stuck money shows it settled.',
+      status: 409,
+    };
+  }
+  const remainder = remainderPence / 100;
   if (remainder <= 0) {
     return { ok: false, error: 'Nothing left to refund on this booking.', status: 400 };
   }

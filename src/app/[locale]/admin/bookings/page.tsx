@@ -73,8 +73,7 @@ async function getBookings(): Promise<{
       client: { select: { name: true } },
       cleaner: { select: { name: true } },
       refundRecords: {
-        where: { status: 'SUCCEEDED' },
-        select: { amount: true },
+        select: { executedPence: true },
       },
     },
   });
@@ -88,7 +87,7 @@ async function getBookings(): Promise<{
     date: b.date.toISOString().split('T')[0],
     time: b.startTime,
     amount: Number(b.totalPrice),
-    refundedAmount: b.refundRecords.reduce((sum, r) => sum + Number(r.amount), 0),
+    refundedAmount: b.refundRecords.reduce((sum, r) => sum + r.executedPence, 0) / 100,
     status: mapStatus(b.status),
     paymentStatus: b.paymentStatus,
   }));

@@ -10,6 +10,8 @@ import type { DisputeReason, DisputeStatus } from '@/lib/types';
 function mapPrismaStatus(status: string, resolution: string | null): DisputeStatus {
   switch (status) {
     case 'UNDER_REVIEW':
+    case 'RESOLVING_REFUND': // B4: decided, money pending; shown as in review
+    case 'RESOLVING_RELEASE': // until RESOLVED is confirmed.
       return 'under-review';
     case 'RESOLVED': {
       const note = resolution?.toLowerCase() ?? '';

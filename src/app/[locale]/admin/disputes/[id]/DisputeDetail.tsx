@@ -52,7 +52,8 @@ interface DisputeData {
   timeline: { id: string; label: string; at: string }[];
 }
 
-const RESOLVED = ['RESOLVED', 'DISMISSED'];
+// RESOLVING_*: decided, money step pending (B4); the form stays closed.
+const RESOLVED = ['RESOLVED', 'DISMISSED', 'RESOLVING_REFUND', 'RESOLVING_RELEASE'];
 
 function fmt(iso: string): string {
   return new Date(iso).toLocaleString('en-GB', {
@@ -100,7 +101,9 @@ export default function DisputeDetail({ data }: { data: DisputeData }) {
       const body = await res.json().catch(() => null);
       if (res.ok) {
         setMessage(
-          `Resolved: ${body?.outcome ?? outcome}. Refunded £${(body?.refundedAmount ?? 0).toFixed?.(2) ?? body?.refundedAmount ?? 0}.`
+          body?.disputeStatus && body.disputeStatus !== 'RESOLVED'
+            ? (body?.message ?? 'Resolution recorded; the money step is pending.')
+            : `Resolved: ${body?.outcome ?? outcome}. Refunded £${(body?.refundedAmount ?? 0).toFixed?.(2) ?? body?.refundedAmount ?? 0}.`
         );
         router.refresh();
       } else {

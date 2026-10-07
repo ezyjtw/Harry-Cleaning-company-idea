@@ -171,6 +171,12 @@ jobs:
           BOOKING_LIFECYCLE_INTEGRATION: '1'
           NEXTAUTH_SECRET: ci-only-secret-for-booking-integration
 
+      - name: Money ledger against Postgres, Stripe faked (B4, RENA-010, 011, 013, 015, 016, 017)
+        run: npx vitest run src/lib/money/money-ledger.integration.test.ts
+        env:
+          MONEY_LEDGER_INTEGRATION: '1'
+          NEXTAUTH_SECRET: ci-only-secret-for-money-integration
+
       - name: Build
         run: npm run build
 

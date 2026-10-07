@@ -3,6 +3,17 @@
 import Decimal from 'decimal.js';
 import { useCallback, useEffect, useState } from 'react';
 
+import {
+  COMMISSION_RATES,
+  EDITABLE_PLATFORM_CONFIG_KEYS,
+  PLATFORM_FEE_RATE,
+  PRODUCTS_FEE,
+  PRODUCTS_FEE_COMMISSION_RATE,
+} from '@/lib/pricing/rates';
+
+const EDITABLE = new Set<string>(EDITABLE_PLATFORM_CONFIG_KEYS);
+const pct = (n: number) => `${Math.round(n * 100)}%`;
+
 interface PlatformConfigEntry {
   id: string;
   key: string;
@@ -70,20 +81,20 @@ export default function AdminPricingPage() {
         setEditingKey(null);
         fetchData();
         setTimeout(() => setSaveStatus(''), 2000);
+      } else {
+        setSaveStatus(
+          `Not saved: ${key} (${res.status === 400 ? 'not editable or not a number' : `HTTP ${res.status}`})`
+        );
       }
     } catch {
       setSaveStatus('Failed to save');
     }
   };
 
-  // Margin calculator
-  const getConfig = (key: string): number => {
-    const c = configs.find((c) => c.key === key);
-    return c ? parseFloat(c.value) : 0;
-  };
-
-  const cleanerFeePct = getConfig('cleaner_fee_pct');
-  const customerFeePct = getConfig('customer_fee_pct');
+  // Margin calculator (B4, RENA-075): the real rates from code, never the
+  // database keys that once pretended to control them.
+  const cleanerFeePct = COMMISSION_RATES.regular;
+  const customerFeePct = PLATFORM_FEE_RATE;
 
   const calcMargin = (rate: number, hours: number, multiplier: number) => {
     const gross = new Decimal(rate).mul(hours).mul(multiplier);
@@ -108,6 +119,31 @@ export default function AdminPricingPage() {
         </p>
         {saveStatus && <p className="mt-2 text-sm text-trust">{saveStatus}</p>}
       </div>
+
+      {/* Rates (read only: code, not configuration) */}
+      <section className="bg-surface rounded-xl border border-line p-6">
+        <h2 className="text-lg font-semibold text-ink mb-1">Rates</h2>
+        <p className="text-xs text-ink-3 mb-4">
+          Set in code (src/lib/pricing/rates.ts). Changing a rate is a code change, ruled before it
+          ships.
+        </p>
+        <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
+          <dt className="text-ink-3">Commission, regular, deep and same-day</dt>
+          <dd className="font-medium">{pct(COMMISSION_RATES.regular)}</dd>
+          <dt className="text-ink-3">Commission, end of tenancy and Airbnb</dt>
+          <dd className="font-medium">{pct(COMMISSION_RATES.eot)}</dd>
+          <dt className="text-ink-3">Customer service fee (checkout only)</dt>
+          <dd className="font-medium">{pct(PLATFORM_FEE_RATE)}</dd>
+          <dt className="text-ink-3">Products add-on</dt>
+          <dd className="font-medium">
+            &pound;{PRODUCTS_FEE}, cleaner keeps {pct(1 - PRODUCTS_FEE_COMMISSION_RATE)}
+          </dd>
+          <dt className="text-ink-3">Other add-ons</dt>
+          <dd className="font-medium">
+            Parent service&apos;s share unless the add-on sets its own
+          </dd>
+        </dl>
+      </section>
 
       {/* Platform Config Panel */}
       <section className="bg-surface rounded-xl border border-line p-6">
@@ -156,7 +192,7 @@ export default function AdminPricingPage() {
                           Cancel
                         </button>
                       </div>
-                    ) : (
+                    ) : EDITABLE.has(c.key) ? (
                       <button
                         onClick={() => {
                           setEditingKey(c.key);
@@ -166,6 +202,8 @@ export default function AdminPricingPage() {
                       >
                         Edit
                       </button>
+                    ) : (
+                      <span className="text-xs text-ink-3">System</span>
                     )}
                   </td>
                 </tr>

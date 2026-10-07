@@ -1,8 +1,8 @@
-// Single place where the cleaner's transfer amount is determined.
-// Currently: cleanerEarnings (= base price minus 10%/15% commission).
-// Add-ons are not yet offered — when they are, decide here whether
-// add-on revenue goes to the cleaner or the platform, and adjust
-// the transfer amount accordingly. Do NOT compute it elsewhere.
+// Single place where the cleaner's transfer amount is determined: the
+// booking's cleanerEarnings, which already carries every share the cleaner is
+// owed (the clean less its 10%/15% commission, the products add-on's 90%, and
+// each database add-on's share at the parent service's rate unless the add-on
+// defines its own; B4, D-a). Do NOT compute it elsewhere.
 
 export function getTransferAmountPence(cleanerEarnings: number): number {
   return Math.round(cleanerEarnings * 100);

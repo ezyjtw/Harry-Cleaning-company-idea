@@ -1,0 +1,7 @@
+PASS  1. payout across original and top-up
+PASS  2. partial refund before release
+FAIL  3. post-release refund with reversals
+  BAD  LIFO: the 2000 refund landed on the top-up charge (0)
+PASS  4. dispute resolved as refund-customer
+PASS  5. partial Stripe-dashboard refund after release
+B4 Stripe test-mode walk: 4 of 5 cases pass.

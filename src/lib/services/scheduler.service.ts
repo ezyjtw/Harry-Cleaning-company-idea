@@ -36,10 +36,14 @@ export interface SchedulerSummary {
   topupCardReminders: HandlerResult;
   placesRefresh: HandlerResult;
   rescheduleOfferExpiry: HandlerResult;
+  disputeMoneyRetries: HandlerResult;
+  transferSliceReconcile: HandlerResult;
+  refundReconcile: HandlerResult;
 }
 
 import { processNextBatch } from '@/lib/infrastructure/job-processor';
 import { log } from '@/lib/log';
+import { refundMoneyUnsettledWhere } from '@/lib/money/ledger-db';
 import stripe from '@/lib/stripe';
 
 import {
@@ -222,7 +226,7 @@ async function processExpiredCascadeWindows(): Promise<HandlerResult> {
 
 const RELEASE_BATCH_LIMIT = 50;
 
-async function processDueReleases(): Promise<HandlerResult> {
+export async function processDueReleases(): Promise<HandlerResult> {
   const { prisma } = await import('@/lib/db/prisma');
   const now = new Date();
 
@@ -230,6 +234,10 @@ async function processDueReleases(): Promise<HandlerResult> {
     where: {
       releaseDueAt: { lte: now },
       transferStatus: 'PENDING',
+      // Waiting on refund reconciliation (ruling 6): left out of the batch so
+      // it cannot crowd out releasable bookings; releaseBookingFunds refuses
+      // it too.
+      refundRecords: { none: refundMoneyUnsettledWhere },
     },
     select: { id: true },
     take: RELEASE_BATCH_LIMIT,
@@ -588,6 +596,43 @@ async function processPlacesRefreshWeekly(): Promise<HandlerResult> {
   }
 }
 
+// ─── B4 money jobs (D-ac retry and backoff; read-only reconciliation) ─────
+// Each never throws: a money job failing must not block the other jobs.
+
+async function guardedJob(
+  name: string,
+  run: () => Promise<{ processed: number }>
+): Promise<HandlerResult> {
+  try {
+    const r = await run();
+    return { processed: r.processed };
+  } catch (err) {
+    log.error('scheduler', 'money_job_failed', { job: name }, err);
+    return { processed: 0 };
+  }
+}
+
+async function processDisputeMoneyRetries(): Promise<HandlerResult> {
+  return guardedJob('dispute_money_retries', async () => {
+    const { retryResolvingDisputes } = await import('./dispute-resolution.service');
+    return retryResolvingDisputes();
+  });
+}
+
+async function processTransferSliceReconcile(): Promise<HandlerResult> {
+  return guardedJob('transfer_slice_reconcile', async () => {
+    const { reconcileTransferSlices } = await import('./transfer.service');
+    return reconcileTransferSlices(50);
+  });
+}
+
+async function processRefundReconcile(): Promise<HandlerResult> {
+  return guardedJob('refund_reconcile', async () => {
+    const { reconcileUnresolvedRefunds } = await import('./refund.service');
+    return reconcileUnresolvedRefunds(50);
+  });
+}
+
 export async function runScheduledJobs(): Promise<SchedulerSummary> {
   const cascadeWindows = await processExpiredCascadeWindows();
   const strandedPayments = await processStrandedPayments();
@@ -609,6 +654,9 @@ export async function runScheduledJobs(): Promise<SchedulerSummary> {
   const topupCardReminders = await processTopupCardReminders();
   const placesRefresh = await processPlacesRefreshWeekly();
   const rescheduleOfferExpiry = await processRescheduleOfferExpiry();
+  const transferSliceReconcile = await processTransferSliceReconcile();
+  const refundReconcile = await processRefundReconcile();
+  const disputeMoneyRetries = await processDisputeMoneyRetries();
 
   return {
     timestamp: new Date().toISOString(),
@@ -632,5 +680,8 @@ export async function runScheduledJobs(): Promise<SchedulerSummary> {
     topupCardReminders,
     placesRefresh,
     rescheduleOfferExpiry,
+    disputeMoneyRetries,
+    transferSliceReconcile,
+    refundReconcile,
   };
 }

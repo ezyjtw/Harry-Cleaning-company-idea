@@ -1,36 +1,14 @@
 import Link from 'next/link';
 
 import { getAdminSession } from '@/lib/auth/session';
-import prisma from '@/lib/db/prisma';
+import { listAbnormalStates } from '@/lib/money/abnormal-states';
 
 import StuckMoneyClient from './StuckMoneyClient';
 
 export const dynamic = 'force-dynamic';
 
-export interface StuckRefund {
-  id: string;
-  bookingId: string;
-  amount: number;
-  reason: string;
-  status: string;
-  stripeRefundId: string | null;
-  failureReason: string | null;
-  attempt: number;
-  createdAt: string;
-}
-
-export interface StuckTopup {
-  id: string;
-  bookingId: string;
-  amount: number;
-  reason: string;
-  status: string;
-  stripePaymentIntentId: string | null;
-  failureReason: string | null;
-  attempt: number;
-  createdAt: string;
-}
-
+// B4 (RENA-015): the page is the abnormal-states module rendered; every row
+// carries its state, age and actions (src/lib/money/abnormal-states.ts).
 export default async function StuckMoneyPage() {
   const admin = await getAdminSession();
   if (!admin) {
@@ -44,48 +22,6 @@ export default async function StuckMoneyPage() {
     );
   }
 
-  const [stuckRefunds, stuckTopups] = await Promise.all([
-    prisma.refundRecord.findMany({
-      where: { status: { in: ['REVERSAL_ONLY', 'UNKNOWN'] } },
-      orderBy: { createdAt: 'desc' },
-    }),
-    // B3: a top-up taken whose assignment was refused is recorded SUCCEEDED
-    // with the TOPUP_WITHOUT_ASSIGNMENT flag; it is stuck money until B4's
-    // queue owns it.
-    prisma.topupRecord.findMany({
-      where: {
-        OR: [
-          { status: 'UNKNOWN' },
-          { status: 'SUCCEEDED', failureReason: { startsWith: 'TOPUP_WITHOUT_ASSIGNMENT' } },
-        ],
-      },
-      orderBy: { createdAt: 'desc' },
-    }),
-  ]);
-
-  const refunds: StuckRefund[] = stuckRefunds.map((r) => ({
-    id: r.id,
-    bookingId: r.bookingId,
-    amount: Number(r.amount),
-    reason: r.reason,
-    status: r.status,
-    stripeRefundId: r.stripeRefundId,
-    failureReason: r.failureReason,
-    attempt: r.attempt,
-    createdAt: r.createdAt.toISOString(),
-  }));
-
-  const topups: StuckTopup[] = stuckTopups.map((t) => ({
-    id: t.id,
-    bookingId: t.bookingId,
-    amount: Number(t.amount),
-    reason: t.reason,
-    status: t.status,
-    stripePaymentIntentId: t.stripePaymentIntentId,
-    failureReason: t.failureReason,
-    attempt: t.attempt,
-    createdAt: t.createdAt.toISOString(),
-  }));
-
-  return <StuckMoneyClient refunds={refunds} topups={topups} />;
+  const rows = await listAbnormalStates();
+  return <StuckMoneyClient rows={rows} />;
 }

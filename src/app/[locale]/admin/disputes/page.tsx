@@ -19,6 +19,8 @@ function mapPrismaStatus(d: {
     case 'OPEN':
       return 'open';
     case 'UNDER_REVIEW':
+    case 'RESOLVING_REFUND': // B4: money pending; listed in stuck-money
+    case 'RESOLVING_RELEASE':
       return 'under-review';
     case 'DISMISSED':
       return 'dismissed';

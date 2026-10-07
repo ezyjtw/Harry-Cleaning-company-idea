@@ -165,6 +165,21 @@ export function bookingStartUtc(date: Date, startTime: string | null | undefined
   return londonTimeOnDayUtc(date, t.h, t.m);
 }
 
+/**
+ * The cancellation ladder's anchor (B4, James-ruled): a fixed-time clean
+ * counts from its start (London wall clock, bookingStartUtc); a Flexible
+ * clean from 06:00 Europe/London on its booking date.
+ */
+export function cancellationAnchorUtc(date: Date, startTime: string | null | undefined): Date {
+  return (
+    bookingStartUtc(date, startTime) ??
+    londonTimeOnDayUtc(date, CANCELLATION_FLEXIBLE_ANCHOR_HOUR, 0)
+  );
+}
+
+/** The Flexible anchor hour for the cancellation ladder (06:00 London). */
+export const CANCELLATION_FLEXIBLE_ANCHOR_HOUR = 6;
+
 /** Scheduled end as an instant (start plus elapsed duration); null when Flexible. */
 export function bookingEndUtc(
   date: Date,

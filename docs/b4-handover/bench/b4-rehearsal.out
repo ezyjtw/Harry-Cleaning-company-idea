@@ -1,0 +1,43 @@
+── Run 1 of 2 (600 bookings) ──
+  pre-B4 schema migrated (18 migrations)
+  B4 migrations applied
+  ok  schema equals the datamodel (empty diff)
+  ok  transfer slices = legacy transfer ids = 360
+  ok  every adopted slice NEEDS_RECONCILE with a null amount = 360
+  ok  transfer ids trimmed = 0
+  ok  every legacy refund record has a slice = 0
+  ok  no legacy slice claims executed money = 0
+  ok  no legacy slice is SUCCEEDED (never guessed) = 0
+  ok  slices with a refund id are NEEDS_RECONCILE = 0
+  ok  FAILED only for definitive legacy failures with no id = 0
+  ok  the shared-id record is kept, NEEDS_RECONCILE with no id = 1
+  ok  requestedPence = legacy amount = 0
+  ok  fee rows deleted = 0
+  ok  other config untouched = 1
+  ok  no booking payment or transfer state rewritten = 7ca18787ab6361ac50020f61ff208311
+  ok  refund records unchanged in number = 361
+  slices by status: FAILED=120, NEEDS_RECONCILE=181, UNKNOWN=120
+  ok  backfill re-run twice: ledger unchanged = 8cf1d96857e2d45f9ace046bd1a8fe56
+  ok  second migrate deploy: no pending migrations
+── Run 2 of 2 (600 bookings) ──
+  pre-B4 schema migrated (18 migrations)
+  B4 migrations applied
+  ok  schema equals the datamodel (empty diff)
+  ok  transfer slices = legacy transfer ids = 360
+  ok  every adopted slice NEEDS_RECONCILE with a null amount = 360
+  ok  transfer ids trimmed = 0
+  ok  every legacy refund record has a slice = 0
+  ok  no legacy slice claims executed money = 0
+  ok  no legacy slice is SUCCEEDED (never guessed) = 0
+  ok  slices with a refund id are NEEDS_RECONCILE = 0
+  ok  FAILED only for definitive legacy failures with no id = 0
+  ok  the shared-id record is kept, NEEDS_RECONCILE with no id = 1
+  ok  requestedPence = legacy amount = 0
+  ok  fee rows deleted = 0
+  ok  other config untouched = 1
+  ok  no booking payment or transfer state rewritten = 7ca18787ab6361ac50020f61ff208311
+  ok  refund records unchanged in number = 361
+  slices by status: FAILED=120, NEEDS_RECONCILE=181, UNKNOWN=120
+  ok  backfill re-run twice: ledger unchanged = 8cf1d96857e2d45f9ace046bd1a8fe56
+  ok  second migrate deploy: no pending migrations
+REHEARSAL PASSED (2 runs)

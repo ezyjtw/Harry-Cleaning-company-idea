@@ -777,13 +777,11 @@ describe.skipIf(!enabled)('booking lifecycle concurrency against Postgres (B3)',
     expect(after.releaseDueAt).toEqual(before.releaseDueAt);
     // The cleaner's share of a refund reads the total net of the flag, so it
     // is exactly the pre-flag figure (50 of 60 for a 60 refund, not 50 of 70).
-    const { calculateCleanerSharePence } = await import('@/lib/services/refund.service');
+    // B4: the share is the ledger's one formula (cleanerShareForAmountPence).
+    const { cleanerShareForAmountPence } = await import('@/lib/services/refund.service');
     const { flaggedTopupPounds } = await import('@/lib/services/topup-flag');
-    const flagged = await flaggedTopupPounds(x);
-    expect(flagged).toBe(10);
-    expect(calculateCleanerSharePence(60, { ...after, flaggedTopupPounds: flagged })).toBe(
-      calculateCleanerSharePence(60, before)
-    );
+    expect(await flaggedTopupPounds(x)).toBe(10);
+    expect(await cleanerShareForAmountPence(x, 6000)).toBe(5000);
   });
 
   it("11. a reschedule accept after an admin reassign is refused; the new cleaner's row stays put", async () => {

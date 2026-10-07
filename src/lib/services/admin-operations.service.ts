@@ -12,7 +12,6 @@ import { cascadeTeardownFields, enterAdminReassignProvisional } from './cascade.
 import { PRICE_ABSORPTION_THRESHOLD, pricingService } from './pricing.service';
 import type { ServiceSlug } from './pricing.service';
 import { updateStoredRating } from './rating.service';
-import { releaseBookingFunds, resumePausedRelease } from './transfer.service';
 
 export type ReassignPriceCase = 'EQUAL' | 'CHEAPER' | 'PRICIER';
 
@@ -37,6 +36,8 @@ export interface DisputeResolveResult {
   refundedAmount: number;
   refundStatus?: string;
   releaseStatus?: string;
+  disputeStatus?: string;
+  lastMoneyError?: string | null;
 }
 
 export class AdminOperationsService {
@@ -201,7 +202,7 @@ export class AdminOperationsService {
     if (refundResult.status === 'FAILED') {
       // Swap stands; refund failed — admin must investigate (same posture as
       // reconciliation's cheaper path). Earnings/fee already correct; totalPrice
-      // stays at the paid value for retry-refund.
+      // stays at the paid value; the stuck-money queue's Retry remainder owns it.
       return {
         outcome: 'REASSIGNED',
         priceCase: 'CHEAPER',
@@ -556,19 +557,12 @@ export class AdminOperationsService {
   /**
    * Resolve a dispute — three outcomes:
    *
-   * release-to-cleaner: cleaner did their job → dispute RESOLVED, booking back
-   *   to COMPLETED, PAUSED → PENDING → release (full earnings to cleaner).
-   *
-   * refund-customer: cleaner failed → dispute RESOLVED, refundBooking(full),
-   *   booking → CANCELLED, transferStatus → REFUNDED (terminal).
-   *
-   * split: partial fault → dispute RESOLVED, refundBooking(partial),
-   *   transferStatus → PENDING (release reduced earnings), booking → COMPLETED.
-   *
-   * STATUS-FIRST ORDERING (mirrors cancellation): the atomic $transaction
-   * transitions the dispute + booking OUT of DISPUTED *before* any money
-   * movement. This ensures refundBooking sees a non-DISPUTED booking (passing
-   * the DISPUTED guard), and releaseBookingFunds can claim PENDING.
+   * release-to-cleaner: dispute RESOLVING_RELEASE, booking COMPLETED, the
+   *   paused release resumes; RESOLVED once the transfer is RELEASED.
+   * refund-customer: dispute RESOLVING_REFUND, booking CANCELLED, the
+   *   remainder refunds; RESOLVED once the refund record is SUCCEEDED.
+   * split: RESOLVING_REFUND for the partial refund, then RESOLVING_RELEASE
+   *   for the reduced share; RESOLVED once both are confirmed.
    */
   static async resolveDispute(params: {
     disputeId: string;
@@ -577,242 +571,18 @@ export class AdminOperationsService {
     refundAmount?: number;
     adminId: string;
   }): Promise<DisputeResolveResult> {
-    const { disputeId, outcome, resolution, adminId } = params;
-
-    const dispute = await prisma.dispute.findUnique({
-      where: { id: disputeId },
-      include: {
-        booking: {
-          select: {
-            id: true,
-            status: true,
-            transferStatus: true,
-            totalAmountCharged: true,
-            totalPrice: true,
-            cleanerId: true,
-            clientId: true,
-            date: true,
-            completedAt: true,
-            refundRecords: { where: { status: 'SUCCEEDED' }, select: { amount: true } },
-          },
-        },
-      },
-    });
-    if (!dispute) throw new Error('Dispute not found');
-    if (dispute.status !== 'OPEN' && dispute.status !== 'UNDER_REVIEW') {
-      throw new Error(`Dispute is already ${dispute.status.toLowerCase()}`);
-    }
-    if (dispute.booking.status !== 'DISPUTED') {
-      throw new Error(`Booking is ${dispute.booking.status}, not DISPUTED`);
-    }
-
-    const bookingId = dispute.bookingId;
-    const totalPaid = Number(dispute.booking.totalAmountCharged ?? dispute.booking.totalPrice);
-    const alreadyRefunded = dispute.booking.refundRecords.reduce((s, r) => s + Number(r.amount), 0);
-    const remainder = Math.max(0, totalPaid - alreadyRefunded);
-
-    if (outcome === 'split' || outcome === 'refund-customer') {
-      const refundAmount = outcome === 'refund-customer' ? remainder : params.refundAmount;
-      if (refundAmount === undefined || refundAmount <= 0) {
-        throw new Error('A refund amount is required for this outcome');
-      }
-      if (refundAmount > remainder + 0.01) {
-        throw new Error(
-          `Refund £${refundAmount.toFixed(2)} exceeds refundable remainder £${remainder.toFixed(2)}`
-        );
-      }
-    }
-
-    // Atomic status-first: resolve the dispute + transition booking out of
-    // DISPUTED *before* any money movement. The guarded updateMany prevents a
-    // concurrent resolve from double-acting.
-    const nextBookingStatus: BookingStatus =
-      outcome === 'refund-customer' ? 'CANCELLED' : 'COMPLETED';
-
-    const claim = await prisma.$transaction([
-      prisma.dispute.update({
-        where: { id: disputeId },
-        data: { status: 'RESOLVED', resolution, resolvedAt: new Date() },
-      }),
-      prisma.booking.updateMany({
-        where: { id: bookingId, status: 'DISPUTED' },
-        data: {
-          status: nextBookingStatus,
-          ...(outcome === 'refund-customer'
-            ? { cancelledAt: new Date(), cancellationReason: `Dispute resolved: ${resolution}` }
-            : {}),
-          // H81: a booking disputed straight from IN_PROGRESS never had
-          // completedAt written — landing it in COMPLETED with a null
-          // completedAt made it invisible on every completedAt-keyed earnings
-          // surface (page, dashboard, statement). Stamp resolution time only
-          // when no true completion time exists.
-          ...(nextBookingStatus === 'COMPLETED' && !dispute.booking.completedAt
-            ? { completedAt: new Date() }
-            : {}),
-        },
-      }),
-    ]);
-
-    if (claim[1].count === 0) {
-      throw new Error('Booking changed state — resolve aborted');
-    }
-
-    // Money movement (best-effort — booking already transitioned).
-    let refundStatus: string | undefined;
-    let refundedAmount = 0;
-    let releaseStatus: string | undefined;
-
-    if (outcome === 'refund-customer') {
-      const { refundBooking } = await import('./refund.service');
-      const result = await refundBooking(bookingId, remainder, `Dispute resolved: ${resolution}`, {
-        triggeredBy: adminId,
-        bookingDataOverride: {
-          cancelledAt: new Date(),
-          cancellationReason: `Dispute resolved: ${resolution}`,
-        },
-      });
-      refundStatus = result.status;
-      refundedAmount = result.amountRefunded ?? 0;
-    } else if (outcome === 'split') {
-      // Safe: the guard above already rejected split without a positive refundAmount.
-      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-      const refundAmount = params.refundAmount!;
-      const { refundBooking } = await import('./refund.service');
-      const result = await refundBooking(
-        bookingId,
-        refundAmount,
-        `Dispute resolved (split): ${resolution}`,
-        { triggeredBy: adminId }
-      );
-      refundStatus = result.status;
-      refundedAmount = result.amountRefunded ?? 0;
-
-      // After a successful partial refund, transferStatus is already PENDING
-      // (writeRefundSuccess: partial pre-release → PENDING). Call release
-      // directly — resumePausedRelease would find PENDING, not PAUSED.
-      if (result.status === 'REFUNDED' || result.status === 'PARTIALLY_REFUNDED') {
-        const release = await releaseBookingFunds(bookingId, {
-          trigger: 'DISPUTE_RESOLUTION',
-          actorId: adminId,
-        }).catch(() => ({
-          status: 'FAILED' as const,
-          reason: 'Release after split refund failed — admin retry needed',
-        }));
-        releaseStatus = release.status;
-      }
-    } else {
-      // release-to-cleaner: un-pause and release full earnings. H68: caught
-      // like the split leg — the booking is already resolved (claim-first), so
-      // an unexpected release throw must NOT swallow the notifications below;
-      // a FAILED release is admin-retryable, silent parties are not.
-      const release = await resumePausedRelease(bookingId, {
-        trigger: 'DISPUTE_RESOLUTION',
-        actorId: adminId,
-      }).catch((err) => {
-        // eslint-disable-next-line no-console
-        console.error(`[Dispute] release-to-cleaner release threw for ${bookingId}:`, err);
-        return {
-          status: 'FAILED' as const,
-          reason: 'Release threw during dispute resolution — admin retry needed',
-        };
-      });
-      releaseStatus = release.status;
-    }
-
-    // Notify both parties (best-effort): bell rows AND emails (H62 — the rule:
-    // every resolution emails both parties with outcome + money + timeline; a
-    // successful refund adds the standard refund confirmation).
-    await notifyDisputeResolved(dispute.booking, outcome, resolution).catch(() => {});
-    {
-      const { sendDisputeResolutionEmails } = await import('./email.service');
-      const approvedRefund =
-        outcome === 'refund-customer'
-          ? remainder
-          : outcome === 'split'
-            ? params.refundAmount
-            : undefined;
-      // H68: a resolution email dying SILENTLY is the H62 disease one layer
-      // down — failures log loudly (recoverable from prod logs).
-      await sendDisputeResolutionEmails({
-        bookingId,
-        outcome,
-        refundAmount: refundedAmount > 0 ? refundedAmount : approvedRefund,
-        refundSucceeded: refundStatus === 'REFUNDED' || refundStatus === 'PARTIALLY_REFUNDED',
-      }).catch((err) => {
-        // eslint-disable-next-line no-console
-        console.error(`[DisputeEmail] resolution emails FAILED for ${bookingId}:`, err);
-      });
-    }
-
-    // Audit.
-    await AuditService.log({
-      userId: adminId,
-      action: 'ADMIN_RESOLVE_DISPUTE',
-      entityType: 'Dispute',
-      entityId: disputeId,
-      metadata: {
-        bookingId,
-        outcome,
-        resolution,
-        refundedAmount,
-        refundStatus,
-        releaseStatus,
-      },
-    }).catch(() => {});
-
-    return { outcome, refundedAmount, refundStatus, releaseStatus };
-  }
-}
-
-// ─── Dispute notification helper (best-effort) ──────────────
-
-async function notifyDisputeResolved(
-  booking: { cleanerId: string; clientId: string | null; date: Date },
-  outcome: 'release-to-cleaner' | 'refund-customer' | 'split',
-  resolution: string
-): Promise<void> {
-  const dateStr = booking.date.toLocaleDateString('en-GB');
-
-  const outcomeMessages: Record<typeof outcome, { cleaner: string; customer: string }> = {
-    'release-to-cleaner': {
-      cleaner: `The dispute on your booking (${dateStr}) has been resolved in your favour. Your payment will be released.`,
-      customer: `The dispute on your booking (${dateStr}) has been reviewed and resolved. The cleaner will be paid as normal.`,
-    },
-    'refund-customer': {
-      cleaner: `The dispute on your booking (${dateStr}) has been resolved. The customer has been refunded.`,
-      customer: `The dispute on your booking (${dateStr}) has been resolved in your favour. A full refund is being processed.`,
-    },
-    split: {
-      cleaner: `The dispute on your booking (${dateStr}) has been resolved with a partial adjustment. Your reduced payment will be released.`,
-      customer: `The dispute on your booking (${dateStr}) has been resolved. A partial refund is being processed.`,
-    },
-  };
-
-  const msgs = outcomeMessages[outcome];
-
-  await prisma.notification
-    .create({
-      data: {
-        userId: booking.cleanerId,
-        type: 'DISPUTE_RESOLVED',
-        title: 'Dispute resolved',
-        body: msgs.cleaner,
-        data: { resolution },
-      },
-    })
-    .catch(() => {});
-
-  if (booking.clientId) {
-    await prisma.notification
-      .create({
-        data: {
-          userId: booking.clientId,
-          type: 'DISPUTE_RESOLVED',
-          title: 'Dispute resolved',
-          body: msgs.customer,
-          data: { resolution },
-        },
-      })
-      .catch(() => {});
+    // B4 (RENA-013): RESOLVED is written only after the money is confirmed.
+    // The dispute sits RESOLVING_* until then; a failure is retried by the
+    // scheduler and shown in stuck-money. See dispute-resolution.service.
+    const { startDisputeResolution } = await import('./dispute-resolution.service');
+    const r = await startDisputeResolution(params);
+    return {
+      outcome: r.outcome,
+      refundedAmount: r.refundedAmount,
+      refundStatus: r.refundStatus,
+      releaseStatus: r.releaseStatus,
+      disputeStatus: r.disputeStatus,
+      lastMoneyError: r.lastMoneyError ?? null,
+    };
   }
 }
