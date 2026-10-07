@@ -1,5 +1,9 @@
 # B4 gate delta: handover to the next session
 
+**Status (session 018mwW2D, 2026-10-07): items 1 to 9 complete; STOPPED AT THE GATE.** The
+final delta report is gate-delta.md (the draft is superseded). Proof commit 75d60e8; the
+sections below are the earlier handover, kept as written.
+
 Branch claude/b4-money-ledger. The reviewed head was bec3110. The delta so far is
 b3ac3db, c5ef312, 3a4723c and 7cc6273, plus this handover commit. Nothing is
 merged, deployed or published. The gate stays HELD until James's word.
