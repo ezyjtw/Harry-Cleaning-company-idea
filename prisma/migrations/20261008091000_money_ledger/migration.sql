@@ -261,6 +261,27 @@ WHERE (r."allocation" IS NULL OR jsonb_typeof(r."allocation") <> 'array' OR json
   AND NOT EXISTS (SELECT 1 FROM "RefundSlice" s WHERE s."refundRecordId" = r."id")
 ON CONFLICT DO NOTHING;
 
+-- Catch-all: a legacy record still without a slice (its refund id is already
+-- held by another slice, so the unique id refused it) gets one slice with no
+-- refund id, NEEDS_RECONCILE, matched later by payment intent and record id
+-- or by an admin. Never left out of the ledger, never guessed.
+INSERT INTO "RefundSlice" ("id", "refundRecordId", "stripePaymentIntentId", "requestedPence", "executedPence", "stripeRefundId", "status", "idempotencyKey", "lastReconcileResult", "updatedAt")
+SELECT 'legacy_rs_' || md5(r."id" || ':orphan'),
+       r."id",
+       b."stripePaymentIntentId",
+       round(r."amount" * 100)::int,
+       0,
+       NULL,
+       CASE WHEN r."status" IN ('FAILED', 'REVERSAL_ONLY') AND r."stripeRefundId" IS NULL THEN 'FAILED' ELSE 'NEEDS_RECONCILE' END,
+       'legacy_' || r."id" || '_orphan',
+       'MIGRATED: refund id shared with another record; to be matched by payment intent',
+       CURRENT_TIMESTAMP
+FROM "RefundRecord" r
+JOIN "Booking" b ON b."id" = r."bookingId"
+WHERE b."stripePaymentIntentId" IS NOT NULL
+  AND NOT EXISTS (SELECT 1 FROM "RefundSlice" s WHERE s."refundRecordId" = r."id")
+ON CONFLICT DO NOTHING;
+
 -- RENA-075 (D-n): the misleading fee controls go; the rates live in
--- pricing.service.ts only.
+-- src/lib/pricing/rates.ts only.
 DELETE FROM "PlatformConfig" WHERE "key" IN ('cleaner_fee_pct', 'customer_fee_pct');

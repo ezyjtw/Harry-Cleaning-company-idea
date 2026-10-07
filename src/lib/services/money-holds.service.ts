@@ -155,21 +155,37 @@ export async function settleLostChargeback(
 
 // ─── Shortfall (RENA-017) ─────────────────────────────────
 
-/** Admin, after checking Stripe: clear the shortfall and resume if nothing else holds. */
+/**
+ * Admin, after checking Stripe: clear the shortfall and resume if nothing
+ * else holds. The shortfall came from Stripe's own amount_received, so the
+ * captured total is corrected to what Stripe received in the same write (the
+ * refund ceiling never rises back above the money actually taken). The
+ * cleaner's earnings are untouched (M2: a short payment never reduces them).
+ */
 export async function clearShortfall(
   bookingId: string,
   actorId: string
 ): Promise<{ ok: boolean; error?: string }> {
-  const r = await prisma.booking.updateMany({
-    where: { id: bookingId, amountShortfallPence: { not: null } },
-    data: { amountShortfallPence: null },
+  const b = await prisma.booking.findUnique({
+    where: { id: bookingId },
+    select: { amountShortfallPence: true, totalAmountCharged: true, totalPrice: true },
   });
-  if (r.count !== 1) return { ok: false, error: 'No shortfall on this booking' };
+  if (!b || b.amountShortfallPence === null) {
+    return { ok: false, error: 'No shortfall on this booking' };
+  }
+  const capturedPence =
+    Math.round(Number(b.totalAmountCharged ?? b.totalPrice) * 100) - b.amountShortfallPence;
+  const r = await prisma.booking.updateMany({
+    where: { id: bookingId, amountShortfallPence: b.amountShortfallPence },
+    data: { amountShortfallPence: null, totalAmountCharged: capturedPence / 100 },
+  });
+  if (r.count !== 1) return { ok: false, error: 'The shortfall changed; refresh and retry' };
   await AuditService.log({
     userId: actorId,
     action: 'SHORTFALL_CLEARED',
     entityType: 'Booking',
     entityId: bookingId,
+    metadata: { shortfallPence: b.amountShortfallPence, capturedPence },
   }).catch(() => {});
   await resumeIfUnheld(bookingId, { trigger: 'ADMIN', actorId });
   return { ok: true };

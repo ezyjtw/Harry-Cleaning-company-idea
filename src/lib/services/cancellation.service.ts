@@ -29,6 +29,7 @@
 import type { BookingStatus } from '@prisma/client';
 
 import { prisma } from '@/lib/db/prisma';
+import { bookingStartOrDayStartUtc } from '@/lib/time/booking-time';
 
 import { AuditService } from './audit.service';
 import { BookingLifecycleService } from './booking-lifecycle.service';
@@ -89,6 +90,16 @@ async function refundableRemainder(bookingId: string): Promise<number | null> {
   return pence === null ? null : pence / 100;
 }
 
+/**
+ * B4 (parked from the B3 gate, James-ruled money rule): the refund ladder and
+ * the short-notice grace count from the clean's real start, London wall time
+ * on its day (a Flexible clean from the London start of its day), never the
+ * stored UTC midnight, which cut every threshold early by the start hour.
+ */
+function ladderStart(date: Date, startTime: string | null): Date {
+  return bookingStartOrDayStartUtc(date, startTime);
+}
+
 const RECONCILING_REASON =
   'An earlier refund on this booking is still being confirmed with our payment provider. Please try again shortly.';
 
@@ -106,6 +117,7 @@ export async function previewCancellation(bookingId: string): Promise<Cancellati
       transferStatus: true,
       paymentStatus: true,
       date: true,
+      startTime: true,
       createdAt: true,
     },
   });
@@ -130,7 +142,11 @@ export async function previewCancellation(bookingId: string): Promise<Cancellati
     };
   }
 
-  const policy = BookingLifecycleService.canCancel(booking.date, booking.status, booking.createdAt);
+  const policy = BookingLifecycleService.canCancel(
+    ladderStart(booking.date, booking.startTime),
+    booking.status,
+    booking.createdAt
+  );
   if (!policy.canCancel) {
     return { canCancel: false, refundPercent: 0, refundAmount: 0, reason: policy.reason };
   }
@@ -276,7 +292,7 @@ export async function executeCancellation(params: {
   let plannedRefund: number;
   if (directive.kind === 'policy') {
     const policy = BookingLifecycleService.canCancel(
-      booking.date,
+      ladderStart(booking.date, booking.startTime),
       booking.status,
       booking.createdAt
     );

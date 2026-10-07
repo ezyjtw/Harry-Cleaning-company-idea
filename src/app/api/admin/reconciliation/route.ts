@@ -68,6 +68,7 @@ export async function GET(request: NextRequest) {
       date: true,
       serviceType: true,
       totalPrice: true,
+      totalAmountCharged: true,
       platformFee: true,
       cleanerEarnings: true,
       transferStatus: true,
@@ -93,9 +94,16 @@ export async function GET(request: NextRequest) {
       where: { type: 'XERO_PUSH', createdAt: { gte: since } },
       select: { payload: true, status: true },
     }),
-    prisma.refundRecord.findMany({
-      where: { bookingId: { in: ids }, status: { in: ['SUCCEEDED', 'COMPLETED'] } },
-      select: { bookingId: true, stripeRefundId: true, amount: true },
+    // RENA-080 (B4): the executed truth is the SUCCEEDED refund slice (one
+    // Stripe refund each, mirrored to Xero per slice), never a record status
+    // the service does not write.
+    prisma.refundSlice.findMany({
+      where: { record: { bookingId: { in: ids } }, status: 'SUCCEEDED' },
+      select: {
+        stripeRefundId: true,
+        executedPence: true,
+        record: { select: { bookingId: true } },
+      },
     }),
     // RecurringCharge failures ARE db-visible: an occurrence whose single
     // T-48h attempt failed sits at paymentStatus FAILED.
@@ -127,9 +135,9 @@ export async function GET(request: NextRequest) {
   for (const l of pushLogs) logByKey.set(`${l.bookingId}|${l.event}|${l.externalRef}`, l);
   const refundsByBooking = new Map<string, { stripeRefundId: string | null; amount: number }[]>();
   for (const r of refunds) {
-    const list = refundsByBooking.get(r.bookingId) ?? [];
-    list.push({ stripeRefundId: r.stripeRefundId, amount: pence(r.amount) });
-    refundsByBooking.set(r.bookingId, list);
+    const list = refundsByBooking.get(r.record.bookingId) ?? [];
+    list.push({ stripeRefundId: r.stripeRefundId, amount: r.executedPence });
+    refundsByBooking.set(r.record.bookingId, list);
   }
 
   const eventStatus = (bookingId: string, event: string, externalRef = ''): EventStatus => {
@@ -150,7 +158,8 @@ export async function GET(request: NextRequest) {
   let unverified = 0;
 
   const rows = bookings.map((b) => {
-    const gross = pence(b.totalPrice);
+    // RENA-080 (B4): gross is what was captured (top-ups included).
+    const gross = pence(b.totalAmountCharged ?? b.totalPrice);
     const cleanerNet = pence(b.cleanerEarnings);
     const platformFee = pence(b.platformFee);
     // Split derivation (stated): the 6% service fee sits on top of the base

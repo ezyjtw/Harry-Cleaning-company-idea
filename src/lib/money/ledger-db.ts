@@ -123,7 +123,12 @@ export async function loadBookingLedger(db: Db, bookingId: string): Promise<Book
   const { topupRecords, refundRecords, transferSlices, ...booking } = b;
   return {
     booking,
-    chargedPence: toPence(b.totalAmountCharged ?? b.totalPrice),
+    // RENA-017: while a shortfall is held, Stripe captured less than the
+    // booking expected; the ledger's charged money is what Stripe received.
+    chargedPence: Math.max(
+      0,
+      toPence(b.totalAmountCharged ?? b.totalPrice) - (b.amountShortfallPence ?? 0)
+    ),
     topups: topupRecords.map((t) => ({
       id: t.id,
       stripePaymentIntentId: t.stripePaymentIntentId as string,
