@@ -18,3 +18,5 @@ Checkout label (book/[id]): rendered on the rig with a synthetic cleaner (deep r
 setStep('details') in book/[id]/page.tsx, so the step that held the "× 1.45x"
 summaries is unreachable: the label was never shown to a customer. The edit removes
 the false text and the false multiplier fields; it changes no rendered output.
+
+Chat assistant delta (James-ruled 2026-10-08, same batch): the End of Tenancy and Airbnb lines of the assistant instruction in src/app/api/chat/route.ts now read "each cleaner sets their own price by property size". Not page copy: a rebuild of this head hashes all 26 public routes identical to hash-branch.json, and the set against main is still the same six.
