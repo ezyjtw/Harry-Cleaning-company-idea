@@ -26,7 +26,7 @@ import {
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView, type WebViewMessageEvent, type WebViewNavigation } from 'react-native-webview';
 
-import { meaningfulPayload, tabRootKey } from './nav';
+import { buildNavCtx, meaningfulPayload, resolveLink, tabRootKey } from './nav';
 
 // The customer mark: the white RENA wordmark extracted from the confirmed
 // icon source (public/rena-logo.png) onto a transparent ground. White by
@@ -74,6 +74,14 @@ let lastNativeOkAt = 0;
 const loadingPanes = new Set<object>();
 
 const TOKEN_KEY = 'rena.customer.bearer';
+// B5: the parsed-URL context every navigation and deep-link decision uses
+// (mobile-customer/nav.ts). The dev host is honoured only in __DEV__ on http.
+const BASE_HOST = (BASE_URL.match(/^https?:\/\/([^/:?#]+)/) || [])[1] || '';
+const NAV_CTX = buildNavCtx(
+  BASE_URL,
+  Platform.OS === 'android' ? 'android' : 'ios',
+  __DEV__ && /^http:\/\//.test(BASE_URL) ? BASE_HOST : null
+);
 const PUSH_TOKEN_KEY = 'rena.customer.pushtoken';
 // Where the Pro app lives when it isn't installed. Empty until the App Store
 // listing exists — the wrong-app door shows TestFlight/invite guidance instead.
@@ -186,28 +194,6 @@ Notifications.setNotificationHandler({
   }),
 });
 
-/**
- * Deep links: resolve any of our URL shapes to a shell tab key —
- * rena://mycleans, rena://account/bookings, https://…/en/messages, and
- * notification payloads carrying data.url in those shapes. Unknown URLs
- * resolve to null and are ignored (never a crash, never a wrong screen).
- */
-function tabForUrl(url: string): string | null {
-  try {
-    const parsed = Linking.parse(url);
-    const segments = [parsed.hostname, ...(parsed.path ? parsed.path.split('/') : [])]
-      .filter(Boolean)
-      .map((s) => String(s).toLowerCase());
-    for (const seg of segments) {
-      if (TABS.some((t) => t.key === seg)) return seg;
-    }
-    // URL-shaped paths that aren't tab keys still resolve via the tab roots.
-    return tabRootKey(url);
-  } catch {
-    return null;
-  }
-}
-
 // THE HAPTICS MAP (law — carried from Pro; web pages fire these via
 // window.ReactNativeWebView.postMessage({type:'haptic',style})).
 function fireHaptic(style: string) {
@@ -269,54 +255,68 @@ function RootView() {
   const phaseRef = useRef(phase);
   phaseRef.current = phase;
 
-  // R4 lane-3 sibling: like the in-page tap path, a push/deep link carrying a
-  // query or hash (…/account/bookings?review=<id>) forwards its full URL to
-  // the target pane instead of dropping it at the tab switch. Only our own
-  // https URLs qualify — custom-scheme links (rena://mycleans) carry no page
-  // payload and keep the plain switch. Dormant until push activation sends
-  // the first data.url; harmless meanwhile.
+  // R4 lane-3 sibling, B5.1: a push or deep link deeper than its tab root,
+  // or carrying a query or hash, forwards its full URL to the target pane
+  // instead of dropping it at the tab switch.
   const extNavSeq = useRef(0);
   const [externalNav, setExternalNav] = useState<{ key: string; url: string; seq: number } | null>(
     null
   );
   const pendingNav = useRef<{ key: string; url: string } | null>(null);
 
+  // B5.1 (RENA-022, RENA-047): one resolver (mobile-customer/nav.ts) for
+  // custom-scheme links, our https links (absolute or relative, as the
+  // customer notification URLs are) and notification data.url. A nested
+  // path is forwarded into its owning pane: /booking/* and /pay/* into My
+  // Cleans, /messages?bookingId= into Messages, /cleaners/* into Cleaners.
   const applyLink = useCallback((url: string | null | undefined) => {
     if (!url) return;
-    const tab = tabForUrl(url);
-    if (!tab) return;
-    const payload = url.startsWith(BASE_URL) && /[?#]/.test(url) ? url : null;
+    const r = resolveLink(url, NAV_CTX);
+    if (r.kind !== 'tab') return;
     if (phaseRef.current === 'shell') {
-      if (payload) {
+      if (r.forward) {
         extNavSeq.current += 1;
-        setExternalNav({ key: tab, url: payload, seq: extNavSeq.current });
+        setExternalNav({ key: r.tab, url: r.forward, seq: extNavSeq.current });
       }
-      setActiveTab(tab);
+      setActiveTab(r.tab);
     } else {
-      pendingTab.current = tab;
-      pendingNav.current = payload ? { key: tab, url: payload } : null;
+      pendingTab.current = r.tab;
+      pendingNav.current = r.forward ? { key: r.tab, url: r.forward } : null;
     }
   }, []);
+
+  // One notification response is applied once, whichever path reports it.
+  const lastResponseId = useRef<string | null>(null);
+  const applyResponse = useCallback(
+    (resp: Notifications.NotificationResponse | null) => {
+      if (!resp) return;
+      const id = resp.notification.request.identifier;
+      if (id && id === lastResponseId.current) return;
+      lastResponseId.current = id;
+      const data = resp.notification.request.content.data as { url?: unknown } | null;
+      if (data && typeof data.url === 'string') applyLink(data.url);
+    },
+    [applyLink]
+  );
 
   useEffect(() => {
     Linking.getInitialURL()
       .then(applyLink)
       .catch(() => {});
     const linkSub = Linking.addEventListener('url', (e) => applyLink(e.url));
-    // Notification taps route through the same resolver — dormant until push
-    // activation sends the first push, harmless meanwhile.
-    const noteSub = Notifications.addNotificationResponseReceivedListener((resp) => {
-      const data = resp.notification.request.content.data as { url?: unknown } | null;
-      if (data && typeof data.url === 'string') applyLink(data.url);
-    });
+    const noteSub = Notifications.addNotificationResponseReceivedListener(applyResponse);
     return () => {
       linkSub.remove();
       noteSub.remove();
     };
-  }, [applyLink]);
+  }, [applyLink, applyResponse]);
 
+  // Cold start from a notification tap: read the last response once, on the
+  // first entry to the shell, then clear it so it never re-applies.
+  const coldStartRead = useRef(false);
   useEffect(() => {
-    if (phase === 'shell' && pendingTab.current) {
+    if (phase !== 'shell') return;
+    if (pendingTab.current) {
       if (pendingNav.current) {
         extNavSeq.current += 1;
         setExternalNav({ ...pendingNav.current, seq: extNavSeq.current });
@@ -325,7 +325,15 @@ function RootView() {
       setActiveTab(pendingTab.current);
       pendingTab.current = null;
     }
-  }, [phase]);
+    if (coldStartRead.current) return;
+    coldStartRead.current = true;
+    Notifications.getLastNotificationResponseAsync()
+      .then((resp) => {
+        applyResponse(resp);
+        return Notifications.clearLastNotificationResponseAsync();
+      })
+      .catch(() => {});
+  }, [phase, applyResponse]);
 
   // Face-ID-first lock screen for returning users (the Pro pattern): Face ID
   // fires immediately; a failed or cancelled prompt settles onto the same
