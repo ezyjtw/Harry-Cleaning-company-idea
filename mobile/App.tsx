@@ -33,7 +33,20 @@ import {
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView, type WebViewMessageEvent, type WebViewNavigation } from 'react-native-webview';
 
-import { buildNavCtx, resolveLink, tabRootOf } from './nav';
+import {
+  INITIAL_NAV_STATE,
+  buildNavCtx,
+  classifyNavigation,
+  isRenaOrigin,
+  isStatementUrl,
+  locationAssignScript,
+  nextNavState,
+  resolveLink,
+  tabRootOf,
+  type NavRequest,
+  type NavState,
+  type NavVerdict,
+} from './nav';
 
 // James's official "RENA Cleaner" logo lockup, extracted from the supplied asset
 // with its exact colours untouched (navy RENA in Etna + teal "Cleaner"), on a
@@ -1373,10 +1386,10 @@ function SeamlessWebView({
   useEffect(() => {
     if (active !== false && needsRevive.current) revive();
   }, [active, revive]);
-  // R14 Lane 2 (James-ruled): true while this pane is inside the
-  // Stripe-hosted Connect flow. Set on a top-frame navigation to a
-  // stripe.com host, cleared on any top-frame landing back on our origin.
-  const inStripeFlow = useRef(false);
+  // B5.2 (RENA-024/039): the pane's navigation state for the classifier.
+  // R14 Lane 2 survives as its STRIPE_RETURN branch; deviation 3 (approved)
+  // narrows the Stripe flow to one that starts from the Connect page.
+  const navState = useRef<NavState>(INITIAL_NAV_STATE);
   // Android back (rule 6): the pane's half — go back through web history
   // when there is any. canGoBack rides onNavigationStateChange.
   const canGoBackRef = useRef(false);
@@ -1470,6 +1483,13 @@ function SeamlessWebView({
   // the two paths never contend. Fail-soft: an error alerts, page untouched.
   const [statementUri, setStatementUri] = useState<string | null>(null);
   const fetchStatement = useCallback(async (url: string): Promise<string | null> => {
+    // RENA-036: the Bearer is read and attached ONLY for the exact statement
+    // URL (https, our host, /api/cleaner/statement). Anything else is the
+    // same "Download failed" alert, and the stored Bearer is never read.
+    if (!isStatementUrl(url, NAV_CTX)) {
+      Alert.alert('Download failed', "We couldn't fetch your statement — try again.");
+      return null;
+    }
     try {
       const bearer = await SecureStore.getItemAsync(TOKEN_KEY);
       const year = /[?&]taxYear=(\d{4})/.exec(url)?.[1];
@@ -1515,6 +1535,45 @@ function SeamlessWebView({
     },
     [fetchStatement]
   );
+
+  // B5.2: act on the classifier's verdict. True means "load it in this pane".
+  const act = (req: NavRequest, url: string): boolean => {
+    const verdict: NavVerdict = classifyNavigation(req, navState.current, NAV_CTX);
+    navState.current = nextNavState(navState.current, req, verdict, NAV_CTX);
+    switch (verdict) {
+      case 'ALLOW_IN_PANE':
+        return true;
+      case 'OPEN_EXTERNAL':
+      case 'OS_HANDLE':
+        Linking.openURL(url).catch(() => {});
+        return false;
+      case 'STATEMENT':
+        // Rule 5 (Android): the statement download never paints.
+        androidStatement(url);
+        return false;
+      case 'STRIPE_RETURN':
+        // R14 Lane 2 (James-ruled): every exit from the Connect flow lands
+        // in the dressed return room, which reads the truth.
+        // The injection is unchanged from R14 (replace, so Back never
+        // returns to the page Stripe linked out to).
+        ref.current?.injectJavaScript(
+          `window.location.replace(${JSON.stringify(
+            `${BASE_URL}/en/cleaner/onboarding-complete`
+          )}); true;`
+        );
+        return false;
+      case 'CROSS_TAB': {
+        const target = tabRootOf(url, NAV_CTX);
+        if (tabKey && onCrossTab && target && target !== tabKey) {
+          if (!crossTabDup(url)) onCrossTab(target, url);
+          return false;
+        }
+        return true;
+      }
+      default:
+        return false;
+    }
+  };
 
   const onMessage = (e: WebViewMessageEvent) => {
     try {
@@ -1618,46 +1677,19 @@ function SeamlessWebView({
           setLoaded(false);
           fade.setValue(1);
         }}
-        // Cross-tab nav fix, full-document half: real document loads CAN be
-        // cancelled here, so the origin pane never leaves its route at all.
-        onShouldStartLoadWithRequest={(req) => {
-          // Rule 5 (Android): the statement download navigation never paints —
-          // intercept, fetch natively, hand to the system sheet.
-          if (Platform.OS === 'android' && req.url.includes('/api/cleaner/statement')) {
-            androidStatement(req.url);
-            return false;
+        // B5.2 (RENA-024/039, RENA-036): one classifier decides every
+        // top-frame navigation (mobile/nav.ts); sub frames are never touched.
+        onShouldStartLoadWithRequest={(req) => act(req, req.url)}
+        // iOS window.open: the same classifier. Android loads window.open in
+        // this WebView (setSupportMultipleWindows false), so it reaches the
+        // intercept above.
+        onOpenWindow={(e) => {
+          const url = e.nativeEvent.targetUrl;
+          if (act({ url, isTopFrame: true }, url)) {
+            ref.current?.injectJavaScript(locationAssignScript(url));
           }
-          // R14 Lane 2 (James-ruled): EVERY exit from Stripe lands back in
-          // the app. Inside the Connect flow the only sanctioned doors to our
-          // origin are the return landing and the connect relaunch; any other
-          // our-origin landing (Stripe's header brand link points at the
-          // public website) reroutes to the dressed return room, which reads
-          // the truth and shows connected, checking, or not finished.
-          {
-            const host = (req.url.match(/^https?:\/\/([^/:?#]+)/) || [])[1] || '';
-            if (/(^|\.)stripe\.(com|network)$/i.test(host)) {
-              if (req.isTopFrame !== false) inStripeFlow.current = true;
-            } else if (inStripeFlow.current && host === BASE_HOST && req.isTopFrame !== false) {
-              inStripeFlow.current = false;
-              if (!/\/cleaner\/(onboarding-complete|stripe\/connect)([/?#]|$)/.test(req.url)) {
-                ref.current?.injectJavaScript(
-                  `window.location.replace(${JSON.stringify(
-                    `${BASE_URL}/en/cleaner/onboarding-complete`
-                  )}); true;`
-                );
-                return false;
-              }
-            }
-          }
-          if (tabKey && onCrossTab) {
-            const target = tabRootOf(req.url, NAV_CTX);
-            if (target && target !== tabKey) {
-              if (!crossTabDup(req.url)) onCrossTab(target, req.url);
-              return false;
-            }
-          }
-          return true;
         }}
+        setSupportMultipleWindows={false}
         onNavigationStateChange={onNav}
         onMessage={onMessage}
         onLoadEnd={() => {
@@ -1720,7 +1752,7 @@ function SeamlessWebView({
           // A9: a 5xx on OUR origin gets the designed interstitial; sub-resource
           // and third-party errors stay with the web pages' own states.
           const { statusCode, url } = e.nativeEvent;
-          if (statusCode >= 500 && typeof url === 'string' && url.startsWith(BASE_URL)) {
+          if (statusCode >= 500 && typeof url === 'string' && isRenaOrigin(url, NAV_CTX)) {
             setServerError(true);
           }
         }}
