@@ -19,7 +19,9 @@ import {
   pay,
 } from '@/components/app/job-cards';
 import VerificationChecklist from '@/components/app/VerificationChecklist';
+import FinishApplicationCard from '@/components/cleaner/FinishApplicationCard';
 import { normalizeCleanerJob } from '@/lib/booking/cleaner-job-display';
+import { fetchUnfinishedApplicationStep } from '@/lib/cleaner-application/client';
 import { COALESCE_MS } from '@/lib/freshness';
 
 function dateEyebrow(): string {
@@ -471,10 +473,20 @@ export default function TodayPage() {
   // null while unknown so the cards never flash before the data lands.
   const [hasAnySlots, setHasAnySlots] = useState<boolean | null>(null);
   const [hasAnyRates, setHasAnyRates] = useState<boolean | null>(null);
+  // RENA-100 (James-ruled): an applicant with no profile yet sees the finish
+  // card here instead of the empty jobs state.
+  const [unfinishedStep, setUnfinishedStep] = useState<number | null>(null);
 
   useEffect(() => {
     fetch('/api/cleaner/profile')
-      .then((r) => (r.ok ? r.json() : null))
+      .then((r) => {
+        if (r.status === 404) {
+          fetchUnfinishedApplicationStep().then((step) => {
+            if (step !== null) setUnfinishedStep(step);
+          });
+        }
+        return r.ok ? r.json() : null;
+      })
       .then((d) => {
         if (d?.name) {
           setFirstName(String(d.name).split(' ')[0]);
@@ -844,6 +856,14 @@ export default function TodayPage() {
     return (
       <div className="rounded-xl border border-danger/20 bg-danger/10 px-5 py-4">
         <p className="text-sm font-medium text-danger">Please sign in to see your jobs.</p>
+      </div>
+    );
+  }
+
+  if (unfinishedStep !== null) {
+    return (
+      <div>
+        <FinishApplicationCard step={unfinishedStep} />
       </div>
     );
   }

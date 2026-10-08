@@ -5,6 +5,8 @@ import CleanerProfileShellGate from '@/components/CleanerProfileShell';
 import { type ProfileService, type ProfileReviewItem } from '@/components/CleanerProfileView';
 import JsonLd from '@/components/JsonLd';
 import ProfileWeekAvailability from '@/components/ProfileWeekAvailability';
+import { getSessionUser } from '@/lib/auth/session';
+import { isPublicProfile } from '@/lib/cleaner/public-eligibility';
 import {
   serviceTypeLabel,
   isServiceTypeSlug,
@@ -17,8 +19,12 @@ import { displayName } from '@/lib/utils/name';
 
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://www.renacleaning.co.uk';
 
-// A1-P1: per-cleaner metadata — every profile page previously shared the
-// directory layout's generic title. Canonical + OG per cleaner.
+// RENA-101 (James-ruled 2026-10-08): the page applies the one shared public
+// profile rule (src/lib/cleaner/public-eligibility.ts), the same one the API
+// and the directory use. Anyone else gets the existing "not available" view;
+// the cleaner themselves and admins keep a preview, decided from the signed
+// in session only (never a query parameter).
+
 export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
   const profile = await prisma.cleanerProfile.findFirst({
     where: { userId: params.id },
@@ -26,11 +32,15 @@ export async function generateMetadata({ params }: { params: { id: string } }): 
       location: true,
       bio: true,
       visibleInDirectory: true,
+      verified: true,
+      insuranceVerified: true,
+      stripeChargesEnabled: true,
+      stripePayoutsEnabled: true,
       user: { select: { name: true } },
     },
   });
-  // F26: hidden profiles publish no metadata either — nothing to index.
-  if (!profile || !profile.visibleInDirectory) return {};
+  // F26 and RENA-101: an ineligible profile publishes no metadata either.
+  if (!profile || !isPublicProfile(profile)) return {};
   const name = displayName(profile.user?.name) || 'Cleaner';
   const area = profile.location || 'north-east London';
   const title = `${name} — Cleaner in ${area}`;
@@ -77,7 +87,16 @@ export default async function CleanerProfilePage({
 
   // F26: a hidden profile's direct URL stays honest — no details, no booking
   // door, just the truth and a way back to cleaners who ARE taking work.
-  if (!profile.visibleInDirectory) {
+  // RENA-101: the same for any profile not yet eligible (an unverified
+  // applicant's photo and details never show before admin verification),
+  // except to the cleaner themselves and admins, who get a preview.
+  const eligible = isPublicProfile(profile);
+  let preview = false;
+  if (!eligible) {
+    const viewer = await getSessionUser().catch(() => null);
+    preview = !!viewer && (viewer.id === profile.userId || viewer.role === 'ADMIN');
+  }
+  if (!eligible && !preview) {
     return (
       <div className="mx-auto max-w-2xl px-4 py-24 text-center">
         <h1 className="font-newsreader text-2xl font-semibold text-ink">
@@ -276,8 +295,16 @@ export default async function CleanerProfilePage({
 
   return (
     <div className="min-h-screen bg-page">
-      <JsonLd data={profileJsonLd} />
+      {eligible && <JsonLd data={profileJsonLd} />}
       <div className="mx-auto max-w-3xl sm:px-6 sm:py-10">
+        {preview && (
+          <p
+            className="mx-4 mb-4 rounded-[10px] border border-warning/30 bg-warning/[0.06] px-4 py-3 font-jost text-sm text-ink sm:mx-0"
+            role="status"
+          >
+            Preview. Customers cannot see this page until the profile is verified and live.
+          </p>
+        )}
         <div className="bg-surface sm:overflow-hidden sm:rounded-[16px] sm:border sm:border-line">
           <CleanerProfileShellGate
             data={data}

@@ -85,7 +85,8 @@ export async function POST(request: Request) {
     const error = existing.cleanerProfile
       ? 'A cleaner account with this email already exists. Log in to continue.'
       : existing.role === 'CLEANER'
-        ? 'You already started an application with this email. Log in to continue where you left off.'
+        ? // RENA-100 (James-ruled wording): the signed-in /join resumes it.
+          'You already started an application. Sign in to continue.'
         : 'You already have a Rena account with this email. Log in to continue — your details carry over.';
     return NextResponse.json({ error, code: 'account_exists' }, { status: 409 });
   }

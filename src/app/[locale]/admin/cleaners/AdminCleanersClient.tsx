@@ -299,6 +299,15 @@ export default function AdminCleanersClient({
                           ? 'Signup incomplete'
                           : cleaner.status.charAt(0).toUpperCase() + cleaner.status.slice(1)}
                     </span>
+                    {cleaner.warningUndelivered && (
+                      <span
+                        className="ml-1.5 inline-flex items-center rounded-full bg-danger/10 px-2.5 py-0.5 text-xs font-medium text-danger"
+                        title="The deletion warning email failed. Automatic expiry is holding this application until a warning is delivered."
+                        data-testid="warning-undelivered"
+                      >
+                        Warning undelivered
+                      </span>
+                    )}
                     {/* F26: the admin visibility door — Hidden badge + toggle.
                         Same flag as the cleaner's own control, last-write-wins. */}
                     {cleaner.visibleInDirectory !== null &&

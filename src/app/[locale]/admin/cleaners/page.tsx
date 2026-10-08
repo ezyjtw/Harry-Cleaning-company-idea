@@ -20,6 +20,9 @@ export interface CleanerRow {
   status: 'active' | 'suspended' | 'pending-approval' | 'signup-incomplete';
   // F26: discovery switch — null for signup-incomplete rows (no profile).
   visibleInDirectory: boolean | null;
+  // James-ruled delivery gate: the deletion warning failed and has not yet
+  // been delivered, so automatic expiry is holding this application.
+  warningUndelivered: boolean;
 }
 
 async function getCleaners(): Promise<{ cleaners: CleanerRow[]; total: number }> {
@@ -42,6 +45,9 @@ async function getCleaners(): Promise<{ cleaners: CleanerRow[]; total: number }>
           completedJobs: true,
           visibleInDirectory: true,
         },
+      },
+      cleanerApplication: {
+        select: { expiryReminderSentAt: true, expiryReminderFailures: true },
       },
       _count: {
         select: {
@@ -109,6 +115,11 @@ async function getCleaners(): Promise<{ cleaners: CleanerRow[]; total: number }>
       emailVerified: !!c.emailVerified,
       status,
       visibleInDirectory: c.cleanerProfile ? c.cleanerProfile.visibleInDirectory : null,
+      warningUndelivered:
+        !c.cleanerProfile &&
+        !!c.cleanerApplication &&
+        !c.cleanerApplication.expiryReminderSentAt &&
+        c.cleanerApplication.expiryReminderFailures > 0,
     };
   });
 

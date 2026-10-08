@@ -31,6 +31,8 @@ export interface CleanerDetail {
   email: string;
   emailVerified: string | null;
   phone: string | null;
+  /** RENA-100: restricted vetting data (admin only), yyyy-mm-dd. */
+  dateOfBirth: string | null;
   createdAt: string;
   image: string | null;
   bio: string | null;
@@ -120,9 +122,16 @@ async function getCleanerDetail(userId: string): Promise<CleanerDetail | null> {
     },
   });
 
+  // RENA-100: the vetting record's date of birth. Admin surface only.
+  const vetting = await prisma.cleanerVetting.findUnique({
+    where: { userId: profile.user.id },
+    select: { dateOfBirth: true },
+  });
+
   return {
     userId: profile.user.id,
     profileId: profile.id,
+    dateOfBirth: vetting ? vetting.dateOfBirth.toISOString().slice(0, 10) : null,
     name: displayName(profile.user.name) || 'Unknown',
     email: profile.user.email,
     emailVerified: profile.user.emailVerified ? profile.user.emailVerified.toISOString() : null,

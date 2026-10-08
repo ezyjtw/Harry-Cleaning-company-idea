@@ -7,11 +7,13 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 
 import CleanerSetupChecklist from '@/components/cleaner/CleanerSetupChecklist';
 import CleanerStatusChip from '@/components/cleaner/CleanerStatusChip';
+import FinishApplicationCard from '@/components/cleaner/FinishApplicationCard';
 import RegularCleanChip from '@/components/cleaner/RegularCleanChip';
 import ProfilePhotoNudge from '@/components/ProfilePhotoNudge';
 import VerifyEmailBanner from '@/components/VerifyEmailBanner';
 import { useAuth } from '@/hooks/useAuth';
 import { normalizeCleanerJob } from '@/lib/booking/cleaner-job-display';
+import { fetchUnfinishedApplicationStep } from '@/lib/cleaner-application/client';
 import { SAME_DAY_FEATURE_ENABLED } from '@/lib/config/features';
 import { bedroomsLabel, serviceLabelFromSlug } from '@/lib/constants/services';
 import { registerPane } from '@/lib/freshness';
@@ -98,6 +100,8 @@ export default function CleanerDashboard() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [availableNow, setAvailableNow] = useState(false);
   const [jobs, setJobs] = useState<UpcomingJob[]>([]);
+  // RENA-100: an unfinished application's step (1 based), shown as a card.
+  const [unfinishedStep, setUnfinishedStep] = useState<number | null>(null);
 
   // #1: no 401→/login here. A transient 401 while the session is still valid must
   // NOT log the user out. Genuine unauthentication is handled by the guard effect
@@ -119,7 +123,9 @@ export default function CleanerDashboard() {
         // shape falls through to the error/retry card below.
         const body = await res.json().catch(() => null);
         if (body?.error === 'Cleaner profile not found') {
-          router.push('/join');
+          // RENA-100 (James-ruled): a card, not a redirect. The old push to
+          // /join was one leg of the /join, /login, /join loop.
+          setUnfinishedStep((await fetchUnfinishedApplicationStep()) ?? 1);
           return;
         }
         throw new Error('Failed to load dashboard');
@@ -139,7 +145,7 @@ export default function CleanerDashboard() {
     } finally {
       clearTimeout(timer);
     }
-  }, [router]);
+  }, []);
 
   // #1: redirect ONLY on a definitive auth verdict — never while the session is
   // still loading. Prevents the spurious "log back in" bounce on navigation.
@@ -262,6 +268,14 @@ export default function CleanerDashboard() {
           </div>
           <div className="h-64 bg-ink/5 rounded-xl" />
         </div>
+      </div>
+    );
+  }
+
+  if (unfinishedStep !== null) {
+    return (
+      <div className="p-4 sm:p-6 lg:p-8 max-w-3xl mx-auto">
+        <FinishApplicationCard step={unfinishedStep} />
       </div>
     );
   }

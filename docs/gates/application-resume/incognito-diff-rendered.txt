@@ -1,0 +1,7 @@
+Logged-out Chromium render of /join (fresh context), control main 9ef42d5 on :3001 vs branch on :3000, same rig database.
+=== /join landing: visible text identical
+    API calls control: ['GET /api/auth/session']
+    API calls branch:  ['GET /api/auth/session', 'GET /api/cleaners/application']
+=== /join wizard: visible text identical
+    API calls control: ['GET /api/auth/session']
+    API calls branch:  ['GET /api/auth/session', 'GET /api/cleaners/application']

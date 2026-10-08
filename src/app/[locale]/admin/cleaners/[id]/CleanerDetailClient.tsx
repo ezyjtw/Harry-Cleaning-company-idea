@@ -284,6 +284,9 @@ export default function CleanerDetailClient({ cleaner }: { cleaner: CleanerDetai
               )}
             </p>
             {cleaner.phone && <p className="text-ink-3 text-sm">{cleaner.phone}</p>}
+            {cleaner.dateOfBirth && (
+              <p className="text-ink-3 text-sm">Date of birth (vetting): {cleaner.dateOfBirth}</p>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-3">

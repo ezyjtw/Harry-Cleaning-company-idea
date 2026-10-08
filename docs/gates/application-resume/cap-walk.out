@@ -1,0 +1,8 @@
+(i) Pro capable shell, forced mint failure: response handoff=none next=/cleaner; posted=0; "Signing you in" ever shown=false; left /join after 0.4s; final path /cleaner/complete-profile; application committed=true; handoff codes none
+(ii) Pro legacy shell: response handoff=code; posted=0; "Signing you in" ever shown=false; left /join after 0.4s; final path /cleaner/complete-profile; handoff codes unused ttl=120s (minted, never posted, left to expire)
+(iv) Pro capable shell: response handoff=code; posted=1; "Signing you in" ever shown=true; left /join after 10.4s; final path /cleaner/complete-profile; at 8.5s path /join showing "Signing you in"=true; message keys=email,handoffCode,role,type type=signedUp role=CLEANER email matches=true code equals response code=true
+(iv) the posted code: redeemed by a spoofed capability browser 400; by the Pro shell signature 200 (token issued); replay 400
+(v) spoofed capability, plain browser: response handoff=none next=/cleaner; posted=0; "Signing you in" ever shown=false; left /join after 0.4s; final path /cleaner/complete-profile; response carries handoffCode=false token=false bridgeCode=false; handoff codes none
+website control: response handoff=none next=/cleaner; posted=0; "Signing you in" ever shown=false; left /join after 0.3s; final path /cleaner/complete-profile
+safety net, completed screen: left /join after 10.1s; final path /cleaner
+ALL EXPECTATIONS MET

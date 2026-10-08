@@ -1,4 +1,7 @@
+import type { Prisma } from '@prisma/client';
+
 import { prisma } from '@/lib/db/prisma';
+import { log } from '@/lib/log';
 import { putObject, getObject, deleteObject } from '@/lib/storage/r2-client';
 import {
   encryptDocument,
@@ -14,7 +17,8 @@ export type DocumentType =
   | 'right_to_work'
   | 'photo_id'
   | 'insurance'
-  | 'selfie';
+  | 'selfie'
+  | 'profile_photo';
 
 interface UploadDocumentParams {
   userId: string;
@@ -26,6 +30,15 @@ interface UploadDocumentParams {
   expiresAt?: Date;
   metadata?: Record<string, unknown>;
   ipAddress?: string;
+  /** RENA-101: DRAFT for an unfinished application's documents. */
+  reviewState?: 'DRAFT' | 'SUBMITTED';
+  /**
+   * RENA-101: draft replacement hook. Runs in the transaction that marks the
+   * new row STORED (so the old row's destroy and the new row's arrival are
+   * one step, guarded by the one-active-draft index). Returns the storage path
+   * of any object it retired, removed after commit.
+   */
+  onStored?: (tx: Prisma.TransactionClient, newId: string) => Promise<string | null>;
 }
 
 interface DocumentResult {
@@ -39,6 +52,11 @@ interface DocumentResult {
 export class DocumentStorageService {
   /**
    * Uploads and encrypts a document, storing it in R2.
+   *
+   * RENA-101: traceable two-phase write. The row is created PENDING (with its
+   * server-generated object key) BEFORE the object is written, then marked
+   * STORED. A crash between the two leaves a PENDING row that the stale-upload
+   * sweep finds and clears with its object, so no object is ever untracked.
    */
   static async uploadDocument(params: UploadDocumentParams): Promise<DocumentResult> {
     const keyId = generateKeyId();
@@ -50,9 +68,7 @@ export class DocumentStorageService {
       : '';
     const objectKey = `documents/${params.documentType}/${keyId}${ext}.enc`;
 
-    await putObject(objectKey, encrypted, 'application/octet-stream');
-
-    const doc = await prisma.documentUpload.create({
+    const pending = await prisma.documentUpload.create({
       data: {
         userId: params.userId,
         profileId: params.profileId,
@@ -65,8 +81,49 @@ export class DocumentStorageService {
         checksum,
         expiresAt: params.expiresAt,
         metadata: params.metadata as Record<string, string> | undefined,
+        storageState: 'PENDING',
+        reviewState: params.reviewState ?? 'SUBMITTED',
       },
     });
+
+    try {
+      await putObject(objectKey, encrypted, 'application/octet-stream');
+    } catch (err) {
+      // Nothing was stored: the reservation goes too (the sweep is the net if
+      // this delete itself fails).
+      await prisma.documentUpload.delete({ where: { id: pending.id } }).catch(() => {});
+      throw err;
+    }
+
+    let retiredPath: string | null = null;
+    let doc;
+    try {
+      doc = await prisma.$transaction(async (tx) => {
+        retiredPath = params.onStored ? await params.onStored(tx, pending.id) : null;
+        return tx.documentUpload.update({
+          where: { id: pending.id },
+          data: { storageState: 'STORED' },
+        });
+      });
+    } catch (err) {
+      // The object is written but may not become active (a replacement race
+      // or a refused hook): remove it and record the row as destroyed.
+      await deleteObject(objectKey)
+        .then(() =>
+          prisma.documentUpload.update({
+            where: { id: pending.id },
+            data: {
+              isDestroyed: true,
+              destroyedAt: new Date(),
+              destroyedReason: 'upload_not_activated',
+              storageState: 'DELETED',
+            },
+          })
+        )
+        .catch(() => {});
+      throw err;
+    }
+    if (retiredPath) await DocumentStorageService.removeRetiredObject(retiredPath);
 
     const auditAction =
       params.documentType === 'dbs_certificate'
@@ -111,7 +168,7 @@ export class DocumentStorageService {
       where: { id: documentId },
     });
 
-    if (!doc || doc.isDestroyed) return null;
+    if (!doc || doc.isDestroyed || doc.storageState !== 'STORED') return null;
 
     const encrypted = await getObject(doc.storagePath);
     const decrypted = decryptDocument(encrypted, doc.encryptionKeyId);
@@ -166,10 +223,15 @@ export class DocumentStorageService {
 
     if (!doc || doc.isDestroyed) return;
 
+    // RENA-101: DELETED is recorded only when the object delete succeeded; a
+    // failed delete leaves the row destroyed but STORED, which the sweep
+    // retries until the object is gone.
+    let objectGone = false;
     try {
       await deleteObject(doc.storagePath);
+      objectGone = true;
     } catch {
-      // Object may already be gone — continue with DB cleanup
+      log.error('document_storage', 'destroy_object_failed', { documentId });
     }
 
     await prisma.documentUpload.update({
@@ -178,6 +240,7 @@ export class DocumentStorageService {
         isDestroyed: true,
         destroyedAt: new Date(),
         destroyedReason: reason,
+        ...(objectGone ? { storageState: 'DELETED' as const } : {}),
       },
     });
 
@@ -213,11 +276,74 @@ export class DocumentStorageService {
   }
 
   /**
+   * RENA-101: removes an object a replacement retired and records DELETED.
+   * A failure leaves the destroyed row STORED for the sweep to retry.
+   */
+  static async removeRetiredObject(storagePath: string): Promise<void> {
+    try {
+      await deleteObject(storagePath);
+      await prisma.documentUpload.updateMany({
+        where: { storagePath, isDestroyed: true },
+        data: { storageState: 'DELETED' },
+      });
+    } catch {
+      log.error('document_storage', 'retired_object_delete_failed', {});
+    }
+  }
+
+  /**
+   * RENA-101: the integrity sweep. (1) PENDING rows older than the cutoff are
+   * interrupted uploads: their object (if any) is deleted, then the row. (2)
+   * destroyed rows still marked STORED had an object delete fail: retried.
+   * Idempotent; each pass converges.
+   */
+  static async sweepIncompleteUploads(
+    now: Date = new Date(),
+    staleAfterMs = 60 * 60 * 1000
+  ): Promise<{ pendingCleared: number; retiredDeleted: number }> {
+    const cutoff = new Date(now.getTime() - staleAfterMs);
+    let pendingCleared = 0;
+    let retiredDeleted = 0;
+    const pending = await prisma.documentUpload.findMany({
+      where: { storageState: 'PENDING', createdAt: { lt: cutoff } },
+      select: { id: true, storagePath: true },
+      take: 100,
+    });
+    for (const row of pending) {
+      try {
+        await deleteObject(row.storagePath);
+        await prisma.documentUpload.deleteMany({ where: { id: row.id, storageState: 'PENDING' } });
+        pendingCleared += 1;
+      } catch {
+        log.error('document_storage', 'pending_sweep_failed', { documentId: row.id });
+      }
+    }
+    const retired = await prisma.documentUpload.findMany({
+      where: { isDestroyed: true, storageState: 'STORED', destroyedAt: { lt: cutoff } },
+      select: { id: true, storagePath: true },
+      take: 100,
+    });
+    for (const row of retired) {
+      try {
+        await deleteObject(row.storagePath);
+        await prisma.documentUpload.update({
+          where: { id: row.id },
+          data: { storageState: 'DELETED' },
+        });
+        retiredDeleted += 1;
+      } catch {
+        log.error('document_storage', 'retired_sweep_failed', { documentId: row.id });
+      }
+    }
+    return { pendingCleared, retiredDeleted };
+  }
+
+  /**
    * Get all documents for a cleaner profile, excluding destroyed ones.
    */
   static async getDocumentsForProfile(profileId: string): Promise<DocumentResult[]> {
     const docs = await prisma.documentUpload.findMany({
-      where: { profileId, isDestroyed: false },
+      where: { profileId, isDestroyed: false, storageState: 'STORED' },
       orderBy: { createdAt: 'desc' },
       select: {
         id: true,
@@ -286,6 +412,7 @@ export class DocumentStorageService {
           isVerified: false,
           rejectedAt: new Date(),
           rejectionReason: reason?.trim() || 'Document rejected — please re-upload.',
+          reviewState: 'REJECTED',
         },
       });
     }
@@ -299,6 +426,7 @@ export class DocumentStorageService {
           verifiedAt: new Date(),
           rejectedAt: null,
           rejectionReason: null,
+          reviewState: 'VERIFIED',
         },
       });
 

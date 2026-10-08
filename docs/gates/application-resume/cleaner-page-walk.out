@@ -1,0 +1,7 @@
+--- unverified (verified, insured, Stripe all false; visible true)
+logged out: HTTP 200; NOT AVAILABLE view; preview banner=false; photo img=false; name shown=false; json-ld blocks=1
+the cleaner themselves: HTTP 200; profile page; preview banner=true; photo img=true; name shown=true; json-ld blocks=1
+an admin: HTTP 200; profile page; preview banner=true; photo img=true; name shown=true; json-ld blocks=1
+--- verified, insured, Stripe-ready, visible
+logged out: HTTP 200; profile page; preview banner=false; photo img=true; name shown=true; json-ld blocks=2
+the cleaner themselves: HTTP 200; profile page; preview banner=false; photo img=true; name shown=true; json-ld blocks=2

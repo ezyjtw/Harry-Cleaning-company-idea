@@ -1,0 +1,27 @@
+=== Stop at step 2: screen says step 2
+server: {"user":"exists","profile":false,"draft":{"currentStep":1,"version":1,"status":"IN_PROGRESS"},"docs":[]}
+same browser /join: lands on step 2; welcome notice=true
+fresh browser logged out, step 1 with same email: "You already started an application. Sign in to continue."
+after the page's sign in link: lands on /join
+fresh browser signed in /join: step 2; password fields shown=no; refusal shown=false
+fresh browser /cleaner: /cleaner; card="Finish your application You're on step 2 of 7. Everything you have added so far is saved."
+Pro shell Today: card="Finish your application You're on step 2 of 7. Everything you have added so far is saved."; empty jobs state shown=false
+Pro shell Continue application: /join at step 2
+=== Stop at step 5: screen says step 5
+server: {"user":"exists","profile":false,"draft":{"currentStep":4,"version":4,"status":"IN_PROGRESS"},"docs":["photo_id:STORED/DRAFT:object","right_to_work:STORED/DRAFT:object"]}
+same browser /join: lands on step 5; welcome notice=true
+fresh browser logged out, step 1 with same email: "You already started an application. Sign in to continue."
+after the page's sign in link: lands on /join
+fresh browser signed in /join: step 5; password fields shown=no; refusal shown=false
+fresh browser /cleaner: /cleaner; card="Finish your application You're on step 5 of 7. Everything you have added so far is saved."
+Pro shell Today: card="Finish your application You're on step 5 of 7. Everything you have added so far is saved."; empty jobs state shown=false
+Pro shell Continue application: /join at step 5
+=== Stop at step 7: screen says step 7
+server: {"user":"exists","profile":false,"draft":{"currentStep":6,"version":6,"status":"IN_PROGRESS"},"docs":["photo_id:STORED/DRAFT:object","right_to_work:STORED/DRAFT:object","selfie:STORED/DRAFT:object"]}
+same browser /join: lands on step 7; welcome notice=true
+fresh browser logged out, step 1 with same email: "You already started an application. Sign in to continue."
+after the page's sign in link: lands on /join
+fresh browser signed in /join: step 7; password fields shown=no; refusal shown=false
+fresh browser /cleaner: /cleaner; card="Finish your application You're on step 7 of 7. Everything you have added so far is saved."
+Pro shell Today: card="Finish your application You're on step 7 of 7. Everything you have added so far is saved."; empty jobs state shown=false
+Pro shell Continue application: /join at step 7

@@ -745,7 +745,43 @@ export function buildCleanerWelcome(token: string, firstName: string): EmailCont
     button(verifyLink, 'Verify my email') +
     pMuted(
       'Verifying never blocks your application — you can finish it any time, and we&rsquo;ll keep your progress safe.'
-    );
+    ) +
+    // RENA-100 (James-ruled): the promise above is now true (the draft lives
+    // on the server), so the email carries the way back. The normal signed-in
+    // /join route; no token and no application id in the URL.
+    p(`<a href="${appUrl()}/join">Continue your application</a>`);
+  return { subject, html: renderEmail({ contentHtml }) };
+}
+
+// RENA-100 (James-ruled 2026-10-08): the two unfinished-application reminders.
+// Service emails only: no application contents, no documents, no dates of
+// birth. Each sends at most once per application (the scheduler's marker).
+export function buildApplicationInactivityReminder(firstName: string): EmailContent {
+  const subject = 'Your Rena application is saved';
+  const contentHtml =
+    h('Pick up where you left off') +
+    p(`Hi ${escapeHtml(firstName || 'there')},`) +
+    p(
+      'Your application to join the Rena Cleaning Network is saved. Sign in and you will land on the step you reached.'
+    ) +
+    button(`${appUrl()}/join`, 'Continue your application');
+  return { subject, html: renderEmail({ contentHtml }) };
+}
+
+export function buildApplicationExpiryReminder(firstName: string, expiresOn: Date): EmailContent {
+  const when = expiresOn.toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'long',
+    timeZone: 'Europe/London',
+  });
+  const subject = 'Your Rena application will close soon';
+  const contentHtml =
+    h('Your application closes soon') +
+    p(`Hi ${escapeHtml(firstName || 'there')},`) +
+    p(
+      `Unfinished applications close after 30 days without activity. Yours closes on ${when}, and the details and documents you added will then be deleted.`
+    ) +
+    button(`${appUrl()}/join`, 'Continue your application');
   return { subject, html: renderEmail({ contentHtml }) };
 }
 

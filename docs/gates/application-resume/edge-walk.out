@@ -1,0 +1,10 @@
+E1 two devices: version before 2; device A Continue lands step 4; device B (stale) told "Your application was updated on another device. We have loaded the latest version.", now on step 4; server hoursPerWeek=20 version=3 (B's 35 did not land)
+E2 storage down: page says "That upload did not go through. Your progress is saved."; document rows=0; draft version 3 -> 3, step 3 -> 3
+E2 storage back, same file again: stored rows=1
+E3 fresh browser resume at step 7: review lists Photo ID Uploaded, Right to work see text
+E4 forced finalisation failure: page says "We could not submit your application just now. Your progress is saved, please try again."; profile=false; draft IN_PROGRESS v6; draft docs still DRAFT=3
+E4 retry: lands on /cleaner/complete-profile; profile=true; draft SUBMITTED; vetting date of birth=1990-03-05; documents photo_id:SUBMITTED:linked:object, right_to_work:SUBMITTED:linked:object, selfie:SUBMITTED:linked:object
+E5 Pro logged-out join: response handoff=code; posted 1 message(s): signedUp keys=email,handoffCode,role,type codeLength=43; screen "Your application is in."
+E6 admin removal {"ok":true,"email":"walk-edge-removed-1791463451982@integration.invalid"}: objects left=0 of 1; user row=gone; the stale open tab now shows "This application no longer exists."
+E6 the same tab reloaded: "This application no longer exists."
+E7 expiry sweep {"processed":1} then {"processed":0}: user=gone; draft=gone; document rows=0; objects left=0 of 1

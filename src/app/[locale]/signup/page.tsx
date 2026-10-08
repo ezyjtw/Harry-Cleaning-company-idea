@@ -3,13 +3,13 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { signIn } from 'next-auth/react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import FieldError, { fieldErrorProps } from '@/components/ui/FieldError';
 import PasswordInput from '@/components/ui/PasswordInput';
 import PasswordRequirements from '@/components/ui/PasswordRequirements';
 import { safeCallbackUrl } from '@/lib/auth/callback-url';
-import { isCustomerShellUA, postSignedUpToShell } from '@/lib/shell';
+import { isCustomerShellUA, postSignedUpToShell, SIGNED_UP_SAFETY_NET_MS } from '@/lib/shell';
 import { displayName } from '@/lib/utils/name';
 import { validatePasswordPolicy } from '@/lib/utils/password-policy';
 
@@ -43,6 +43,8 @@ export default function SignupPage() {
   const [loading, setLoading] = useState(false);
   // B5: the customer shell is redeeming the handoff (shell only).
   const [handingOff, setHandingOff] = useState(false);
+  // The signup response the safety net needs to finish on the website path.
+  const handoffSignupRef = useRef<{ verificationEmailSent?: boolean } | null>(null);
   // RENA-077 (James-ruled): the account exists even when the verification
   // email could not be sent; the page says so plainly and offers a retry.
   const [emailNotice, setEmailNotice] = useState<
@@ -105,6 +107,8 @@ export default function SignupPage() {
       // website sign-in. The page posts only the single-use code; the shell
       // redeems it natively and lands on Home (whose banner carries the
       // verify-email retry). No web sign-in, no navigation to /account.
+      // Only a shell advertising signedUpHandoffV1 is posted to and waited
+      // on (James-ruled 8 Oct); an older shell takes the website path.
       if (
         isCustomerShellUA() &&
         typeof data.handoffCode === 'string' &&
@@ -114,35 +118,53 @@ export default function SignupPage() {
           role: 'CLIENT',
         })
       ) {
+        handoffSignupRef.current = data;
         setHandingOff(true);
         return;
       }
 
-      // Auto-sign in after successful registration
-      const signInResult = await signIn('credentials', {
-        email: form.email,
-        password: form.password,
-        redirect: false,
-      });
-
-      if (signInResult?.error) {
-        // Registration succeeded but auto-login failed — redirect to login
-        router.push(
-          callbackUrl ? `/login?callbackUrl=${encodeURIComponent(callbackUrl)}` : '/login'
-        );
-      } else if (data.verificationEmailSent === false) {
-        // Never imply an email went when it did not: stop here and say so.
-        setEmailNotice('failed');
-      } else {
-        // Customers land on their role home directly (signup is customer-only).
-        router.push(callbackUrl ?? '/account');
-      }
+      await finishOnWebsite(data);
     } catch {
       setErrors({ form: 'Something went wrong. Please try again.' });
     } finally {
       setLoading(false);
     }
   };
+
+  // The normal website outcome of a created account: auto sign in, then the
+  // role home (or the honest email notice). Also the safety net's path.
+  async function finishOnWebsite(data: { verificationEmailSent?: boolean }) {
+    const signInResult = await signIn('credentials', {
+      email: form.email,
+      password: form.password,
+      redirect: false,
+    });
+
+    if (signInResult?.error) {
+      // Registration succeeded but auto-login failed — redirect to login
+      router.push(callbackUrl ? `/login?callbackUrl=${encodeURIComponent(callbackUrl)}` : '/login');
+    } else if (data.verificationEmailSent === false) {
+      // Never imply an email went when it did not: stop here and say so.
+      setHandingOff(false);
+      setEmailNotice('failed');
+    } else {
+      // Customers land on their role home directly (signup is customer-only).
+      router.push(callbackUrl ?? '/account');
+    }
+  }
+
+  // B5 safety net (James-ruled 8 Oct): still "Signing you in" after 10
+  // seconds, the page finishes on the website path by itself.
+  useEffect(() => {
+    if (!handingOff) return;
+    const t = setTimeout(() => {
+      const data = handoffSignupRef.current;
+      if (data) void finishOnWebsite(data).catch(() => router.push('/login'));
+    }, SIGNED_UP_SAFETY_NET_MS);
+    return () => clearTimeout(t);
+    // finishOnWebsite reads the form at fire time; the timer arms once.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [handingOff]);
 
   const retryVerification = async () => {
     setEmailNotice('retrying');

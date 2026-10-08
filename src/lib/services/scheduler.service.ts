@@ -38,6 +38,12 @@ export interface SchedulerSummary {
   recurringCancels: HandlerResult;
   arrangementTimeouts: HandlerResult;
   incompleteSignups: HandlerResult;
+  applicationReminders: HandlerResult & {
+    inactivity?: number;
+    expiry?: number;
+    expiryFailed?: number;
+  };
+  documentIntegrity: HandlerResult & { pendingCleared?: number; retiredDeleted?: number };
   paymentRecoveryEmails: HandlerResult;
   topupCardReminders: HandlerResult;
   placesRefresh: HandlerResult;
@@ -552,6 +558,36 @@ async function processIncompleteSignups(): Promise<HandlerResult> {
   }
 }
 
+// RENA-100 (James-ruled 2026-10-08): the two unfinished-application reminder
+// emails, each claimed once by a marker CAS (lifecycle.ts). Never throws.
+async function processApplicationReminders(): Promise<
+  HandlerResult & { inactivity?: number; expiry?: number; expiryFailed?: number }
+> {
+  try {
+    const { sendApplicationReminders } = await import('@/lib/cleaner-application/lifecycle');
+    const r = await sendApplicationReminders();
+    return { processed: r.inactivity + r.expiry, ...r };
+  } catch (err) {
+    log.error('scheduler', 'application_reminders_failed', {}, err);
+    return { processed: 0 };
+  }
+}
+
+// RENA-101: upload integrity. Stale PENDING uploads and destroyed rows whose
+// object delete failed are converged (document-storage.service.ts).
+async function processDocumentIntegrity(): Promise<
+  HandlerResult & { pendingCleared?: number; retiredDeleted?: number }
+> {
+  try {
+    const { DocumentStorageService } = await import('./document-storage.service');
+    const r = await DocumentStorageService.sweepIncompleteUploads();
+    return { processed: r.pendingCleared + r.retiredDeleted, ...r };
+  } catch (err) {
+    log.error('scheduler', 'document_integrity_failed', {}, err);
+    return { processed: 0 };
+  }
+}
+
 // R9 (HQ): weekly Places competitor-intel refresh. Same atomic CAS week-guard
 // as the compliance day-guard (marker seeded by seed-reference-data.ts):
 // of overlapping ticks exactly one claims the week and runs. Dormant without
@@ -664,6 +700,8 @@ export async function runScheduledJobs(): Promise<SchedulerSummary> {
   const recurringCancels = await processRecurringCancels();
   const arrangementTimeouts = await processArrangementTimeouts();
   const incompleteSignups = await processIncompleteSignups();
+  const applicationReminders = await processApplicationReminders();
+  const documentIntegrity = await processDocumentIntegrity();
   const paymentRecoveryEmails = await processPaymentRecoveryEmails();
   const topupCardReminders = await processTopupCardReminders();
   const placesRefresh = await processPlacesRefreshWeekly();
@@ -690,6 +728,8 @@ export async function runScheduledJobs(): Promise<SchedulerSummary> {
     recurringCancels,
     arrangementTimeouts,
     incompleteSignups,
+    applicationReminders,
+    documentIntegrity,
     paymentRecoveryEmails,
     topupCardReminders,
     placesRefresh,

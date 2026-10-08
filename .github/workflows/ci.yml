@@ -171,6 +171,13 @@ jobs:
           NATIVE_HANDOFF_INTEGRATION: '1'
           NEXTAUTH_SECRET: ci-only-secret-for-native-handoff-integration
 
+      - name: Cleaner application resume against Postgres (RENA-100, 101)
+        run: npx vitest run src/lib/cleaner-application/application.integration.test.ts
+        env:
+          CLEANER_APPLICATION_INTEGRATION: '1'
+          NEXTAUTH_SECRET: ci-only-secret-for-cleaner-application-integration
+          DOCUMENT_ENCRYPTION_KEY: ci-only-document-encryption-key-for-integration-0123
+
       - name: Booking lifecycle concurrency matrix against Postgres (B3, RENA-012, 028, 030, 033)
         run: npx vitest run src/lib/booking/assign.integration.test.ts
         env:

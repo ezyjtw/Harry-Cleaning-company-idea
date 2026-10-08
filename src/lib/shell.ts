@@ -104,11 +104,38 @@ export function shellHandoffApp(
 }
 
 /**
+ * B5 (James-ruled 8 Oct): the capability a shell advertises when it redeems
+ * the `signedUp` message. Old shells carry the bridge too, so neither the
+ * bridge nor the version number counts; only this explicit token does.
+ */
+export const SIGNED_UP_HANDOFF_CAPABILITY = 'signedUpHandoffV1';
+
+/**
+ * Client-side capability check: the shell appends `RenaCap/<a,b,…>` to its
+ * WebView User-Agent, so the value is there before the page decides.
+ * Behavioural negotiation only: it chooses which path a page takes, never
+ * authentication or authorisation, and server code never reads it (a
+ * spoofed token only makes a browser wait for a message nobody redeems,
+ * which the page's own safety net ends). Exact token match, never
+ * containment. Always false during SSR.
+ */
+export function shellHasCapability(cap: string): boolean {
+  if (typeof navigator === 'undefined') return false;
+  const m = /(?:^|\s)RenaCap\/([A-Za-z0-9,]+)(?:\s|$)/.exec(navigator.userAgent);
+  return !!m && m[1].split(',').includes(cap);
+}
+
+/** How long a completed signup page waits on the shell before moving on. */
+export const SIGNED_UP_SAFETY_NET_MS = 10_000;
+
+/**
  * B5 (RENA-031/082): hand a just-created account to the native shell. The
  * message carries only the short-lived, single-use handoff code and
  * non-secret display data (never a Bearer or a bridge code); the shell
- * redeems the code by native fetch. Returns false when there is no native
- * bridge to post to, so the caller keeps its website path.
+ * redeems the code by native fetch. Posts only to a shell that advertises
+ * the signedUpHandoffV1 capability (James-ruled 8 Oct): returns false when
+ * the capability or the bridge is absent, so the caller keeps its website
+ * path and never waits on a message an older shell would ignore.
  */
 export function postSignedUpToShell(msg: {
   handoffCode: string;
@@ -116,6 +143,7 @@ export function postSignedUpToShell(msg: {
   role: 'CLIENT' | 'CLEANER';
 }): boolean {
   if (typeof window === 'undefined') return false;
+  if (!shellHasCapability(SIGNED_UP_HANDOFF_CAPABILITY)) return false;
   const bridge = (window as unknown as { ReactNativeWebView?: { postMessage(m: string): void } })
     .ReactNativeWebView;
   if (!bridge || typeof bridge.postMessage !== 'function') return false;

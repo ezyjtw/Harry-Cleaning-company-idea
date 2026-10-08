@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { signIn } from 'next-auth/react';
-import { useState, useEffect, useCallback, useId } from 'react';
+import { useState, useEffect, useCallback, useId, useRef } from 'react';
 
 import ShellCameraNotice from '@/components/ShellCameraNotice';
 import SharedFieldError, { fieldErrorProps } from '@/components/ui/FieldError';
@@ -20,7 +20,12 @@ import {
 } from '@/lib/constants/services';
 import { useAnalytics } from '@/lib/hooks/useAnalytics';
 import { CURRENT_AGREEMENT } from '@/lib/legal/self-employment-acknowledgment';
-import { isShellUA, postSignedUpToShell, shellCameraCapable } from '@/lib/shell';
+import {
+  isShellUA,
+  postSignedUpToShell,
+  shellCameraCapable,
+  SIGNED_UP_SAFETY_NET_MS,
+} from '@/lib/shell';
 import {
   dataUrlBytes,
   DOC_IMAGE_MAX_PX,
@@ -133,6 +138,61 @@ const INITIAL_FORM: FormData = {
 };
 
 const STORAGE_KEY = 'rena-join-wizard';
+
+// RENA-100/101 (James-ruled 2026-10-08): the server holds the application.
+// localStorage is a cache only (the server wins on any disagreement, and the
+// cache is cleared only after a successful finalisation). Documents upload
+// when selected, as draft application documents.
+const APPLICATION_API = '/api/cleaners/application';
+const FILE_CATEGORY = {
+  photoIdFile: 'photo_id',
+  rightToWorkDocFile: 'right_to_work',
+  dbsCertFile: 'dbs_certificate',
+  selfiePhoto: 'selfie',
+  profilePhoto: 'profile_photo',
+} as const;
+type FileField = keyof typeof FILE_CATEGORY;
+const FIELD_OF_CATEGORY: Record<string, FileField> = Object.fromEntries(
+  Object.entries(FILE_CATEGORY).map(([field, cat]) => [cat, field as FileField])
+);
+const isFileField = (k: string): k is FileField => k in FILE_CATEGORY;
+const documentUrl = (id: string) => `${APPLICATION_API}/documents/${encodeURIComponent(id)}`;
+const DRAFT_KEYS = [
+  'firstName',
+  'lastName',
+  'phone',
+  'postcode',
+  'yearsExperience',
+  'serviceTypes',
+  'specialties',
+  'languages',
+  'bio',
+  'serviceRates',
+  'hoursPerWeek',
+  'maxTravelMinutes',
+  'rightToWorkDocType',
+  'rightToWorkShareCode',
+  'rightToWorkExpiryDate',
+  'dbsOption',
+  'dbsCertNumber',
+  'dbsCertIssueDate',
+  'selfieProvenance',
+  'livenessComplete',
+  'acknowledgeSelfEmployment',
+] as const;
+function draftPayload(form: FormData): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const k of DRAFT_KEYS) out[k] = form[k];
+  return out;
+}
+type ServerLoad =
+  | 'in_progress'
+  | 'none'
+  | 'submitted'
+  | 'signed_out'
+  | 'gone'
+  | 'not_cleaner'
+  | 'error';
 
 /* ------------------------------------------------------------------ */
 /*  Option lists                                                       */
@@ -1022,16 +1082,18 @@ export default function JoinAsCleanerPage() {
   // B5: the Pro shell is redeeming the handoff (shell only).
   const [handingOff, setHandingOff] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  // B5 safety net (James-ruled 8 Oct): a page still on the completed or
+  // "Signing you in" state after 10 seconds moves on to /cleaner by itself,
+  // in every shell and on the website.
+  useEffect(() => {
+    if (!handingOff && !submitted) return;
+    const t = setTimeout(() => router.push('/cleaner'), SIGNED_UP_SAFETY_NET_MS);
+    return () => clearTimeout(t);
+  }, [handingOff, submitted, router]);
 
   const [mounted, setMounted] = useState(false);
-  // H48/H51: a restored draft can never carry the password or the profile photo
-  // (both are deliberately excluded from localStorage — passwords for security,
-  // base64 photos for quota). If we let the user resume onto a late step, those
-  // two gaps are invisible: they submit, the account has no password (→ bounced
-  // back through the wizard to "re-enter" everything) and no photo (silently
-  // missing). This flag drives an honest "welcome back, re-add these" banner and
-  // forces the resume to land on step 1 where both fields live.
-  const [resumeNotice, setResumeNotice] = useState<{ photo: boolean } | null>(null);
+  // H48/H51 retired by RENA-100: the server now holds the draft and its
+  // documents, so a resume no longer loses the photo or needs the password.
   // H99 ①: the account is born when step 0 completes. Persisted with the
   // draft so a resumed run never re-creates (409s) its own account.
   const [accountCreated, setAccountCreated] = useState(false);
@@ -1047,6 +1109,20 @@ export default function JoinAsCleanerPage() {
   const [hasCamera, setHasCamera] = useState<boolean | null>(null);
   // H102: user-declared upload hatch on the selfie step (quiet text link).
   const [selfieHatchOpen, setSelfieHatchOpen] = useState(false);
+  // RENA-100: server persistence. serverBacked = this tab holds a signed-in
+  // session whose draft the server owns. The refs carry the values the
+  // stable callbacks (set, uploads) need between renders.
+  const [serverBacked, setServerBacked] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState<Partial<Record<FileField, boolean>>>({});
+  const [gate, setGate] = useState<null | 'sign_in' | 'gone'>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const versionRef = useRef(0);
+  const docIdsRef = useRef<Partial<Record<FileField, string>>>({});
+  const serverBackedRef = useRef(false);
+  const formRef = useRef<FormData>(INITIAL_FORM);
+  formRef.current = form;
+  const anyUploading = Object.values(uploading).some(Boolean);
   const { trackStep, trackFormError, trackConversion } = useAnalytics('cleaner_signup');
 
   useEffect(() => {
@@ -1065,61 +1141,123 @@ export default function JoinAsCleanerPage() {
     trackStep(1, 'join_page_view');
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  /* ---- Restore from localStorage on mount ---- */
-  useEffect(() => {
+  /* ---- RENA-100: load the application (server first, cache second) ---- */
+  function markServerBacked(on: boolean) {
+    serverBackedRef.current = on;
+    setServerBacked(on);
+  }
+
+  function applyCache(raw: unknown) {
+    const parsed = raw as { form?: Record<string, unknown> } | null;
+    if (!parsed?.form) return;
+    const restored: Record<string, unknown> = { ...parsed.form };
+    for (const f of Object.keys(FILE_CATEGORY)) restored[f] = '';
+    delete restored.password;
+    delete restored.confirmPassword;
+    setForm((prev) => ({ ...prev, ...(restored as Partial<FormData>) }));
+  }
+
+  async function loadServer(): Promise<ServerLoad> {
     try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        let hadPhoto = false;
-        if (parsed.form) {
-          const restored = { ...parsed.form };
-          const fileFields = [
-            'photoIdFile',
-            'rightToWorkDocFile',
-            'dbsCertFile',
-            'selfiePhoto',
-            'profilePhoto',
-          ];
-          for (const f of fileFields) {
-            if (restored[f] === '[uploaded]') restored[f] = '';
-          }
-          // H51: the draft only ever recorded the photo as a marker, never the
-          // bytes — so a resumed user has lost it. Remember they HAD one so the
-          // banner can tell them to re-add it (rather than it vanishing silently).
-          hadPhoto = parsed.form.profilePhoto === '[uploaded]';
-          setForm((prev) => ({ ...prev, ...restored }));
-        }
-        // H99 ①: the account survives abandonment — the resumed draft must not
-        // try to create it again (its own 409). The final submit attaches the
-        // profile to the existing account under session proof.
-        if (parsed.accountCreated === true) {
-          setAccountCreated(true);
-          // F29: a resumed run keeps its attribution.
-          if (typeof parsed.userId === 'string' && parsed.userId) {
-            setAccountUserId(parsed.userId);
-          }
-        }
-        if (typeof parsed.currentStep === 'number') {
-          const savedStep = Math.max(0, Math.min(parsed.currentStep, STEPS.length - 1));
-          // maxReachedStep keeps their real progress (all steps stay tappable)…
-          setMaxReachedStep(savedStep);
-          // …but H48: the password is never restored, and the photo is gone, so
-          // land them on step 1 where both live — never on a late step where the
-          // gaps are invisible and a submit fails validation with a jarring bounce.
-          if (savedStep > 0) {
-            setCurrentStep(0);
-            setResumeNotice({ photo: hadPhoto });
-          } else {
-            setCurrentStep(savedStep);
-          }
+      const res = await fetch(APPLICATION_API, { cache: 'no-store' });
+      if (res.status === 401) return 'signed_out';
+      if (res.status === 410) return 'gone';
+      if (res.status === 403) return 'not_cleaner';
+      if (!res.ok) return 'error';
+      const body = await res.json();
+      if (body.status === 'SIGNED_OUT') return 'signed_out';
+      if (body.status === 'SUBMITTED') return 'submitted';
+      const email = typeof body.account?.email === 'string' ? body.account.email : '';
+      if (body.status !== 'IN_PROGRESS') {
+        if (email) setForm((prev) => ({ ...prev, email }));
+        return 'none';
+      }
+      const d = body.draft;
+      const files: Partial<Record<FileField, string>> = {};
+      const ids: Partial<Record<FileField, string>> = {};
+      for (const doc of body.documents as { id: string; category: string }[]) {
+        const field = FIELD_OF_CATEGORY[doc.category];
+        if (field) {
+          files[field] = documentUrl(doc.id);
+          ids[field] = doc.id;
         }
       }
+      docIdsRef.current = ids;
+      versionRef.current = Number(d.version) || 0;
+      setForm((prev) => ({
+        ...INITIAL_FORM,
+        ...(d.data as Partial<FormData>),
+        email: email || prev.email,
+        dateOfBirth: d.dateOfBirth || '',
+        agreedToTerms: prev.agreedToTerms,
+        ...files,
+      }));
+      const step = Math.max(0, Math.min(Number(d.currentStep) || 0, STEPS.length - 1));
+      setCurrentStep(step);
+      setMaxReachedStep(Math.max(step, Math.min(Number(d.maxReachedStep) || 0, STEPS.length - 1)));
+      setAccountCreated(true);
+      markServerBacked(true);
+      return 'in_progress';
     } catch {
-      /* ignore corrupt data */
+      return 'error';
     }
-    setMounted(true);
-  }, []);
+  }
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      let cached: { accountCreated?: boolean; userId?: unknown } | null = null;
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) cached = JSON.parse(raw);
+      } catch {
+        /* ignore corrupt data */
+      }
+      const r = await loadServer();
+      if (cancelled) return;
+      if (r === 'in_progress') {
+        setShowForm(true);
+        setNotice('Welcome back. Your application is saved, carry on from here.');
+      } else if (r === 'submitted') {
+        try {
+          localStorage.removeItem(STORAGE_KEY);
+        } catch {
+          /* storage best effort */
+        }
+        router.replace(isShellUA() ? '/app/today' : '/cleaner');
+        return;
+      } else if (r === 'none') {
+        // A signed-in applicant with no server draft yet: the cache may fill
+        // the fields; the first Continue creates the draft.
+        applyCache(cached);
+        setAccountCreated(true);
+        markServerBacked(true);
+        versionRef.current = 0;
+        setShowForm(true);
+      } else if (r === 'gone') {
+        try {
+          localStorage.removeItem(STORAGE_KEY);
+        } catch {
+          /* storage best effort */
+        }
+        setGate('gone');
+      } else if (r === 'signed_out' && cached?.accountCreated === true) {
+        setGate('sign_in');
+      } else {
+        applyCache(cached);
+        if (r === 'error' && cached?.accountCreated === true) {
+          setNotice(
+            "We couldn't reach your saved application just now. Check your connection and refresh."
+          );
+        }
+      }
+      if (typeof cached?.userId === 'string' && cached.userId) setAccountUserId(cached.userId);
+      setMounted(true);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* ---- Persist to localStorage on step / form change ---- */
   useEffect(() => {
@@ -1155,11 +1293,150 @@ export default function JoinAsCleanerPage() {
   }, [form, currentStep, mounted, accountCreated, accountUserId]);
 
   /* ---- Field updater helpers ---- */
-  const set = useCallback(
-    <K extends keyof FormData>(key: K, value: FormData[K]) =>
-      setForm((prev) => ({ ...prev, [key]: value })),
-    []
-  );
+  // RENA-101: a document field uploads when selected (once the server owns
+  // the draft) and shows only after the server has stored it; clearing one
+  // removes the draft document. Before the account exists (the step 1 photo)
+  // the file waits in the form and uploads right after the first save.
+  const set = useCallback(<K extends keyof FormData>(key: K, value: FormData[K]) => {
+    if (isFileField(key) && serverBackedRef.current) {
+      if (typeof value === 'string' && value.startsWith('data:')) {
+        void uploadFile(key, value);
+        return;
+      }
+      if (value === '' && docIdsRef.current[key]) {
+        void removeFile(key);
+        return;
+      }
+    }
+    setForm((prev) => ({ ...prev, [key]: value }));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function clearFieldError(field: string) {
+    setErrors((prev) => {
+      if (!(field in prev)) return prev;
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
+  }
+
+  async function uploadFile(field: FileField, dataUrl: string) {
+    setUploading((u) => ({ ...u, [field]: true }));
+    clearFieldError(field);
+    const failed = 'That upload did not go through. Your progress is saved, please try again.';
+    try {
+      const res = await fetch(`${APPLICATION_API}/documents`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          category: FILE_CATEGORY[field],
+          fileData: dataUrl,
+          replaceId: docIdsRef.current[field] ?? null,
+        }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (res.ok && typeof body.document?.id === 'string') {
+        docIdsRef.current = { ...docIdsRef.current, [field]: body.document.id };
+        setForm((prev) => ({ ...prev, [field]: documentUrl(body.document.id) }));
+        return;
+      }
+      if (res.status === 401) return setGate('sign_in');
+      if (res.status === 410) return setGate('gone');
+      if (res.status === 409 && body.code === 'DOCUMENT_CHANGED') {
+        await loadServer();
+        setErrors((prev) => ({
+          ...prev,
+          [field]:
+            'This document was changed on another device. Check it and add it again if needed.',
+        }));
+        return;
+      }
+      setErrors((prev) => ({ ...prev, [field]: (body.error as string) || failed }));
+    } catch {
+      setErrors((prev) => ({ ...prev, [field]: failed }));
+    } finally {
+      setUploading((u) => ({ ...u, [field]: false }));
+    }
+  }
+
+  async function removeFile(field: FileField) {
+    const id = docIdsRef.current[field];
+    if (!id) return;
+    const res = await fetch(documentUrl(id), { method: 'DELETE' }).catch(() => null);
+    if (res && (res.ok || res.status === 404)) {
+      const next = { ...docIdsRef.current };
+      delete next[field];
+      docIdsRef.current = next;
+      setForm((prev) => ({ ...prev, [field]: '' }));
+    } else if (res?.status === 401) setGate('sign_in');
+    else if (res?.status === 410) setGate('gone');
+    else
+      setErrors((prev) => ({ ...prev, [field]: 'Could not remove that file. Please try again.' }));
+  }
+
+  async function handleServerFailure(
+    status: number,
+    body: { code?: string; error?: string; step?: number; errors?: Record<string, string> },
+    fallback: string
+  ) {
+    if (status === 401) return setGate('sign_in');
+    if (status === 410) return setGate('gone');
+    if (status === 409 && body.code === 'APPLICATION_SUBMITTED') {
+      router.replace(isShellUA() ? '/app/today' : '/cleaner');
+      return;
+    }
+    if (status === 409) {
+      // RENA-100 two devices: a stale version never overwrites; reload the
+      // server copy and say so.
+      await loadServer();
+      setErrors({});
+      setNotice(
+        'Your application was updated on another device. We have loaded the latest version.'
+      );
+      return;
+    }
+    if (status === 400 && body.code === 'STEP_INCOMPLETE') {
+      setErrors(
+        body.errors && Object.keys(body.errors).length
+          ? body.errors
+          : { save: body.error || fallback }
+      );
+      if (typeof body.step === 'number' && body.step < STEPS.length) setCurrentStep(body.step);
+      return;
+    }
+    setErrors({ save: body.error || fallback });
+  }
+
+  async function saveStep(step: number): Promise<boolean> {
+    setSaving(true);
+    const fallback = 'We could not save this step. Check your connection and try again.';
+    try {
+      const res = await fetch(APPLICATION_API, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          version: versionRef.current,
+          completedStep: step,
+          data: draftPayload(formRef.current),
+          dateOfBirth: formRef.current.dateOfBirth,
+        }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (res.ok) {
+        versionRef.current = Number(body.version) || versionRef.current;
+        setCurrentStep(body.currentStep);
+        setMaxReachedStep((m) => Math.max(m, Number(body.maxReachedStep) || 0));
+        return true;
+      }
+      await handleServerFailure(res.status, body, fallback);
+      return false;
+    } catch {
+      setErrors({ save: fallback });
+      return false;
+    } finally {
+      setSaving(false);
+    }
+  }
 
   const toggleArray = useCallback(
     (key: 'serviceTypes' | 'specialties' | 'languages', value: string) =>
@@ -1195,19 +1472,16 @@ export default function JoinAsCleanerPage() {
         if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) age--;
         if (age < 18) e.dateOfBirth = 'You must be at least 18 years old to register';
       }
-      if (!form.password) e.password = 'Password is required';
-      else {
-        const pwResult = validatePasswordPolicy(form.password);
-        if (!pwResult.valid) e.password = pwResult.errors[0];
-        else if (form.password !== form.confirmPassword)
-          e.confirmPassword = 'Passwords do not match';
-      }
-      // H51 rider (James-ruled): a resumed draft that HAD a photo lost it (the
-      // draft only stored a marker). Require it back so it's never silently
-      // missing. Fresh signups keep the photo optional — this fires only when
-      // resumeNotice.photo proves one was previously added.
-      if (resumeNotice?.photo && !form.profilePhoto) {
-        e.profilePhoto = 'Please re-add your profile photo — it wasn’t saved with your draft.';
+      // RENA-100: a signed-in applicant's account already has its password;
+      // only a new account sets one here.
+      if (!(accountCreated && serverBacked)) {
+        if (!form.password) e.password = 'Password is required';
+        else {
+          const pwResult = validatePasswordPolicy(form.password);
+          if (!pwResult.valid) e.password = pwResult.errors[0];
+          else if (form.password !== form.confirmPassword)
+            e.confirmPassword = 'Passwords do not match';
+        }
       }
     }
 
@@ -1335,27 +1609,9 @@ export default function JoinAsCleanerPage() {
 
   async function goNext() {
     if (!validate(currentStep)) return;
-    // H99 ①: leaving step 0 CREATES THE ACCOUNT (role CLEANER, no profile)
-    // and fires the welcome-verify email — abandoners stay contactable.
-    // Exactly once: skipped on back-and-forth once the account exists.
-    if (currentStep === 0 && accountCreated) {
-      // H48 resume rider: the draft never restores the password, so the user
-      // re-typed it — re-establish the session for the submit-time ownership
-      // proof. H99 P4: a wrong password stops HERE with a friendly retry (the
-      // draft is untouched), not at a dead-end submit five steps later.
-      const si = await signIn('credentials', {
-        email: form.email.toLowerCase().trim(),
-        password: form.password,
-        redirect: false,
-      }).catch(() => null);
-      if (si?.error) {
-        setErrors({
-          password:
-            "That password doesn't match your saved account. Try again — or reset it via 'Forgot password?' on the log-in page.",
-        });
-        return;
-      }
-    }
+    if (anyUploading || saving) return;
+    // H99: leaving step 1 creates the account (role CLEANER, no profile) and
+    // fires the welcome email. Exactly once: a signed-in applicant skips it.
     if (currentStep === 0 && !accountCreated) {
       setCreatingAccount(true);
       try {
@@ -1374,8 +1630,7 @@ export default function JoinAsCleanerPage() {
           const data = await res.json().catch(() => ({}));
           setErrors({
             email:
-              (data.error as string) ||
-              'An account with this email already exists. Log in to continue.',
+              (data.error as string) || 'You already started an application. Sign in to continue.',
           });
           setAccountExists(true);
           return;
@@ -1388,27 +1643,40 @@ export default function JoinAsCleanerPage() {
         const created = await res.json().catch(() => null);
         setAccountCreated(true);
         setAccountExists(false);
-        // F29: the account exists from this moment — analytics events from
-        // here on carry its userId (everything earlier stays anonymous).
         if (typeof created?.userId === 'string' && created.userId) {
           setAccountUserId(created.userId);
         }
-        // Establish the session so the final submit can attach the profile to
-        // THIS account under ownership proof (no unauthenticated attach).
-        await signIn('credentials', {
+        const si = await signIn('credentials', {
           email: form.email.toLowerCase().trim(),
           password: form.password,
           redirect: false,
         }).catch(() => null);
+        if (!si || si.error) {
+          // The account exists but this tab holds no session: the sign in door.
+          setGate('sign_in');
+          return;
+        }
+        versionRef.current = 0;
+        markServerBacked(true);
       } finally {
         setCreatingAccount(false);
       }
     }
+    if (!serverBackedRef.current) {
+      setGate('sign_in');
+      return;
+    }
+    // RENA-100: every Continue saves the completed step on the server, which
+    // answers with the authoritative step.
+    const saved = await saveStep(currentStep);
+    if (!saved) return;
+    // The step 1 photo, chosen before the account existed, uploads now.
+    if (formRef.current.profilePhoto.startsWith('data:')) {
+      await uploadFile('profilePhoto', formRef.current.profilePhoto);
+    }
     const nextStep = Math.min(currentStep + 1, 6);
     // Map wizard step (0-6) to funnel step: personal, experience, pricing, identity, dbs, terms, review
     trackStep(nextStep + 2, STEPS[nextStep]?.label?.toLowerCase() ?? `step_${nextStep}`);
-    setCurrentStep(nextStep);
-    setMaxReachedStep((m) => Math.max(m, nextStep));
     setErrors({});
   }
 
@@ -1418,6 +1686,9 @@ export default function JoinAsCleanerPage() {
   }
 
   /* ---- Submit ---- */
+  // RENA-101: finalisation uploads nothing. The server reloads the draft,
+  // confirms every step and stored document, and creates the profile in one
+  // transaction; any failure leaves the application exactly as saved.
   async function handleSubmit() {
     const allErrors: Record<string, string> = {};
     let firstErrorStep: number | null = null;
@@ -1442,142 +1713,63 @@ export default function JoinAsCleanerPage() {
       }
       return;
     }
+    if (anyUploading) return;
     setSubmitting(true);
+    const fallback =
+      'We could not submit your application just now. Your progress is saved, please try again.';
     try {
-      // Strip large base64 file fields from the main request to stay under body limits.
-      // Documents are uploaded separately after profile creation.
-      const {
-        photoIdFile,
-        rightToWorkDocFile,
-        dbsCertFile,
-        selfiePhoto,
-        profilePhoto,
-        confirmPassword: _,
-        ...formData
-      } = form;
-
-      const { serviceRates: _rates, ...restFormData } = formData;
-      const response = await fetch('/api/cleaners', {
+      const response = await fetch(`${APPLICATION_API}/submit`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...restFormData,
-          // H45: combine the two fields into the stored full name, each part
-          // displayName-cased ("james" → "James", "o'brien" → "O'Brien"). The
-          // server also displayName()s on create — belt-and-braces.
-          name: `${displayName(form.firstName)} ${displayName(form.lastName)}`.trim(),
-          hourlyRateRegular: Number(form.serviceRates['regular']) || null,
-          hourlyRateDeep: Number(form.serviceRates['deep']) || null,
-          hourlyRateSameDay: Number(form.serviceRates['same_day']) || null,
-          hasPhotoId: !!photoIdFile,
-          hasRtwDoc: !!rightToWorkDocFile,
-          hasDbsCert: !!dbsCertFile,
-          hasSelfie: !!selfiePhoto,
-          selfiePhoto: selfiePhoto || null,
-          selfieProvenance: form.selfieProvenance || null,
-          profilePhoto: profilePhoto || null,
-        }),
+        body: JSON.stringify({ version: versionRef.current, agreedToTerms: form.agreedToTerms }),
       });
-
+      const result = await response.json().catch(() => ({}));
       if (!response.ok) {
-        const data = await response.json().catch(() => null);
-        let message = 'Something went wrong. Please try again.';
-        if (response.status === 409) {
-          message =
-            data?.error || 'An account with this email already exists. Please log in instead.';
-        } else if (response.status === 400) {
-          message = data?.error || 'Please check your details and try again.';
-        } else if (data?.error && typeof data.error === 'string' && data.error.length < 120) {
-          message = data.error;
-        }
-        setErrors({ submit: message });
+        await handleServerFailure(response.status, result, fallback);
+        if (response.status >= 500 || !result.code) setErrors({ submit: result.error || fallback });
         return;
       }
 
-      const result = await response.json();
-      const cleanerId = result.cleaner?.id;
-
-      localStorage.removeItem(STORAGE_KEY);
+      // Only now, after the server committed, does the cache go.
+      try {
+        localStorage.removeItem(STORAGE_KEY);
+      } catch {
+        /* storage best effort */
+      }
       // RENA-059: no email in analytics metadata; the events route attributes
       // the event from the session.
       trackConversion();
 
-      // Sign in BEFORE uploading documents. /api/cleaners/documents authorises
-      // the caller from their session, so uploading before sign-in returned 401
-      // and every document silently failed. Establish the session first.
-      let signedIn = false;
-      if (form.password) {
-        const signInResult = await signIn('credentials', {
-          email: form.email,
-          password: form.password,
-          redirect: false,
-        });
-        signedIn = !signInResult?.error;
-      }
-
-      // Upload documents now that we hold a session.
-      if (signedIn && cleanerId) {
-        const docs: { data: string; type: string; label: string }[] = [];
-        if (photoIdFile && photoIdFile.startsWith('data:'))
-          docs.push({ data: photoIdFile, type: 'photo_id', label: 'Photo ID' });
-        if (rightToWorkDocFile && rightToWorkDocFile.startsWith('data:'))
-          docs.push({ data: rightToWorkDocFile, type: 'right_to_work', label: 'Right to Work' });
-        if (dbsCertFile && dbsCertFile.startsWith('data:'))
-          docs.push({ data: dbsCertFile, type: 'dbs_certificate', label: 'DBS Certificate' });
-
-        const failedUploads: string[] = [];
-        for (const doc of docs) {
-          try {
-            const uploadRes = await fetch('/api/cleaners/documents', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                cleanerId,
-                documentType: doc.type,
-                fileData: doc.data,
-              }),
-            });
-            if (!uploadRes.ok) {
-              failedUploads.push(doc.label);
-            }
-          } catch {
-            failedUploads.push(doc.label);
-          }
-        }
-
-        if (failedUploads.length > 0) {
-          setErrors({
-            submit: `Your application was submitted, but the following documents failed to upload: ${failedUploads.join(', ')}. Please re-upload them from your cleaner dashboard after logging in.`,
-          });
+      // B5 (RENA-031): the logged-out native join flow gets the single-use
+      // handoff code; a cleaner already signed into Rena Pro gets none and
+      // simply returns to the app (the server decided which). Only a shell
+      // advertising signedUpHandoffV1 is posted to and waited on; an older
+      // shell goes straight to /cleaner (an unused code simply expires).
+      if (result.handoff === 'code' && typeof result.handoffCode === 'string') {
+        if (
+          isShellUA() &&
+          postSignedUpToShell({
+            handoffCode: result.handoffCode,
+            email: form.email.toLowerCase().trim(),
+            role: 'CLEANER',
+          })
+        ) {
+          setHandingOff(true);
           return;
         }
-      }
-
-      // B5 (RENA-031): in the Pro shell the native handoff replaces the
-      // website portal. The page posts only the single-use code; the shell
-      // redeems it natively and lands on Today. This runs after the wizard's
-      // last network call (the uploads above). Website behaviour unchanged.
-      if (
-        isShellUA() &&
-        typeof result.handoffCode === 'string' &&
-        postSignedUpToShell({
-          handoffCode: result.handoffCode,
-          email: form.email.toLowerCase().trim(),
-          role: 'CLEANER',
-        })
-      ) {
-        setHandingOff(true);
-        return;
-      }
-
-      if (signedIn) {
         router.push('/cleaner');
         return;
       }
-
+      if (typeof result.next === 'string' && result.next.startsWith('/')) {
+        router.push(result.next);
+        return;
+      }
       setSubmitted(true);
     } catch {
-      setErrors({ submit: 'Network error. Please check your connection and try again.' });
+      setErrors({
+        submit:
+          'Network error. Your progress is saved, please check your connection and try again.',
+      });
     } finally {
       setSubmitting(false);
     }
@@ -1627,6 +1819,66 @@ export default function JoinAsCleanerPage() {
   // Don't render until localStorage has been read to avoid flash
   if (!mounted) return null;
 
+  // RENA-100: the two doors. A signed-out applicant whose account exists signs
+  // in and lands back here; an application that no longer exists is terminal
+  // (never silently recreated), with an explicit fresh start.
+  if (gate) {
+    return (
+      <div className="mx-auto flex min-h-screen max-w-2xl flex-col items-center justify-center bg-page px-4 py-24 text-center">
+        {gate === 'sign_in' ? (
+          <>
+            <h1 className="font-newsreader text-2xl font-medium text-ink">
+              You already started an application. Sign in to continue.
+            </h1>
+            <p className="mt-3 font-jost text-sm font-light text-ink-2">
+              Your progress is saved. After you sign in you will come straight back to the step you
+              reached.
+            </p>
+            <Link
+              href="/login?callbackUrl=/join"
+              className="mt-8 inline-flex items-center justify-center rounded-[10px] bg-primary px-10 py-3 font-jost text-sm font-semibold text-white shadow-sm transition hover:bg-primary-hover"
+            >
+              Sign in
+            </Link>
+          </>
+        ) : (
+          <>
+            <h1 className="font-newsreader text-2xl font-medium text-ink">
+              This application no longer exists.
+            </h1>
+            <p className="mt-3 font-jost text-sm font-light text-ink-2">
+              It was closed or removed. You are welcome to start a new application.
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                try {
+                  localStorage.removeItem(STORAGE_KEY);
+                } catch {
+                  /* storage best effort */
+                }
+                docIdsRef.current = {};
+                versionRef.current = 0;
+                markServerBacked(false);
+                setAccountCreated(false);
+                setForm(INITIAL_FORM);
+                setCurrentStep(0);
+                setMaxReachedStep(0);
+                setErrors({});
+                setNotice(null);
+                setGate(null);
+                setShowForm(true);
+              }}
+              className="mt-8 inline-flex items-center justify-center rounded-[10px] bg-primary px-10 py-3 font-jost text-sm font-semibold text-white shadow-sm transition hover:bg-primary-hover"
+            >
+              Start a new application
+            </button>
+          </>
+        )}
+      </div>
+    );
+  }
+
   if (!showForm) {
     // Wizard shape B (James-ruled): in-shell, /join opens on ONE persuasive
     // non-scrolling screen — the marketing landing (hero, blurbs, WHY RENA)
@@ -1671,20 +1923,10 @@ export default function JoinAsCleanerPage() {
       />
       <MobileStepper currentStep={currentStep} />
 
-      {/* H48/H51: welcome-back notice — a resumed draft can't carry the
-          password (never stored) or the photo (marker only), so say so plainly
-          and land here on step 1 rather than let them submit with silent gaps. */}
-      {resumeNotice && (
-        <div className="mt-6 rounded-xl border border-warning/30 bg-warning/[0.06] p-4">
-          <p className="font-jost text-sm font-medium text-ink">
-            Welcome back — your progress was saved.
-          </p>
-          <p className="mt-1 font-jost text-[13px] text-ink-2">
-            For your security we didn&apos;t store your password
-            {resumeNotice.photo ? ' or profile photo' : ''}, so please re-enter your password
-            {resumeNotice.photo ? ' and re-add your photo' : ''} below to continue. Everything else
-            is just as you left it.
-          </p>
+      {/* RENA-100: one quiet notice (welcome back, or updated elsewhere). */}
+      {notice && (
+        <div className="mt-6 rounded-xl border border-line bg-primary-soft/40 p-4" role="status">
+          <p className="font-jost text-sm text-ink">{notice}</p>
         </div>
       )}
 
@@ -1727,13 +1969,14 @@ export default function JoinAsCleanerPage() {
                   type="email"
                   required
                   value={form.email}
+                  readOnly={accountCreated && serverBacked}
                   onChange={(e) => set('email', e.target.value)}
                 />
                 <FieldError message={errors.email} field="email" />
                 {accountExists && (
                   <p className="mt-1 font-jost text-[12px]">
                     <Link href="/login?callbackUrl=/join" className="text-primary underline">
-                      Log in to continue
+                      Sign in
                     </Link>
                   </p>
                 )}
@@ -1860,39 +2103,41 @@ export default function JoinAsCleanerPage() {
                 </div>
                 <FieldError message={errors.dateOfBirth} field="dateOfBirth" />
               </div>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <Label>Password</Label>
-                  <PasswordInput
-                    required
-                    minLength={8}
-                    autoComplete="new-password"
-                    placeholder="Min. 8 characters"
-                    value={form.password}
-                    {...joinErrorProps('password', errors.password)}
-                    onChange={(e) => set('password', e.target.value)}
-                    wrapperClassName="mt-1.5"
-                    className={`input-base bg-surface ${errors.password ? 'input-error' : ''}`}
-                  />
-                  <PasswordRequirements password={form.password} />
-                  <FieldError message={errors.password} field="password" />
+              {!(accountCreated && serverBacked) && (
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <Label>Password</Label>
+                    <PasswordInput
+                      required
+                      minLength={8}
+                      autoComplete="new-password"
+                      placeholder="Min. 8 characters"
+                      value={form.password}
+                      {...joinErrorProps('password', errors.password)}
+                      onChange={(e) => set('password', e.target.value)}
+                      wrapperClassName="mt-1.5"
+                      className={`input-base bg-surface ${errors.password ? 'input-error' : ''}`}
+                    />
+                    <PasswordRequirements password={form.password} />
+                    <FieldError message={errors.password} field="password" />
+                  </div>
+                  <div>
+                    <Label>Confirm Password</Label>
+                    <PasswordInput
+                      required
+                      minLength={8}
+                      autoComplete="new-password"
+                      placeholder="Re-enter password"
+                      value={form.confirmPassword}
+                      {...joinErrorProps('confirmPassword', errors.confirmPassword)}
+                      onChange={(e) => set('confirmPassword', e.target.value)}
+                      wrapperClassName="mt-1.5"
+                      className={`input-base bg-surface ${errors.confirmPassword ? 'input-error' : ''}`}
+                    />
+                    <FieldError message={errors.confirmPassword} field="confirmPassword" />
+                  </div>
                 </div>
-                <div>
-                  <Label>Confirm Password</Label>
-                  <PasswordInput
-                    required
-                    minLength={8}
-                    autoComplete="new-password"
-                    placeholder="Re-enter password"
-                    value={form.confirmPassword}
-                    {...joinErrorProps('confirmPassword', errors.confirmPassword)}
-                    onChange={(e) => set('confirmPassword', e.target.value)}
-                    wrapperClassName="mt-1.5"
-                    className={`input-base bg-surface ${errors.confirmPassword ? 'input-error' : ''}`}
-                  />
-                  <FieldError message={errors.confirmPassword} field="confirmPassword" />
-                </div>
-              </div>
+              )}
               <div>
                 <Label>Profile Picture</Label>
                 {/* H98 (Harry-ruled): encouraged, never a gate — the wizard
@@ -2087,6 +2332,11 @@ export default function JoinAsCleanerPage() {
                       JPG, PNG or WebP. Max 5 MB. A clear headshot works best.
                     </p>
                     <FieldError message={errors.profilePhoto} field="profilePhoto" />
+                    {uploading.profilePhoto && (
+                      <p className="mt-1 font-jost text-[12px] font-light text-ink-3">
+                        Uploading securely…
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>
@@ -2310,6 +2560,11 @@ export default function JoinAsCleanerPage() {
                 onFile={(dataUrl) => set('photoIdFile', dataUrl)}
               />
               <FieldError message={errors.photoIdFile} field="photoIdFile" />
+              {uploading.photoIdFile && (
+                <p className="mt-1 font-jost text-[12px] font-light text-ink-3">
+                  Uploading securely…
+                </p>
+              )}
             </div>
 
             {/* ---- Right to Work ---- */}
@@ -2384,6 +2639,11 @@ export default function JoinAsCleanerPage() {
                   onFile={(dataUrl) => set('rightToWorkDocFile', dataUrl)}
                 />
                 <FieldError message={errors.rightToWorkDocFile} field="rightToWorkDocFile" />
+                {uploading.rightToWorkDocFile && (
+                  <p className="mt-1 font-jost text-[12px] font-light text-ink-3">
+                    Uploading securely…
+                  </p>
+                )}
               </div>
             </div>
 
@@ -2495,6 +2755,11 @@ export default function JoinAsCleanerPage() {
                     onFile={(dataUrl) => set('dbsCertFile', dataUrl)}
                   />
                   <FieldError message={errors.dbsCertFile} field="dbsCertFile" />
+                  {uploading.dbsCertFile && (
+                    <p className="mt-1 font-jost text-[12px] font-light text-ink-3">
+                      Uploading securely…
+                    </p>
+                  )}
                 </div>
               </div>
             )}
@@ -2731,6 +2996,11 @@ export default function JoinAsCleanerPage() {
                 </div>
               </div>
               <FieldError message={errors.selfiePhoto} field="selfiePhoto" />
+              {uploading.selfiePhoto && (
+                <p className="mt-1 font-jost text-[12px] font-light text-ink-3">
+                  Uploading securely…
+                </p>
+              )}
             </div>
 
             <div className="rounded-[10px] border border-line bg-primary-soft/50 px-4 py-3">
@@ -3092,6 +3362,11 @@ export default function JoinAsCleanerPage() {
         )}
 
         {/* ---------- Navigation buttons ---------- */}
+        {errors.save && (
+          <p className="mt-6 font-jost text-[13px] text-danger" role="alert">
+            {errors.save}
+          </p>
+        )}
         <div className="mt-10 flex items-center justify-between">
           {currentStep > 0 ? (
             <button
@@ -3109,16 +3384,22 @@ export default function JoinAsCleanerPage() {
             <button
               type="button"
               onClick={goNext}
-              disabled={creatingAccount}
+              disabled={creatingAccount || saving || anyUploading}
               className="rounded-[10px] bg-primary px-8 py-2.5 font-jost text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary-hover disabled:opacity-60"
             >
-              {creatingAccount ? 'Creating your account…' : 'Continue'}
+              {creatingAccount
+                ? 'Creating your account…'
+                : saving
+                  ? 'Saving…'
+                  : anyUploading
+                    ? 'Uploading…'
+                    : 'Continue'}
             </button>
           ) : (
             <button
               type="button"
               onClick={handleSubmit}
-              disabled={submitting}
+              disabled={submitting || anyUploading}
               className="rounded-[10px] bg-primary px-8 py-2.5 font-jost text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-50"
             >
               {submitting ? 'Submitting...' : 'Submit Application'}
@@ -3132,8 +3413,8 @@ export default function JoinAsCleanerPage() {
         {submitting && (
           <div className="mt-4 rounded-[10px] border border-line bg-primary-soft/50 px-4 py-3">
             <p className="font-jost text-[13px] font-light text-ink-2">
-              Submitting your application — uploading your photo and documents securely. This can
-              take a few seconds; please keep this page open.
+              Submitting your application. Your documents are already saved; this takes a few
+              seconds, please keep this page open.
             </p>
             <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-line">
               <div className="h-full w-full origin-left animate-pulse rounded-full bg-primary" />

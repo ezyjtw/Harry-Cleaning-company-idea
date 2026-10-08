@@ -276,32 +276,34 @@ model User {
   sessions               Session[]
   cleanerProfile         CleanerProfile?
   addresses              Address[]
-  bookingsAsClient       Booking[]               @relation("ClientBookings")
-  bookingsAsCleaner      Booking[]               @relation("CleanerBookings")
-  agreementsAsClient     RecurringAgreement[]    @relation("ClientAgreements")
-  agreementsAsCleaner    RecurringAgreement[]    @relation("CleanerAgreements")
-  reviewsGiven           Review[]                @relation("ReviewsGiven")
-  reviewsReceived        Review[]                @relation("ReviewsReceived")
-  sentMessages           Message[]               @relation("SentMessages")
-  receivedMessages       Message[]               @relation("ReceivedMessages")
-  blocksMade             UserBlock[]             @relation("BlocksMade")
-  blocksReceived         UserBlock[]             @relation("BlocksReceived")
-  reportsFiled           MessageReport[]         @relation("ReportsFiled")
-  reportsAgainst         MessageReport[]         @relation("ReportsAgainst")
-  contentReportsFiled    ContentReport[]         @relation("ContentReportsFiled")
-  contentReportsAgainst  ContentReport[]         @relation("ContentReportsAgainst")
+  bookingsAsClient       Booking[]                @relation("ClientBookings")
+  bookingsAsCleaner      Booking[]                @relation("CleanerBookings")
+  agreementsAsClient     RecurringAgreement[]     @relation("ClientAgreements")
+  agreementsAsCleaner    RecurringAgreement[]     @relation("CleanerAgreements")
+  reviewsGiven           Review[]                 @relation("ReviewsGiven")
+  reviewsReceived        Review[]                 @relation("ReviewsReceived")
+  sentMessages           Message[]                @relation("SentMessages")
+  receivedMessages       Message[]                @relation("ReceivedMessages")
+  blocksMade             UserBlock[]              @relation("BlocksMade")
+  blocksReceived         UserBlock[]              @relation("BlocksReceived")
+  reportsFiled           MessageReport[]          @relation("ReportsFiled")
+  reportsAgainst         MessageReport[]          @relation("ReportsAgainst")
+  contentReportsFiled    ContentReport[]          @relation("ContentReportsFiled")
+  contentReportsAgainst  ContentReport[]          @relation("ContentReportsAgainst")
   notifications          Notification[]
-  disputesRaised         Dispute[]               @relation("DisputesRaised")
-  ownedCompany           Company?                @relation("CompanyOwner")
+  disputesRaised         Dispute[]                @relation("DisputesRaised")
+  ownedCompany           Company?                 @relation("CompanyOwner")
   teamMemberships        TeamMember[]
-  complaints             Complaint[]             @relation("ComplaintsFiled")
-  cleanerQueueEntries    BookingCleanerQueue[]   @relation("CleanerQueueEntries")
+  complaints             Complaint[]              @relation("ComplaintsFiled")
+  cleanerQueueEntries    BookingCleanerQueue[]    @relation("CleanerQueueEntries")
   pushSubscriptions      PushSubscription[]
   deviceTokens           DeviceToken[]
   deviceSessions         DeviceSession[]
-  importedReviews        ImportedReview[]        @relation("ImportedReviews")
+  importedReviews        ImportedReview[]         @relation("ImportedReviews")
   notificationPreference NotificationPreference?
   nativeHandoffCodes     NativeHandoffCode[]
+  cleanerApplication     CleanerApplicationDraft?
+  cleanerVetting         CleanerVetting?
 
   @@index([email])
   @@index([role])
@@ -338,6 +340,76 @@ model DeviceSession {
   @@index([userId])
   @@index([parentJti])
   @@index([expiresAt])
+}
+
+// RENA-100/101 (cleaner application resume, James-ruled 2026-10-08): the
+// server-side draft of the join wizard, one per CLEANER user (keyed by userId,
+// never email). currentStep is authoritative; version is the optimistic
+// concurrency token (a save lands only on a matching version and increments
+// it). dateOfBirth is RESTRICTED vetting data: owner and admin only, never on
+// a customer or pre-accept surface. Each reminder marker is set once by a CAS
+// and never cleared, so neither email can repeat.
+enum CleanerApplicationStatus {
+  IN_PROGRESS
+  SUBMITTED
+}
+
+model CleanerApplicationDraft {
+  id                       String                   @id @default(cuid())
+  userId                   String                   @unique
+  status                   CleanerApplicationStatus @default(IN_PROGRESS)
+  currentStep              Int                      @default(0)
+  maxReachedStep           Int                      @default(0)
+  data                     Json                     @default("{}")
+  dateOfBirth              DateTime?                @db.Date
+  version                  Int                      @default(0)
+  lastActivityAt           DateTime                 @default(now())
+  inactivityReminderSentAt DateTime?
+  expiryReminderSentAt     DateTime?
+  // James-ruled delivery gate: the deletion warning is marked sent only after
+  // a successful send. Each attempt is claimed (at most one per day); a
+  // failure counts here and shows to admin as "warning undelivered".
+  expiryReminderAttemptAt  DateTime?
+  expiryReminderFailures   Int                      @default(0)
+  submittedAt              DateTime?
+  createdAt                DateTime                 @default(now())
+  updatedAt                DateTime                 @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([status, lastActivityAt])
+}
+
+// RENA-100 (James-ruled): date of birth carried from the application into the
+// verification record on submit. Restricted: read only by admin and vetting
+// code, never selected by any customer or pre-accept surface.
+model CleanerVetting {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  dateOfBirth DateTime @db.Date
+  purpose     String
+  recordedAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// RENA-101: upload integrity. A row is created PENDING before its object is
+// written and marked STORED after; DELETED once a destroy has removed the
+// object. Stale PENDING rows and destroyed-but-not-deleted objects are swept.
+enum DocumentStorageState {
+  PENDING
+  STORED
+  DELETED
+}
+
+// RENA-101: an application document's review state. DRAFT documents belong to
+// an unfinished application (exactly one active per category, enforced by a
+// partial unique index in the migration); submit moves them to SUBMITTED.
+enum DocumentReviewState {
+  DRAFT
+  SUBMITTED
+  VERIFIED
+  REJECTED
 }
 
 // RENA-003: insert-as-claim for bridge codes. The first redemption inserts the
@@ -1665,7 +1737,7 @@ model DataDeletionRequest {
 // ─── Secure Document Storage ────────────────────────────────────────────────
 
 model DocumentUpload {
-  id              String    @id @default(cuid())
+  id              String               @id @default(cuid())
   userId          String
   profileId       String? // CleanerProfile id if relevant
   documentType    String // "dbs_certificate", "right_to_work", "photo_id", "insurance"
@@ -1675,7 +1747,7 @@ model DocumentUpload {
   fileSize        Int // bytes
   encryptionKeyId String // reference to encryption key used
   checksum        String // SHA-256 hash of original file for integrity verification
-  isVerified      Boolean   @default(false)
+  isVerified      Boolean              @default(false)
   verifiedBy      String? // admin userId
   verifiedAt      DateTime?
   // Admin reject (James, live testing): a rejected doc must be distinct from a
@@ -1683,19 +1755,23 @@ model DocumentUpload {
   // learns why. Nullable; set when an admin rejects, cleared on re-upload.
   rejectedAt      DateTime?
   rejectionReason String?
-  isDestroyed     Boolean   @default(false)
+  storageState    DocumentStorageState @default(STORED)
+  reviewState     DocumentReviewState  @default(SUBMITTED)
+  isDestroyed     Boolean              @default(false)
   destroyedAt     DateTime?
   destroyedReason String? // "retention_policy", "user_request", "admin_action"
   expiresAt       DateTime? // when the document itself expires (e.g. visa expiry)
   metadata        Json? // flexible extra data (cert number, issue date, etc.)
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
 
   @@index([userId])
   @@index([profileId])
   @@index([documentType])
   @@index([isDestroyed])
   @@index([expiresAt])
+  @@index([storageState, createdAt])
+  @@index([userId, reviewState])
 }
 
 // ─── Data Processing Agreements ─────────────────────────────────────────────
