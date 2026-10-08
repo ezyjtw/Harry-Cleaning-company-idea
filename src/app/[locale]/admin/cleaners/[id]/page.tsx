@@ -1,7 +1,12 @@
 import { notFound } from 'next/navigation';
 
+import { applicationDossier, type ApplicationDossier } from '@/lib/cleaner-application/dossier';
 import { prisma } from '@/lib/db/prisma';
-import { SWEEP_AGE_DAYS, SWEEP_EXEMPT_EMAILS } from '@/lib/services/incomplete-signup.service';
+import {
+  EXPIRY_WARNING_WINDOW_DAYS,
+  SWEEP_AGE_DAYS,
+  SWEEP_EXEMPT_EMAILS,
+} from '@/lib/services/incomplete-signup.service';
 import { resolveProfileImageUrl } from '@/lib/storage/r2-client';
 import { displayName } from '@/lib/utils/name';
 
@@ -217,6 +222,11 @@ export interface IncompleteSignupDetail {
   sweepAt: string;
   /** James-ruled sweep exemption (7 Sep 2026) — auto-removal is paused. */
   sweepExempt: boolean;
+  /**
+   * RENA-103: the authoritative saved application (CleanerApplicationDraft),
+   * or null for a pre-draft account, which keeps the analytics estimate.
+   */
+  application: ApplicationDossier | null;
   funnel: {
     /** cleaner_signup analytics sessions time-matched to this account. */
     matchedSessions: number;
@@ -242,6 +252,17 @@ async function getIncompleteSignupDetail(userId: string): Promise<IncompleteSign
       isDeleted: true,
       emailVerified: true,
       cleanerProfile: { select: { id: true } },
+      cleanerApplication: {
+        select: {
+          status: true,
+          currentStep: true,
+          maxReachedStep: true,
+          lastActivityAt: true,
+          expiryReminderSentAt: true,
+          expiryReminderAttemptAt: true,
+          expiryReminderFailures: true,
+        },
+      },
     },
   });
   // Same structural definition as the list chip and the H106 broom guard.
@@ -253,7 +274,16 @@ async function getIncompleteSignupDetail(userId: string): Promise<IncompleteSign
     select: { expires: true },
   });
 
-  // Wizard progress beyond step 0 lives ONLY in AnalyticsEvent (anonymous
+  const application =
+    user.cleanerApplication?.status === 'IN_PROGRESS'
+      ? applicationDossier(user.cleanerApplication, user.createdAt, {
+          sweepAgeDays: SWEEP_AGE_DAYS,
+          warningWindowDays: EXPIRY_WARNING_WINDOW_DAYS,
+        })
+      : null;
+
+  // RENA-103: below is the ESTIMATE for pre-draft accounts only. Before the
+  // application resume lane, wizard progress beyond step 0 lived ONLY in AnalyticsEvent (anonymous
   // sessionId, no userId — the hook never sends one). Correlation anchor: the
   // step-0→step-1 transition fires trackStep(funnelStep 3) seconds after
   // signup-start creates the account, so sessions whose first funnelStep>=3
@@ -265,62 +295,63 @@ async function getIncompleteSignupDetail(userId: string): Promise<IncompleteSign
     lastActivityAt: null,
     steps: [],
   };
-  try {
-    const anchorEvents = await prisma.analyticsEvent.findMany({
-      where: {
-        funnel: 'cleaner_signup',
-        eventType: 'FUNNEL_STEP',
-        funnelStep: { gte: 3 },
-        createdAt: { gte: user.createdAt, lte: new Date(user.createdAt.getTime() + 5 * 60_000) },
-      },
-      select: { sessionId: true },
-      distinct: ['sessionId'],
-    });
-    const sessionIds = anchorEvents.map((e) => e.sessionId);
-    if (sessionIds.length > 0) {
-      const events = await prisma.analyticsEvent.findMany({
+  if (!application)
+    try {
+      const anchorEvents = await prisma.analyticsEvent.findMany({
         where: {
-          sessionId: { in: sessionIds },
           funnel: 'cleaner_signup',
           eventType: 'FUNNEL_STEP',
           funnelStep: { gte: 3 },
+          createdAt: { gte: user.createdAt, lte: new Date(user.createdAt.getTime() + 5 * 60_000) },
         },
-        select: { funnelStep: true, stepName: true, createdAt: true },
-        orderBy: { createdAt: 'asc' },
+        select: { sessionId: true },
+        distinct: ['sessionId'],
       });
-      const firstByStep = new Map<number, { stepName: string; firstAt: Date }>();
-      let lastAt: Date | null = null;
-      for (const ev of events) {
-        if (ev.funnelStep === null) continue;
-        // /join mapping: entering wizard step S (1-6) fires funnelStep S+2.
-        const stepIndex = ev.funnelStep - 2;
-        if (stepIndex < 1 || stepIndex > 6) continue;
-        if (!firstByStep.has(stepIndex)) {
-          firstByStep.set(stepIndex, {
-            stepName: ev.stepName || `step_${stepIndex}`,
-            firstAt: ev.createdAt,
-          });
+      const sessionIds = anchorEvents.map((e) => e.sessionId);
+      if (sessionIds.length > 0) {
+        const events = await prisma.analyticsEvent.findMany({
+          where: {
+            sessionId: { in: sessionIds },
+            funnel: 'cleaner_signup',
+            eventType: 'FUNNEL_STEP',
+            funnelStep: { gte: 3 },
+          },
+          select: { funnelStep: true, stepName: true, createdAt: true },
+          orderBy: { createdAt: 'asc' },
+        });
+        const firstByStep = new Map<number, { stepName: string; firstAt: Date }>();
+        let lastAt: Date | null = null;
+        for (const ev of events) {
+          if (ev.funnelStep === null) continue;
+          // /join mapping: entering wizard step S (1-6) fires funnelStep S+2.
+          const stepIndex = ev.funnelStep - 2;
+          if (stepIndex < 1 || stepIndex > 6) continue;
+          if (!firstByStep.has(stepIndex)) {
+            firstByStep.set(stepIndex, {
+              stepName: ev.stepName || `step_${stepIndex}`,
+              firstAt: ev.createdAt,
+            });
+          }
+          if (!lastAt || ev.createdAt > lastAt) lastAt = ev.createdAt;
         }
-        if (!lastAt || ev.createdAt > lastAt) lastAt = ev.createdAt;
+        const steps = Array.from(firstByStep.entries())
+          .map(([stepIndex, v]) => ({
+            stepIndex,
+            stepName: v.stepName,
+            firstAt: v.firstAt.toISOString(),
+          }))
+          .sort((a, b) => a.stepIndex - b.stepIndex);
+        funnel = {
+          matchedSessions: sessionIds.length,
+          furthestStepIndex: steps.length > 0 ? steps[steps.length - 1].stepIndex : null,
+          lastActivityAt: lastAt ? lastAt.toISOString() : null,
+          steps,
+        };
       }
-      const steps = Array.from(firstByStep.entries())
-        .map(([stepIndex, v]) => ({
-          stepIndex,
-          stepName: v.stepName,
-          firstAt: v.firstAt.toISOString(),
-        }))
-        .sort((a, b) => a.stepIndex - b.stepIndex);
-      funnel = {
-        matchedSessions: sessionIds.length,
-        furthestStepIndex: steps.length > 0 ? steps[steps.length - 1].stepIndex : null,
-        lastActivityAt: lastAt ? lastAt.toISOString() : null,
-        steps,
-      };
+    } catch {
+      // The dossier's identity facts must render even if the analytics
+      // correlation fails — progress simply shows as unknown.
     }
-  } catch {
-    // The dossier's identity facts must render even if the analytics
-    // correlation fails — progress simply shows as unknown.
-  }
 
   return {
     userId: user.id,
@@ -336,6 +367,7 @@ async function getIncompleteSignupDetail(userId: string): Promise<IncompleteSign
       user.createdAt.getTime() + SWEEP_AGE_DAYS * 24 * 60 * 60 * 1000
     ).toISOString(),
     sweepExempt: SWEEP_EXEMPT_EMAILS.includes(user.email),
+    application,
     funnel,
   };
 }

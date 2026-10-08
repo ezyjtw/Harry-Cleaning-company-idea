@@ -386,6 +386,102 @@ describe('B5.4 isPortalLanding (the handoff fallback)', () => {
   });
 });
 
+describe('B5.4 handoff redemption state (D-ai)', () => {
+  type Ev = pro.HandoffEvent;
+  const run = (shell: typeof pro | typeof cust, events: Ev[]) => {
+    let state = shell.INITIAL_HANDOFF;
+    const effects: (pro.HandoffEffect | null)[] = [];
+    for (const e of events) {
+      const next = shell.handoffStep(state, e);
+      state = next.state;
+      effects.push(next.effect);
+    }
+    return { phase: state.phase, email: state.email, effects };
+  };
+  const signedUp: Ev = { type: 'signedUp', email: 'a@integration.invalid' };
+  const portal: Ev = { type: 'portalLanding' };
+
+  it.each([
+    ['IDLE', signedUp, 'REDEEMING', 'redeem'],
+    ['IDLE', portal, 'FAILED', 'nativeLogin'],
+    ['IDLE', { type: 'redeemed' }, 'IDLE', null],
+    ['IDLE', { type: 'refused' }, 'IDLE', null],
+    ['IDLE', { type: 'enterFailed' }, 'IDLE', null],
+    ['REDEEMING', signedUp, 'REDEEMING', null],
+    ['REDEEMING', portal, 'REDEEMING', null],
+    ['REDEEMING', { type: 'redeemed' }, 'SUCCESS', 'enterShell'],
+    ['REDEEMING', { type: 'refused' }, 'FAILED', 'nativeLogin'],
+    ['REDEEMING', { type: 'enterFailed' }, 'REDEEMING', null],
+    ['SUCCESS', signedUp, 'SUCCESS', null],
+    ['SUCCESS', portal, 'SUCCESS', null],
+    ['SUCCESS', { type: 'redeemed' }, 'SUCCESS', null],
+    ['SUCCESS', { type: 'refused' }, 'SUCCESS', null],
+    ['SUCCESS', { type: 'enterFailed' }, 'FAILED', 'nativeLogin'],
+    ['FAILED', signedUp, 'FAILED', null],
+    ['FAILED', portal, 'FAILED', null],
+    ['FAILED', { type: 'redeemed' }, 'FAILED', null],
+    ['FAILED', { type: 'refused' }, 'FAILED', null],
+    ['FAILED', { type: 'enterFailed' }, 'FAILED', null],
+  ] as [pro.HandoffPhase, Ev, pro.HandoffPhase, pro.HandoffEffect | null][])(
+    'every transition: %s + %o -> %s (%s)',
+    (from, event, to, effect) => {
+      for (const shell of [pro, cust]) {
+        const r = shell.handoffStep({ phase: from, email: 'a@integration.invalid' }, event);
+        expect(r.state.phase).toBe(to);
+        expect(r.effect).toBe(effect);
+      }
+    }
+  );
+
+  it('while REDEEMING a portal landing (the page safety net) never falls back; success enters the shell', () => {
+    const r = run(pro, [signedUp, portal, portal, { type: 'redeemed' }]);
+    expect(r.effects).toEqual(['redeem', null, null, 'enterShell']);
+    expect(r.phase).toBe('SUCCESS');
+    expect(r.effects).not.toContain('nativeLogin');
+  });
+
+  it('a refused or expired code goes to native login with the email', () => {
+    const r = run(cust, [signedUp, portal, { type: 'refused' }]);
+    expect(r.effects).toEqual(['redeem', null, 'nativeLogin']);
+    expect(r).toMatchObject({ phase: 'FAILED', email: 'a@integration.invalid' });
+  });
+
+  it('no message at all (a failed mint): the portal landing goes to native login', () => {
+    const r = run(pro, [portal]);
+    expect(r.effects).toEqual(['nativeLogin']);
+    expect(r).toMatchObject({ phase: 'FAILED', email: null });
+  });
+
+  it('exactly one redemption: a second signedUp is ignored, and a late one after failure too', () => {
+    expect(run(pro, [signedUp, signedUp]).effects).toEqual(['redeem', null]);
+    expect(run(pro, [portal, signedUp]).effects).toEqual(['nativeLogin', null]);
+  });
+
+  it('a credential that cannot be stored after redemption goes to native login', () => {
+    const r = run(pro, [signedUp, { type: 'redeemed' }, { type: 'enterFailed' }]);
+    expect(r.effects).toEqual(['redeem', 'enterShell', 'nativeLogin']);
+  });
+
+  it('both shells drive join and signup only through the state', () => {
+    for (const f of ['mobile/App.tsx', 'mobile-customer/App.tsx']) {
+      const src = readFileSync(f, 'utf8');
+      expect(src).not.toMatch(/handled\.current/);
+      expect(src).not.toMatch(/handoffFallback/);
+      expect(src).toContain('if (isPortalLanding(url, NAV_CTX)) onPortalLanding();');
+      expect(src).toContain("onPortalLanding={() => stepHandoff({ type: 'portalLanding' })}");
+      // The native redemption runs only after the state said redeem.
+      const guard = src.indexOf(
+        "if (stepHandoff({ type: 'signedUp', email: msg.email }) !== 'redeem') return;"
+      );
+      const fetchAt = src.indexOf('/api/auth/native-handoff');
+      expect(guard).toBeGreaterThan(0);
+      expect(fetchAt).toBeGreaterThan(guard);
+      // A new join or signup starts from IDLE.
+      expect(src).toMatch(/handoff\.current = INITIAL_HANDOFF;\n\s+setPhase\('(join|signup)'\);/);
+    }
+  });
+});
+
 describe('B5.8 push decisions', () => {
   it.each([
     [{ asked: false, granted: false }, 'show_card'],

@@ -34,10 +34,12 @@ import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-
 import { WebView, type WebViewMessageEvent, type WebViewNavigation } from 'react-native-webview';
 
 import {
+  INITIAL_HANDOFF,
   INITIAL_NAV_STATE,
   INITIAL_SESSION_LOSS,
   buildNavCtx,
   classifyNavigation,
+  handoffStep,
   isPortalLanding,
   isRenaOrigin,
   isStatementUrl,
@@ -52,6 +54,8 @@ import {
   type NavRequest,
   type NavState,
   type NavVerdict,
+  type HandoffEvent,
+  type HandoffState,
   type SignedUpMessage,
   type SessionLossState,
 } from './nav';
@@ -501,15 +505,32 @@ function RootView() {
   // posts only a single-use code; it is redeemed here by NATIVE fetch, and
   // only that response carries the Bearer and the bridge code, which take
   // the login path itself (onLoggedIn stores the Bearer in SecureStore and
-  // bridges). Any failure, or a page that landed on the website portal
-  // instead, falls back to native login with the email prefilled.
+  // bridges). D-ai: redemption is an explicit state (nav.ts handoffStep).
+  // While REDEEMING a portal landing never falls back; a refusal, an expired
+  // code or a network failure, or a portal landing with no message at all,
+  // goes to native login with the email prefilled.
   const [loginPrefill, setLoginPrefill] = useState<{ email: string; notice: string } | null>(null);
-  const handoffFallback = useCallback((email: string | null) => {
-    setLoginPrefill({ email: email ?? '', notice: 'Your account is ready. Sign in to continue.' });
-    setPhase('login');
+  const handoff = useRef<HandoffState>(INITIAL_HANDOFF);
+  const stepHandoff = useCallback((event: HandoffEvent) => {
+    const next = handoffStep(handoff.current, event);
+    handoff.current = next.state;
+    if (next.effect === 'nativeLogin') {
+      setLoginPrefill({
+        email: next.state.email ?? '',
+        notice: 'Your account is ready. Sign in to continue.',
+      });
+      setPhase('login');
+    }
+    return next.effect;
+  }, []);
+  const startJoin = useCallback(() => {
+    handoff.current = INITIAL_HANDOFF;
+    setPhase('join');
   }, []);
   const onSignedUp = useCallback(
     async (msg: SignedUpMessage) => {
+      if (stepHandoff({ type: 'signedUp', email: msg.email }) !== 'redeem') return;
+      let creds: { token: string; bridgeCode: string } | null = null;
       try {
         const res = await fetch(`${BASE_URL}/api/auth/native-handoff`, {
           method: 'POST',
@@ -517,19 +538,26 @@ function RootView() {
           body: JSON.stringify({ code: msg.handoffCode }),
         });
         const data = await res.json().catch(() => null);
-        if (res.ok && typeof data?.token === 'string' && typeof data?.bridgeCode === 'string') {
-          lastNativeOkAt = Date.now();
-          fireHaptic('success');
-          setLoginPrefill(null);
-          await onLoggedIn(data.token, data.bridgeCode);
-          return;
-        }
+        if (res.ok && typeof data?.token === 'string' && typeof data?.bridgeCode === 'string')
+          creds = { token: data.token, bridgeCode: data.bridgeCode };
       } catch {
-        /* fall back to native login below */
+        /* refused below */
       }
-      handoffFallback(msg.email);
+      if (!creds) {
+        stepHandoff({ type: 'refused' });
+        return;
+      }
+      if (stepHandoff({ type: 'redeemed' }) !== 'enterShell') return;
+      try {
+        lastNativeOkAt = Date.now();
+        fireHaptic('success');
+        setLoginPrefill(null);
+        await onLoggedIn(creds.token, creds.bridgeCode);
+      } catch {
+        stepHandoff({ type: 'enterFailed' });
+      }
     },
-    [onLoggedIn, handoffFallback]
+    [onLoggedIn, stepHandoff]
   );
 
   // B5.3: one logout at a time. Several panes, the watcher and the badges
@@ -704,9 +732,7 @@ function RootView() {
           }}
         />
       )}
-      {phase === 'start' && (
-        <StartScreen onLogin={() => setPhase('login')} onJoin={() => setPhase('join')} />
-      )}
+      {phase === 'start' && <StartScreen onLogin={() => setPhase('login')} onJoin={startJoin} />}
       {phase === 'login' && (
         <LoginScreen
           onLoggedIn={onLoggedIn}
@@ -722,7 +748,7 @@ function RootView() {
         <JoinScreen
           onBack={() => setPhase('start')}
           onSignedUp={onSignedUp}
-          onFallback={() => handoffFallback(null)}
+          onPortalLanding={() => stepHandoff({ type: 'portalLanding' })}
         />
       )}
       {phase === 'forgot' && <ForgotScreen onBack={() => setPhase('login')} />}
@@ -1103,16 +1129,15 @@ const HIDE_CHROME_JS = `
 function JoinScreen({
   onBack,
   onSignedUp,
-  onFallback,
+  onPortalLanding,
 }: {
   onBack: () => void;
   /** B5.4: the page posted the handoff (the code only); the root redeems it. */
   onSignedUp: (msg: SignedUpMessage) => void;
-  /** B5.4: the page landed on the website portal instead; native login takes over. */
-  onFallback: () => void;
+  /** B5.4: the page reached the website portal; the root's handoff state decides (D-ai). */
+  onPortalLanding: () => void;
 }) {
   const insets = useSafeAreaInsets();
-  const handled = useRef(false);
   return (
     <View style={styles.flex}>
       <View style={[styles.joinHeader, { paddingTop: insets.top + 6 }]}>
@@ -1127,16 +1152,10 @@ function JoinScreen({
         loaderTone="light"
         onRawMessage={(raw) => {
           const msg = parseShellMessage(raw);
-          if (msg && !handled.current) {
-            handled.current = true;
-            onSignedUp(msg);
-          }
+          if (msg) onSignedUp(msg);
         }}
         onNavUrl={(url) => {
-          if (!handled.current && isPortalLanding(url, NAV_CTX)) {
-            handled.current = true;
-            onFallback();
-          }
+          if (isPortalLanding(url, NAV_CTX)) onPortalLanding();
         }}
       />
     </View>

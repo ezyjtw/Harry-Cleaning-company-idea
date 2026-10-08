@@ -989,4 +989,40 @@ describe.skipIf(!enabled)('cleaner application against Postgres (RENA-100, 101)'
       (await prisma.cleanerApplicationDraft.findUnique({ where: { userId: u.id } }))?.status
     ).toBe('SUBMITTED');
   });
+
+  it('A21. RENA-103: the dossier removal date is exactly when the sweep first removes the application', async () => {
+    const { applicationDossier } = await import('./dossier');
+    const day = 86400000;
+    const t0 = new Date();
+    const u = await applicant('CLEANER', 45);
+    await svc.saveApplicationStep(u.id, {
+      version: 0,
+      completedStep: 0,
+      data: DATA,
+      dateOfBirth: DOB,
+    });
+    await prisma.cleanerApplicationDraft.update({
+      where: { userId: u.id },
+      data: { lastActivityAt: new Date(t0.getTime() - 28 * day) },
+    });
+    const draft = () =>
+      prisma.cleanerApplicationDraft.findUniqueOrThrow({ where: { userId: u.id } });
+    const rule = {
+      sweepAgeDays: incomplete.SWEEP_AGE_DAYS,
+      warningWindowDays: incomplete.EXPIRY_WARNING_WINDOW_DAYS,
+    };
+    // No warning yet: the dossier promises no date, and the sweep removes nothing.
+    expect(applicationDossier(await draft(), u.createdAt, rule).removalNoSoonerThan).toBeNull();
+    // The warning goes; the dossier shows the saved step and a removal date.
+    await life.sendApplicationReminders(t0);
+    const shown = applicationDossier(await draft(), u.createdAt, rule);
+    expect(shown.savedStep).toBe(2);
+    expect(shown.warning.state).toBe('delivered');
+    expect(shown.removalNoSoonerThan).not.toBeNull();
+    const at = new Date(shown.removalNoSoonerThan ?? 0).getTime();
+    await incomplete.sweepIncompleteSignups(new Date(at - 60000));
+    expect(await prisma.user.findUnique({ where: { id: u.id } })).not.toBeNull();
+    await incomplete.sweepIncompleteSignups(new Date(at + 60000));
+    expect(await prisma.user.findUnique({ where: { id: u.id } })).toBeNull();
+  });
 });

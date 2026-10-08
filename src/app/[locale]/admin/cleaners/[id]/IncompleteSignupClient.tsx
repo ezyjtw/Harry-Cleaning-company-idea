@@ -65,6 +65,17 @@ export default function IncompleteSignupClient({ signup }: { signup: IncompleteS
     }
   }
 
+  // RENA-103: with a saved application the removal follows the sweep's draft
+  // rule (idle days plus a delivered warning); without one, account age.
+  const app = signup.application;
+  const removalText = signup.sweepExempt
+    ? null
+    : app
+      ? app.removalNoSoonerThan
+        ? `no sooner than ${formatDate(app.removalNoSoonerThan)}`
+        : 'not before a deletion warning has been delivered, then 3 days'
+      : `on ${formatDate(signup.sweepAt)}`;
+
   const tokenLive = signup.verifyTokenExpires
     ? new Date(signup.verifyTokenExpires).getTime() > Date.now()
     : false;
@@ -96,7 +107,7 @@ export default function IncompleteSignupClient({ signup }: { signup: IncompleteS
         Started the cleaner signup wizard but never submitted — there is no cleaner profile yet.
         {signup.sweepExempt
           ? ' Auto-removal is paused for this account.'
-          : ` This account is removed automatically on ${formatDate(signup.sweepAt)} if the signup stays unfinished.`}
+          : ` This account is removed automatically ${removalText} if the signup stays unfinished.`}
       </p>
 
       <div className="grid gap-6 lg:grid-cols-2">
@@ -149,9 +160,30 @@ export default function IncompleteSignupClient({ signup }: { signup: IncompleteS
               <dd className="text-ink text-right">
                 {signup.sweepExempt
                   ? 'Paused — exempt from the sweep (James ruling, until contact confirmed)'
-                  : `${formatDate(signup.sweepAt)} (30-day sweep)`}
+                  : app
+                    ? removalText
+                    : `${formatDate(signup.sweepAt)} (30-day sweep)`}
               </dd>
             </div>
+            {app && (
+              <div className="flex justify-between gap-4" data-testid="deletion-warning">
+                <dt className="text-ink-3">Deletion warning</dt>
+                <dd className="text-right">
+                  {app.warning.state === 'delivered' ? (
+                    <span className="text-ink">Delivered {formatDateTime(app.warning.at)}</span>
+                  ) : app.warning.state === 'undelivered' ? (
+                    <span className="rounded bg-amber-50 px-1.5 py-0.5 text-xs text-amber-700">
+                      Warning undelivered, {app.warning.failures} failed{' '}
+                      {app.warning.failures === 1 ? 'attempt' : 'attempts'}
+                      {app.warning.lastAttemptAt &&
+                        `, last tried ${formatDateTime(app.warning.lastAttemptAt)}`}
+                    </span>
+                  ) : (
+                    <span className="text-ink-2">Not sent yet</span>
+                  )}
+                </dd>
+              </div>
+            )}
           </dl>
 
           {!signup.emailVerified && (
@@ -180,47 +212,78 @@ export default function IncompleteSignupClient({ signup }: { signup: IncompleteS
         {/* Wizard progress */}
         <div className="bg-surface rounded-xl border border-line p-6">
           <h2 className="text-sm font-semibold text-ink uppercase tracking-wider mb-4">
-            Wizard progress
+            {app ? 'Saved application' : 'Wizard progress (estimate)'}
           </h2>
-          <ol className="space-y-2 text-sm">
-            <li className="flex justify-between gap-4">
-              <span className="text-ink">
-                <span className="text-trust mr-1.5">✓</span>Step 1 · Personal — account created
-              </span>
-              <span className="text-ink-3">{formatDateTime(signup.createdAt)}</span>
-            </li>
-            {signup.funnel.steps.map((s) => (
-              <li key={s.stepIndex} className="flex justify-between gap-4">
-                <span className="text-ink">
-                  <span className="text-primary mr-1.5">→</span>
-                  Step {s.stepIndex + 1} · {WIZARD_STEPS[s.stepIndex] || s.stepName} — reached
-                </span>
-                <span className="text-ink-3">{formatDateTime(s.firstAt)}</span>
-              </li>
-            ))}
-          </ol>
+          {app ? (
+            <dl className="space-y-3 text-sm" data-testid="saved-application">
+              <div className="flex justify-between gap-4">
+                <dt className="text-ink-3">Saved step</dt>
+                <dd className="font-medium text-ink text-right">
+                  Step {app.savedStep} of {app.stepCount} · {WIZARD_STEPS[app.savedStep - 1] ?? ''}
+                </dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt className="text-ink-3">Furthest step reached</dt>
+                <dd className="text-ink text-right">
+                  Step {app.furthestStep} of {app.stepCount} ·{' '}
+                  {WIZARD_STEPS[app.furthestStep - 1] ?? ''}
+                </dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt className="text-ink-3">Last activity</dt>
+                <dd className="text-ink text-right">{formatDateTime(app.lastActivityAt)}</dd>
+              </div>
+              <p className="pt-1 text-xs text-ink-3">
+                From the server's saved application, the same record the applicant resumes from.
+              </p>
+            </dl>
+          ) : (
+            <>
+              <ol className="space-y-2 text-sm">
+                <li className="flex justify-between gap-4">
+                  <span className="text-ink">
+                    <span className="text-trust mr-1.5">✓</span>Step 1 · Personal — account created
+                  </span>
+                  <span className="text-ink-3">{formatDateTime(signup.createdAt)}</span>
+                </li>
+                {signup.funnel.steps.map((s) => (
+                  <li key={s.stepIndex} className="flex justify-between gap-4">
+                    <span className="text-ink">
+                      <span className="text-primary mr-1.5">→</span>
+                      Step {s.stepIndex + 1} · {WIZARD_STEPS[s.stepIndex] || s.stepName} — reached
+                    </span>
+                    <span className="text-ink-3">{formatDateTime(s.firstAt)}</span>
+                  </li>
+                ))}
+              </ol>
 
-          <p className="mt-4 text-sm text-ink-2">
-            {signup.funnel.furthestStepIndex !== null ? (
-              <>
-                Furthest step reached:{' '}
-                <span className="font-medium text-ink">
-                  {WIZARD_STEPS[signup.funnel.furthestStepIndex]} (step{' '}
-                  {signup.funnel.furthestStepIndex + 1} of {WIZARD_STEPS.length})
-                </span>
-                {signup.funnel.lastActivityAt && (
-                  <> · last activity {formatDateTime(signup.funnel.lastActivityAt)}</>
+              <p className="mt-4 text-sm text-ink-2">
+                {signup.funnel.furthestStepIndex !== null ? (
+                  <>
+                    Furthest step reached:{' '}
+                    <span className="font-medium text-ink">
+                      {WIZARD_STEPS[signup.funnel.furthestStepIndex]} (step{' '}
+                      {signup.funnel.furthestStepIndex + 1} of {WIZARD_STEPS.length})
+                    </span>
+                    {signup.funnel.lastActivityAt && (
+                      <> · last activity {formatDateTime(signup.funnel.lastActivityAt)}</>
+                    )}
+                  </>
+                ) : (
+                  'No analytics trail matched this account — progress beyond account creation is unknown. (The wizard saves later steps only in the visitor’s browser; the server learns more only from anonymous funnel events.)'
                 )}
-              </>
-            ) : (
-              'No analytics trail matched this account — progress beyond account creation is unknown. (The wizard saves later steps only in the visitor’s browser; the server learns more only from anonymous funnel events.)'
-            )}
-          </p>
-          {signup.funnel.matchedSessions > 1 && (
-            <p className="mt-2 text-xs text-ink-3">
-              Matched {signup.funnel.matchedSessions} overlapping signup sessions — the trail above
-              is best-effort, not exact.
-            </p>
+              </p>
+              {signup.funnel.matchedSessions > 1 && (
+                <p className="mt-2 text-xs text-ink-3">
+                  Matched {signup.funnel.matchedSessions} overlapping signup sessions — the trail
+                  above is best-effort, not exact.
+                </p>
+              )}
+              <p className="mt-2 text-xs text-ink-3">
+                Estimate: this account started before applications were saved on the server, so its
+                progress is matched from anonymous analytics.
+              </p>
+            </>
           )}
 
           <div className="mt-5 border-t border-line pt-4">

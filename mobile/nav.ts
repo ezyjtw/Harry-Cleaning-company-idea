@@ -409,6 +409,64 @@ export function isPortalLanding(url: string, ctx: NavCtx): boolean {
   );
 }
 
+// ─── B5.4 the handoff redemption state (James-ruled 2026-10-08, D-ai) ───────
+//
+// IDLE ──signedUp──▶ REDEEMING ──redeemed──▶ SUCCESS ──enterFailed──▶ FAILED
+//   │                    │
+//   └──portalLanding──▶ FAILED ◀──refused (refusal, expiry or network)
+//
+// While REDEEMING a portal landing never triggers the native login fallback
+// (the page's 10 second safety net can move the WebView on while the shell
+// is still redeeming). SUCCESS enters the authenticated shell; FAILED goes
+// to native login. Exactly one redemption per join or signup: a second
+// signedUp is ignored. SUCCESS and FAILED are terminal until the next
+// join or signup starts afresh from IDLE.
+
+export type HandoffPhase = 'IDLE' | 'REDEEMING' | 'SUCCESS' | 'FAILED';
+export interface HandoffState {
+  phase: HandoffPhase;
+  /** The email the page sent, for the native login prefill. */
+  email: string | null;
+}
+export type HandoffEvent =
+  | { type: 'signedUp'; email: string }
+  | { type: 'portalLanding' }
+  | { type: 'redeemed' }
+  | { type: 'refused' }
+  | { type: 'enterFailed' };
+/** What the shell must do now: redeem the code, enter the shell, show native login, or nothing. */
+export type HandoffEffect = 'redeem' | 'enterShell' | 'nativeLogin' | null;
+
+export const INITIAL_HANDOFF: HandoffState = { phase: 'IDLE', email: null };
+
+export function handoffStep(
+  state: HandoffState,
+  event: HandoffEvent
+): { state: HandoffState; effect: HandoffEffect } {
+  const stay = { state, effect: null };
+  switch (state.phase) {
+    case 'IDLE':
+      if (event.type === 'signedUp')
+        return { state: { phase: 'REDEEMING', email: event.email }, effect: 'redeem' };
+      if (event.type === 'portalLanding')
+        return { state: { phase: 'FAILED', email: null }, effect: 'nativeLogin' };
+      return stay;
+    case 'REDEEMING':
+      if (event.type === 'redeemed')
+        return { state: { ...state, phase: 'SUCCESS' }, effect: 'enterShell' };
+      if (event.type === 'refused')
+        return { state: { ...state, phase: 'FAILED' }, effect: 'nativeLogin' };
+      // A portal landing and a second signedUp are both ignored here.
+      return stay;
+    case 'SUCCESS':
+      if (event.type === 'enterFailed')
+        return { state: { ...state, phase: 'FAILED' }, effect: 'nativeLogin' };
+      return stay;
+    default:
+      return stay;
+  }
+}
+
 // ─── B5.8 the notification permission decision ───────────────────────────────
 
 /** At shell entry: register silently when granted; show the card once; else nothing. */
