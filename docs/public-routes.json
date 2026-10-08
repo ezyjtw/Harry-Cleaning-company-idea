@@ -26,6 +26,8 @@
     "/services/airbnb",
     "/signup",
     "/terms",
-    "/unsubscribe"
+    "/unsubscribe",
+    "/get-app/pro",
+    "/get-app/customer"
   ]
 }

@@ -1,0 +1,12 @@
+B5 W3 rig check (local rig only): the built branch served with
+PRO_STORE_URL_IOS=https://apps.apple.com/gb/app/rena-pro/id1234567890 and a lookalike
+CUSTOMER_STORE_URL_ANDROID=https://play.google.com.evil.example/x (no other store variable set).
+
+user agent            /get-app/pro                                              /get-app/customer
+iPhone                307 Location https://apps.apple.com/gb/app/rena-pro/...   200 page (no iOS listing)
+Android               200 page (no Android listing)                             200 page (the lookalike value is ignored)
+Desktop Safari        200 page with "Download on the App Store"                 200 page
+
+Unconfigured (CI and the rig default): e2e/get-app.spec.ts, both doors 200 with the coming-soon page,
+/get-app/admin 404; e2e/public-routes.spec.ts, all 28 governed routes answer 200.
+Deviation named: Next's redirect() answers 307 (the design said 302); for a GET the two behave the same.

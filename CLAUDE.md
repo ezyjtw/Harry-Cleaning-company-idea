@@ -120,7 +120,7 @@ finding that no longer exists. Batches run one at a time, each on James's word.
 
 ## Hash law (binding)
 
-All 26 baselined public routes are protected. Every sanctioned change names the
+All 28 baselined public routes are protected. Every sanctioned change names the
 affected routes before implementation, gets an incognito diff, and re-baselines
 those hashes in the same approved gate. Any unrelated public-route hash change
 stops the batch.
@@ -158,6 +158,8 @@ same file:
 - `/signup`
 - `/terms`
 - `/unsubscribe`
+- `/get-app/pro`
+- `/get-app/customer`
 <!-- public-routes:end -->
 
 ## App leak-proofing law (binding)
