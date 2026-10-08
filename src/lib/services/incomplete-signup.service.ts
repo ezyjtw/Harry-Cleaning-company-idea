@@ -1,6 +1,8 @@
+import { revokeAllSessions } from '@/lib/auth/device-session';
 import prisma from '@/lib/db/prisma';
 import { log } from '@/lib/log';
 import { AuditService } from '@/lib/services/audit.service';
+import { deleteObject } from '@/lib/storage/r2-client';
 
 /**
  * H106 broom core + LB-3 auto-expiry sweep.
@@ -70,11 +72,46 @@ export async function removeIncompleteSignup(params: {
     };
   }
 
+  // RENA-100/101 (James-ruled): removing an unfinished application removes
+  // its draft documents' objects too. Every object is deleted BEFORE any row
+  // goes; one failed delete stops the removal (the account stays, the next
+  // sweep or a retry converges), so no object is ever left untracked.
+  const docs = await prisma.documentUpload.findMany({
+    where: { userId: user.id, storageState: { not: 'DELETED' } },
+    select: { id: true, storagePath: true },
+  });
+  for (const d of docs) {
+    try {
+      await deleteObject(d.storagePath);
+    } catch (err) {
+      log.error(
+        'incomplete_signup',
+        'document_delete_failed',
+        { userId: user.id, documentId: d.id },
+        err
+      );
+      return {
+        ok: false,
+        error: 'Document storage is unavailable. Try again shortly.',
+        status: 503,
+      };
+    }
+  }
+
+  // Sessions end first, so a stale open browser gets the terminal "no longer
+  // exists" state (its session names an account that is gone) instead of
+  // carrying on.
+  await revokeAllSessions(user.id, 'deletion').catch(() => {});
+
   await prisma.$transaction([
     // Verify/reset tokens are keyed by email identifier, not relation.
     prisma.verificationToken.deleteMany({
       where: { identifier: { in: [user.email, `reset:${user.email}`] } },
     }),
+    // DocumentUpload carries userId as a plain string (no relation), so its
+    // rows are removed explicitly; the draft, sessions and handoff codes
+    // cascade with the user.
+    prisma.documentUpload.deleteMany({ where: { userId: user.id } }),
     prisma.user.delete({ where: { id: user.id } }),
   ]);
 
@@ -83,7 +120,12 @@ export async function removeIncompleteSignup(params: {
     action: 'INCOMPLETE_SIGNUP_REMOVED',
     entityType: 'User',
     entityId: user.id,
-    metadata: { email: user.email, name: user.name, swept: params.swept ?? false },
+    metadata: {
+      email: user.email,
+      name: user.name,
+      swept: params.swept ?? false,
+      documentsRemoved: docs.length,
+    },
   });
 
   return { ok: true, email: user.email };
@@ -104,6 +146,13 @@ export async function sweepIncompleteSignups(): Promise<{ processed: number }> {
       role: 'CLEANER',
       cleanerProfile: { is: null },
       createdAt: { lt: cutoff },
+      // RENA-100: 30 days of INACTIVITY. An account with a server draft is due
+      // only when the draft has been idle that long; one without (a pre-draft
+      // signup) keeps the account-age rule.
+      OR: [
+        { cleanerApplication: { is: null } },
+        { cleanerApplication: { status: 'IN_PROGRESS', lastActivityAt: { lt: cutoff } } },
+      ],
       bookingsAsClient: { none: {} },
       bookingsAsCleaner: { none: {} },
       email: { notIn: SWEEP_EXEMPT_EMAILS },

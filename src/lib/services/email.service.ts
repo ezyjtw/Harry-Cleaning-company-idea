@@ -12,6 +12,8 @@ import {
   buildCleanerAssignment,
   buildPasswordReset,
   buildCleanerWelcome,
+  buildApplicationInactivityReminder,
+  buildApplicationExpiryReminder,
   buildEmailVerification,
   buildPaymentReceipt,
   buildContactConfirmation,
@@ -291,6 +293,24 @@ export async function sendEmailVerification(email: string, token: string): Promi
 }
 
 // H99 ①: welcome-framed verify at cleaner account creation (wizard step 0).
+// RENA-100: unfinished-application reminders (the scheduler sends each once).
+export async function sendApplicationInactivityReminder(
+  email: string,
+  firstName: string
+): Promise<boolean> {
+  const { subject, html } = buildApplicationInactivityReminder(firstName);
+  return sendEmail(email, subject, html);
+}
+
+export async function sendApplicationExpiryReminder(
+  email: string,
+  firstName: string,
+  expiresOn: Date
+): Promise<boolean> {
+  const { subject, html } = buildApplicationExpiryReminder(firstName, expiresOn);
+  return sendEmail(email, subject, html);
+}
+
 export async function sendCleanerWelcome(
   email: string,
   token: string,
