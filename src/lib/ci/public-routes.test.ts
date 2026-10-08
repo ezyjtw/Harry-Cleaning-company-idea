@@ -5,14 +5,14 @@ import { describe, expect, it } from 'vitest';
 import { PUBLIC_ROUTES, normaliseForHash, routesFromClaudeMd } from './public-routes';
 
 describe('hash law canonical route list', () => {
-  it('has exactly 26 unique routes', () => {
-    expect(PUBLIC_ROUTES).toHaveLength(26);
-    expect(new Set(PUBLIC_ROUTES).size).toBe(26);
+  it('has exactly 28 unique routes', () => {
+    expect(PUBLIC_ROUTES).toHaveLength(28);
+    expect(new Set(PUBLIC_ROUTES).size).toBe(28);
   });
   it('CLAUDE.md lists the same routes in the same order (humans and CI cannot diverge)', () => {
     const md = readFileSync('CLAUDE.md', 'utf8');
     expect(routesFromClaudeMd(md)).toEqual([...PUBLIC_ROUTES]);
-    expect(md).toContain('All 26 baselined public routes are protected.');
+    expect(md).toContain('All 28 baselined public routes are protected.');
   });
   it('normalisation ignores build-specific script and chunk names but not content', () => {
     const a =

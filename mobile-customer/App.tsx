@@ -11,6 +11,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Animated,
   BackHandler,
   Image,
@@ -26,7 +27,25 @@ import {
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView, type WebViewMessageEvent, type WebViewNavigation } from 'react-native-webview';
 
-import { meaningfulPayload, tabRootKey } from './nav';
+import {
+  INITIAL_NAV_STATE,
+  buildNavCtx,
+  classifyNavigation,
+  isPortalLanding,
+  isRenaOrigin,
+  locationAssignScript,
+  meaningfulPayload,
+  nextNavState,
+  parseShellMessage,
+  pushDoorDecision,
+  pushEntryDecision,
+  resolveLink,
+  tabRootOf,
+  type NavRequest,
+  type NavState,
+  type NavVerdict,
+  type SignedUpMessage,
+} from './nav';
 
 // The customer mark: the white RENA wordmark extracted from the confirmed
 // icon source (public/rena-logo.png) onto a transparent ground. White by
@@ -74,21 +93,33 @@ let lastNativeOkAt = 0;
 const loadingPanes = new Set<object>();
 
 const TOKEN_KEY = 'rena.customer.bearer';
+// B5: the parsed-URL context every navigation and deep-link decision uses
+// (mobile-customer/nav.ts). The dev host is honoured only in __DEV__ on http.
+const BASE_HOST = (BASE_URL.match(/^https?:\/\/([^/:?#]+)/) || [])[1] || '';
+const NAV_CTX = buildNavCtx(
+  BASE_URL,
+  Platform.OS === 'android' ? 'android' : 'ios',
+  __DEV__ && /^http:\/\//.test(BASE_URL) ? BASE_HOST : null
+);
 const PUSH_TOKEN_KEY = 'rena.customer.pushtoken';
+// B5.8 (RENA-046): ISO timestamp written when the rationale card (or the
+// settings door) is answered; the card shows once per install.
+const PUSH_ASKED_KEY = 'rena.customer.pushAsked';
 // Where the Pro app lives when it isn't installed. Empty until the App Store
 // listing exists — the wrong-app door shows TestFlight/invite guidance instead.
 const PRO_STORE_URL: string = (Constants.expoConfig?.extra?.proStoreUrl as string) || '';
 
-// ─── Push: PRESENT BUT INERT (James-ruled, the C7 law carried over) ──────────
-// The binary ships push-capable — aps-environment entitlement, remote-
-// notification background mode, the expo-notifications module, deep-link
-// routing — but NOTHING prompts for permission or registers a token until
-// James spends the activation word for THIS app. The flag is the gate.
-const PUSH_ACTIVATED = false;
+// ─── Push (RENA-078, activated in B5 per James's ruling) ────────────────────
+// The binary ships push-capable (aps-environment entitlement, remote-
+// notification background mode, expo-notifications, deep-link routing). B5.8:
+// the OS permission is asked only after the rationale card is answered
+// "Turn on", once per install; a settings door re-asks or opens Settings.
+// The flag stays as the single kill switch: false makes all of it inert again.
+const PUSH_ACTIVATED = true;
 
 // Deregistration rides every path that clears the bearer (fires before the
-// bearer is deleted — the endpoint is authed). Fail-soft; with activation
-// still gated there is never a token to remove, so this is dormant plumbing.
+// bearer is deleted — the endpoint is authed). Fail-soft; with no stored
+// token (never granted) there is nothing to remove and it returns at once.
 // Session lifecycle (James-ruled, Home-after-login): every shell logout ends
 // the WEB session too. The server expires the NextAuth session cookie on this
 // response, so the shared jar (iOS NSHTTPCookieStorage via the native fetch,
@@ -100,9 +131,13 @@ async function endWebSession(): Promise<void> {
   try {
     const ctrl = new AbortController();
     const cutoff = setTimeout(() => ctrl.abort(), 1500);
+    // B5.3 (RENA-029, D-w): send the Bearer so the server revokes THIS
+    // device's BEARER row and its bridged WEB children in one transaction
+    // (the cookie path stays the fallback). Read before the caller deletes it.
+    const bearer = await SecureStore.getItemAsync(TOKEN_KEY).catch(() => null);
     await fetch(`${BASE_URL}/api/auth/shell-logout`, {
       method: 'POST',
-      headers: SHELL_HEADER,
+      headers: bearer ? { ...SHELL_HEADER, Authorization: `Bearer ${bearer}` } : SHELL_HEADER,
       signal: ctrl.signal,
     });
     clearTimeout(cutoff);
@@ -161,7 +196,7 @@ SplashScreen.preventAutoHideAsync().catch(() => {});
 // portal routes (My Cleans arrives skinned in-shell).
 // R5b: paths are unprefixed — the site 307s /en/<route> to /<route> (en is
 // the default locale), so the old /en/ paths paid a redirect on EVERY pane
-// document load. tabRootKey matches both shapes.
+// document load. nav.ts strips the /en prefix, so both shapes match.
 const TABS = [
   { key: 'home', label: 'Home', path: '/app/home', icon: 'home' },
   { key: 'mycleans', label: 'My Cleans', path: '/account/bookings', icon: 'sparkles' },
@@ -172,8 +207,9 @@ const TABS = [
 
 type Phase = 'boot' | 'locked' | 'start' | 'login' | 'signup' | 'forgot' | 'wrongApp' | 'shell';
 
-// Cross-tab nav judgment (tabRootKey + meaningfulPayload) lives in ./nav.ts —
-// pure functions the rig's judgment-table drive imports and proves directly.
+// Cross-tab nav judgment, the deep-link resolver and the navigation
+// classifier live in ./nav.ts: pure functions that
+// src/lib/ci/shell-nav.test.ts drives directly (B5, deviation 10).
 
 // How an arriving notification presents if the app is foregrounded — set once
 // at module scope per expo-notifications docs. Inert until activation.
@@ -185,28 +221,6 @@ Notifications.setNotificationHandler({
     shouldSetBadge: true,
   }),
 });
-
-/**
- * Deep links: resolve any of our URL shapes to a shell tab key —
- * rena://mycleans, rena://account/bookings, https://…/en/messages, and
- * notification payloads carrying data.url in those shapes. Unknown URLs
- * resolve to null and are ignored (never a crash, never a wrong screen).
- */
-function tabForUrl(url: string): string | null {
-  try {
-    const parsed = Linking.parse(url);
-    const segments = [parsed.hostname, ...(parsed.path ? parsed.path.split('/') : [])]
-      .filter(Boolean)
-      .map((s) => String(s).toLowerCase());
-    for (const seg of segments) {
-      if (TABS.some((t) => t.key === seg)) return seg;
-    }
-    // URL-shaped paths that aren't tab keys still resolve via the tab roots.
-    return tabRootKey(url);
-  } catch {
-    return null;
-  }
-}
 
 // THE HAPTICS MAP (law — carried from Pro; web pages fire these via
 // window.ReactNativeWebView.postMessage({type:'haptic',style})).
@@ -269,54 +283,68 @@ function RootView() {
   const phaseRef = useRef(phase);
   phaseRef.current = phase;
 
-  // R4 lane-3 sibling: like the in-page tap path, a push/deep link carrying a
-  // query or hash (…/account/bookings?review=<id>) forwards its full URL to
-  // the target pane instead of dropping it at the tab switch. Only our own
-  // https URLs qualify — custom-scheme links (rena://mycleans) carry no page
-  // payload and keep the plain switch. Dormant until push activation sends
-  // the first data.url; harmless meanwhile.
+  // R4 lane-3 sibling, B5.1: a push or deep link deeper than its tab root,
+  // or carrying a query or hash, forwards its full URL to the target pane
+  // instead of dropping it at the tab switch.
   const extNavSeq = useRef(0);
   const [externalNav, setExternalNav] = useState<{ key: string; url: string; seq: number } | null>(
     null
   );
   const pendingNav = useRef<{ key: string; url: string } | null>(null);
 
+  // B5.1 (RENA-022, RENA-047): one resolver (mobile-customer/nav.ts) for
+  // custom-scheme links, our https links (absolute or relative, as the
+  // customer notification URLs are) and notification data.url. A nested
+  // path is forwarded into its owning pane: /booking/* and /pay/* into My
+  // Cleans, /messages?bookingId= into Messages, /cleaners/* into Cleaners.
   const applyLink = useCallback((url: string | null | undefined) => {
     if (!url) return;
-    const tab = tabForUrl(url);
-    if (!tab) return;
-    const payload = url.startsWith(BASE_URL) && /[?#]/.test(url) ? url : null;
+    const r = resolveLink(url, NAV_CTX);
+    if (r.kind !== 'tab') return;
     if (phaseRef.current === 'shell') {
-      if (payload) {
+      if (r.forward) {
         extNavSeq.current += 1;
-        setExternalNav({ key: tab, url: payload, seq: extNavSeq.current });
+        setExternalNav({ key: r.tab, url: r.forward, seq: extNavSeq.current });
       }
-      setActiveTab(tab);
+      setActiveTab(r.tab);
     } else {
-      pendingTab.current = tab;
-      pendingNav.current = payload ? { key: tab, url: payload } : null;
+      pendingTab.current = r.tab;
+      pendingNav.current = r.forward ? { key: r.tab, url: r.forward } : null;
     }
   }, []);
+
+  // One notification response is applied once, whichever path reports it.
+  const lastResponseId = useRef<string | null>(null);
+  const applyResponse = useCallback(
+    (resp: Notifications.NotificationResponse | null) => {
+      if (!resp) return;
+      const id = resp.notification.request.identifier;
+      if (id && id === lastResponseId.current) return;
+      lastResponseId.current = id;
+      const data = resp.notification.request.content.data as { url?: unknown } | null;
+      if (data && typeof data.url === 'string') applyLink(data.url);
+    },
+    [applyLink]
+  );
 
   useEffect(() => {
     Linking.getInitialURL()
       .then(applyLink)
       .catch(() => {});
     const linkSub = Linking.addEventListener('url', (e) => applyLink(e.url));
-    // Notification taps route through the same resolver — dormant until push
-    // activation sends the first push, harmless meanwhile.
-    const noteSub = Notifications.addNotificationResponseReceivedListener((resp) => {
-      const data = resp.notification.request.content.data as { url?: unknown } | null;
-      if (data && typeof data.url === 'string') applyLink(data.url);
-    });
+    const noteSub = Notifications.addNotificationResponseReceivedListener(applyResponse);
     return () => {
       linkSub.remove();
       noteSub.remove();
     };
-  }, [applyLink]);
+  }, [applyLink, applyResponse]);
 
+  // Cold start from a notification tap: read the last response once, on the
+  // first entry to the shell, then clear it so it never re-applies.
+  const coldStartRead = useRef(false);
   useEffect(() => {
-    if (phase === 'shell' && pendingTab.current) {
+    if (phase !== 'shell') return;
+    if (pendingTab.current) {
       if (pendingNav.current) {
         extNavSeq.current += 1;
         setExternalNav({ ...pendingNav.current, seq: extNavSeq.current });
@@ -325,7 +353,15 @@ function RootView() {
       setActiveTab(pendingTab.current);
       pendingTab.current = null;
     }
-  }, [phase]);
+    if (coldStartRead.current) return;
+    coldStartRead.current = true;
+    Notifications.getLastNotificationResponseAsync()
+      .then((resp) => {
+        applyResponse(resp);
+        return Notifications.clearLastNotificationResponseAsync();
+      })
+      .catch(() => {});
+  }, [phase, applyResponse]);
 
   // Face-ID-first lock screen for returning users (the Pro pattern): Face ID
   // fires immediately; a failed or cancelled prompt settles onto the same
@@ -393,7 +429,54 @@ function RootView() {
     setPhase('wrongApp');
   }, []);
 
+  // B5.4 (RENA-031/082, James-ruled): the signup and join handoff. The page
+  // posts only a single-use code; it is redeemed here by NATIVE fetch, and
+  // only that response carries the Bearer and the bridge code, which take
+  // the login path itself (onLoggedIn stores the Bearer in SecureStore and
+  // bridges). Any failure, or a page that landed on the website portal
+  // instead, falls back to native login with the email prefilled.
+  const [loginPrefill, setLoginPrefill] = useState<{ email: string; notice: string } | null>(null);
+  const handoffFallback = useCallback((email: string | null) => {
+    setLoginPrefill({ email: email ?? '', notice: 'Your account is ready. Sign in to continue.' });
+    setPhase('login');
+  }, []);
+  const onSignedUp = useCallback(
+    async (msg: SignedUpMessage) => {
+      try {
+        const res = await fetch(`${BASE_URL}/api/auth/native-handoff`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...SHELL_HEADER },
+          body: JSON.stringify({ code: msg.handoffCode }),
+        });
+        const data = await res.json().catch(() => null);
+        if (res.ok && typeof data?.token === 'string' && typeof data?.bridgeCode === 'string') {
+          lastNativeOkAt = Date.now();
+          fireHaptic('success');
+          setLoginPrefill(null);
+          await onLoggedIn(data.token, data.bridgeCode);
+          return;
+        }
+      } catch {
+        /* fall back to native login below */
+      }
+      handoffFallback(msg.email);
+    },
+    [onLoggedIn, handoffFallback]
+  );
+
+  // B5.3: one logout at a time. Several panes, the watcher and the badges
+  // poll can all report a lost session at once; only the first runs.
+  const loggingOut = useRef(false);
   const logout = useCallback(async () => {
+    if (loggingOut.current) return;
+    loggingOut.current = true;
+    try {
+      await logoutOnce();
+    } finally {
+      loggingOut.current = false;
+    }
+  }, []);
+  const logoutOnce = async () => {
     await Promise.all([deregisterPush(), endWebSession()]);
     await SecureStore.deleteItemAsync(TOKEN_KEY);
     // Root-level survivors cleared with the session (James-ruled): a parked
@@ -409,7 +492,7 @@ function RootView() {
     Notifications.setBadgeCountAsync(0).catch(() => {});
     setBridgeUrl(null);
     setPhase('login');
-  }, []);
+  };
 
   // Leaving the lock screen for the password form or another account clears
   // the stored bearer either way; the destinations differ.
@@ -446,20 +529,14 @@ function RootView() {
     setPhase('start');
   }, []);
 
-  // Push registration — GATED. Wired and ready, but PUSH_ACTIVATED is false
-  // until James spends the activation word for this app: no permission prompt,
-  // no token, no sends. iOS grants the permission ask exactly one clean
-  // chance, so it stays unspent until the moment is chosen.
-  const registerPush = useCallback(async () => {
+  // B5.8: register this device's Expo token when (and only when) the OS
+  // permission is already granted. Never prompts. Idempotent and fail-soft.
+  const registerToken = useCallback(async () => {
     try {
       const bearer = await SecureStore.getItemAsync(TOKEN_KEY);
       if (!bearer) return;
       const current = await Notifications.getPermissionsAsync();
-      let status = current.status;
-      if (status !== 'granted' && current.canAskAgain !== false) {
-        status = (await Notifications.requestPermissionsAsync()).status;
-      }
-      if (status !== 'granted') return;
+      if (current.status !== 'granted') return;
       const projectId = Constants.expoConfig?.extra?.eas?.projectId as string | undefined;
       const expo = await Notifications.getExpoPushTokenAsync(projectId ? { projectId } : undefined);
       if (!expo?.data) return;
@@ -482,9 +559,68 @@ function RootView() {
       /* fail-soft */
     }
   }, []);
+
+  // B5.8 (RENA-046): on shell entry, nav.ts pushEntryDecision: granted
+  // registers silently; never asked shows the rationale card once; asked
+  // and not granted does nothing (the settings door re-asks).
+  const [pushCard, setPushCard] = useState(false);
   useEffect(() => {
-    if (phase === 'shell' && PUSH_ACTIVATED) registerPush();
-  }, [phase, registerPush]);
+    if (phase !== 'shell' || !PUSH_ACTIVATED) return;
+    let alive = true;
+    (async () => {
+      try {
+        const current = await Notifications.getPermissionsAsync();
+        const asked = !!(await SecureStore.getItemAsync(PUSH_ASKED_KEY));
+        const d = pushEntryDecision({ asked, granted: current.status === 'granted' });
+        if (!alive) return;
+        if (d === 'register') registerToken();
+        else if (d === 'show_card') setPushCard(true);
+      } catch {
+        /* fail-soft */
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [phase, registerToken]);
+  const answerPushCard = useCallback(
+    async (turnOn: boolean) => {
+      setPushCard(false);
+      await SecureStore.setItemAsync(PUSH_ASKED_KEY, new Date().toISOString()).catch(() => {});
+      if (!turnOn) return;
+      try {
+        const r = await Notifications.requestPermissionsAsync();
+        if (r.status === 'granted') registerToken();
+      } catch {
+        /* fail-soft */
+      }
+    },
+    [registerToken]
+  );
+  // B5.8: the settings door (a page posts {type: 'pushSettings'}): re-ask
+  // while the OS still allows it, else open the app's system Settings.
+  const pushDoor = useCallback(async () => {
+    if (!PUSH_ACTIVATED) return;
+    try {
+      const current = await Notifications.getPermissionsAsync();
+      const d = pushDoorDecision({
+        granted: current.status === 'granted',
+        canAskAgain: current.canAskAgain !== false,
+      });
+      if (d === 'already_on') {
+        registerToken();
+        Alert.alert('Notifications are on', 'You will hear about your bookings and messages.');
+      } else if (d === 'ask') {
+        await SecureStore.setItemAsync(PUSH_ASKED_KEY, new Date().toISOString()).catch(() => {});
+        const r = await Notifications.requestPermissionsAsync();
+        if (r.status === 'granted') registerToken();
+      } else {
+        Linking.openSettings().catch(() => {});
+      }
+    } catch {
+      /* fail-soft */
+    }
+  }, [registerToken]);
 
   return (
     <View style={styles.root}>
@@ -514,12 +650,20 @@ function RootView() {
       {phase === 'login' && (
         <LoginScreen
           onLoggedIn={onLoggedIn}
+          initialEmail={loginPrefill?.email}
+          notice={loginPrefill?.notice}
           onWrongApp={onWrongApp}
           onBack={() => setPhase('start')}
           onForgot={() => setPhase('forgot')}
         />
       )}
-      {phase === 'signup' && <SignupScreen onBack={() => setPhase('start')} />}
+      {phase === 'signup' && (
+        <SignupScreen
+          onBack={() => setPhase('start')}
+          onSignedUp={onSignedUp}
+          onFallback={() => handoffFallback(null)}
+        />
+      )}
       {phase === 'forgot' && <ForgotScreen onBack={() => setPhase('login')} />}
       {phase === 'wrongApp' && <WrongAppScreen onSwitchAccount={() => setPhase('login')} />}
       {phase === 'shell' && (
@@ -530,6 +674,13 @@ function RootView() {
           onBridged={() => setBridgeUrl(null)}
           onSessionLost={logout}
           externalNav={externalNav}
+          onPushDoor={pushDoor}
+        />
+      )}
+      {phase === 'shell' && pushCard && (
+        <PushRationaleCard
+          body="RENA uses notifications for booking updates and messages from your cleaner."
+          onAnswer={answerPushCard}
         />
       )}
 
@@ -663,14 +814,20 @@ function LoginScreen({
   onWrongApp,
   onBack,
   onForgot,
+  initialEmail,
+  notice,
 }: {
   onLoggedIn: (token: string, bridgeCode: string) => void;
   onWrongApp: () => void;
   onBack: () => void;
   onForgot: () => void;
+  /** B5.4 fallback: the just-created account's email, prefilled. */
+  initialEmail?: string;
+  /** B5.4 fallback: "Your account is ready. Sign in to continue." */
+  notice?: string | null;
 }) {
   const insets = useSafeAreaInsets();
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(initialEmail ?? '');
   const [password, setPassword] = useState('');
   const [showPw, setShowPw] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -730,6 +887,7 @@ function LoginScreen({
           tintColor={INK}
         />
         <Text style={styles.loginSub}>Sign in to your Rena account</Text>
+        {notice ? <Text style={styles.loginSub}>{notice}</Text> : null}
         <TextInput
           style={styles.input}
           placeholder="Email"
@@ -889,8 +1047,19 @@ const HIDE_CHROME_JS = `
 `;
 
 // ─── Create an Account (in-shell /signup, chrome hidden) ─────────────────────
-function SignupScreen({ onBack }: { onBack: () => void }) {
+function SignupScreen({
+  onBack,
+  onSignedUp,
+  onFallback,
+}: {
+  onBack: () => void;
+  /** B5.4: the page posted the handoff (the code only); the root redeems it. */
+  onSignedUp: (msg: SignedUpMessage) => void;
+  /** B5.4: the page landed on the website portal instead; native login takes over. */
+  onFallback: () => void;
+}) {
   const insets = useSafeAreaInsets();
+  const handled = useRef(false);
   return (
     <View style={styles.flex}>
       <View style={[styles.subHeader, { paddingTop: insets.top + 6 }]}>
@@ -903,6 +1072,19 @@ function SignupScreen({ onBack }: { onBack: () => void }) {
         uri={`${BASE_URL}/en/signup`}
         injectBefore={HIDE_CHROME_JS + SEAM_KILL_JS}
         loaderTone="light"
+        onRawMessage={(raw) => {
+          const msg = parseShellMessage(raw);
+          if (msg && !handled.current) {
+            handled.current = true;
+            onSignedUp(msg);
+          }
+        }}
+        onNavUrl={(url) => {
+          if (!handled.current && isPortalLanding(url, NAV_CTX)) {
+            handled.current = true;
+            onFallback();
+          }
+        }}
       />
     </View>
   );
@@ -916,6 +1098,7 @@ function ShellScreen({
   onBridged,
   onSessionLost,
   externalNav,
+  onPushDoor,
 }: {
   activeTab: string;
   setActiveTab: (k: string) => void;
@@ -924,6 +1107,8 @@ function ShellScreen({
   onSessionLost: () => void;
   /** R4 lane-3 sibling: a push/deep-link URL with payload, forwarded to its pane. */
   externalNav?: { key: string; url: string; seq: number } | null;
+  /** B5.8: a page asked for the notification settings door. */
+  onPushDoor?: () => void;
 }) {
   // Cross-tab deep links: when the tapped link carries a query or hash beyond
   // the bare tab root (the Home review card's ?review=<id>), hand the full URL
@@ -1012,6 +1197,14 @@ function ShellScreen({
                 tabKey={tab.key}
                 onCrossTab={selectTab}
                 forwardNav={forwards[tab.key]}
+                onRawMessage={(raw) => {
+                  if (!onPushDoor || raw.indexOf('pushSettings') < 0) return;
+                  try {
+                    if (JSON.parse(raw)?.type === 'pushSettings') onPushDoor();
+                  } catch {
+                    /* not ours */
+                  }
+                }}
                 active={isActive}
                 registerBack={(h) => {
                   backHandlers.current[tab.key] = h;
@@ -1171,6 +1364,8 @@ function SeamlessWebView({
   loaderTone = 'light',
   active,
   registerBack,
+  onRawMessage,
+  onNavUrl,
 }: {
   uri: string;
   injectBefore: string;
@@ -1191,6 +1386,10 @@ function SeamlessWebView({
   active?: boolean;
   /** Android back (rule 6): the pane registers "go back if you can". */
   registerBack?: (handler: () => boolean) => void;
+  /** B5.4: every raw page message (the signup and join screens' handoff). */
+  onRawMessage?: (data: string) => void;
+  /** B5.4: every landed URL (the signup and join screens' fallback watcher). */
+  onNavUrl?: (url: string) => void;
 }) {
   const [offline, setOffline] = useState(false);
   const [serverError, setServerError] = useState(false);
@@ -1213,6 +1412,32 @@ function SeamlessWebView({
     }
     lastCrossTab.current = { url, at: now };
     return false;
+  };
+  // B5.2 (RENA-024/039): the pane's navigation state for the classifier.
+  const navState = useRef<NavState>(INITIAL_NAV_STATE);
+  // B5.2: act on the classifier's verdict. True means "load it in this pane".
+  const act = (req: NavRequest, url: string): boolean => {
+    const verdict: NavVerdict = classifyNavigation(req, navState.current, NAV_CTX);
+    navState.current = nextNavState(navState.current, req, verdict, NAV_CTX);
+    switch (verdict) {
+      case 'ALLOW_IN_PANE':
+        return true;
+      case 'OPEN_EXTERNAL':
+      case 'OS_HANDLE':
+        Linking.openURL(url).catch(() => {});
+        return false;
+      case 'CROSS_TAB': {
+        const target = tabRootOf(url, NAV_CTX);
+        if (tabKey && onCrossTab && target && target !== tabKey) {
+          if (!crossTabDup(url)) onCrossTab(target, url);
+          return false;
+        }
+        return true;
+      }
+      default:
+        // BLOCK (and the Pro-only verdicts, which this shell never receives).
+        return false;
+    }
   };
   // R5 veil: the forwarded URL loads via the source prop (deterministic —
   // survives WebView content-process recycling, which silently swallowed the
@@ -1316,7 +1541,14 @@ function SeamlessWebView({
   // the native login screen instead of showing the web form inside the shell.
   const onNav = (nav: WebViewNavigation) => {
     canGoBackRef.current = nav.canGoBack;
-    if (onSessionLost && (/\/login(\?|$)/.test(nav.url) || /\/api\/auth\/signin/.test(nav.url))) {
+    onNavUrl?.(nav.url);
+    // B5.3: only OUR /login (or the signin route, with or without B2's
+    // callbackUrl) means the session is gone; a foreign /login never logs out.
+    if (
+      onSessionLost &&
+      isRenaOrigin(nav.url, NAV_CTX) &&
+      (/\/login(\?|$)/.test(nav.url) || /\/api\/auth\/signin/.test(nav.url))
+    ) {
       onSessionLost();
     }
     // Cross-tab nav fix: SPA pushState navigations can't be cancelled by
@@ -1325,7 +1557,7 @@ function SeamlessWebView({
     // route. R5: deduped — nav events replay, and each replay used to inject
     // another history.back(), walking Home onto the spent bridge (401).
     if (tabKey && onCrossTab) {
-      const target = tabRootKey(nav.url);
+      const target = tabRootOf(nav.url, NAV_CTX);
       if (target && target !== tabKey) {
         if (!crossTabDup(nav.url)) {
           onCrossTab(target, nav.url);
@@ -1348,6 +1580,7 @@ function SeamlessWebView({
   };
 
   const onMessage = (e: WebViewMessageEvent) => {
+    onRawMessage?.(e.nativeEvent.data);
     try {
       const msg = JSON.parse(e.nativeEvent.data);
       if (msg?.type === 'haptic') fireHaptic(String(msg.style || 'light'));
@@ -1454,16 +1687,20 @@ function SeamlessWebView({
           setLoaded(false);
           fade.setValue(1);
         }}
-        onShouldStartLoadWithRequest={(req) => {
-          if (tabKey && onCrossTab) {
-            const target = tabRootKey(req.url);
-            if (target && target !== tabKey) {
-              if (!crossTabDup(req.url)) onCrossTab(target, req.url);
-              return false;
-            }
+        // B5.2 (RENA-024/039): one classifier decides every top-frame
+        // navigation (mobile-customer/nav.ts); sub frames (Stripe Elements,
+        // the 3DS challenge) are never touched.
+        onShouldStartLoadWithRequest={(req) => act(req, req.url)}
+        // iOS window.open: the same classifier. Android loads window.open in
+        // this WebView (setSupportMultipleWindows false), so it reaches the
+        // intercept above.
+        onOpenWindow={(e) => {
+          const url = e.nativeEvent.targetUrl;
+          if (act({ url, isTopFrame: true }, url)) {
+            ref.current?.injectJavaScript(locationAssignScript(url));
           }
-          return true;
         }}
+        setSupportMultipleWindows={false}
         onNavigationStateChange={onNav}
         onMessage={onMessage}
         onLoadEnd={() => {
@@ -1527,7 +1764,7 @@ function SeamlessWebView({
           // A 5xx on OUR origin gets the designed interstitial; sub-resource
           // and third-party errors stay with the web pages' own states.
           const { statusCode, url } = e.nativeEvent;
-          if (statusCode >= 500 && typeof url === 'string' && url.startsWith(BASE_URL)) {
+          if (statusCode >= 500 && typeof url === 'string' && isRenaOrigin(url, NAV_CTX)) {
             setServerError(true);
           }
         }}
@@ -1547,6 +1784,56 @@ function SeamlessWebView({
           <ActivityIndicator color={veilNavy ? '#fff' : INK} style={{ marginTop: 18 }} />
         </Animated.View>
       )}
+    </View>
+  );
+}
+
+// ─── B5.8 the notification rationale card (RENA-046) ─────────────────────────
+// Shown once per install, before the OS prompt, in the shell phase. "Turn on"
+// asks the OS; "Not now" does not; either answer is stored so the card never
+// returns on its own (a settings door re-asks).
+function PushRationaleCard({
+  body,
+  onAnswer,
+}: {
+  body: string;
+  onAnswer: (turnOn: boolean) => void;
+}) {
+  const insets = useSafeAreaInsets();
+  return (
+    <View style={styles.pushCardScrim}>
+      <View style={[styles.pushCard, { marginBottom: insets.bottom + 96 }]}>
+        <Text style={styles.pushCardTitle}>Turn on notifications</Text>
+        <Text style={styles.pushCardBody}>{body}</Text>
+        <View style={styles.pushCardActions}>
+          <Pressable
+            style={({ pressed }) => [
+              styles.secondaryBtn,
+              styles.pushCardBtn,
+              pressed && styles.pressed,
+            ]}
+            onPress={() => {
+              fireHaptic('light');
+              onAnswer(false);
+            }}
+          >
+            <Text style={styles.secondaryBtnText}>Not now</Text>
+          </Pressable>
+          <Pressable
+            style={({ pressed }) => [
+              styles.primaryBtn,
+              styles.pushCardBtn,
+              pressed && styles.pressed,
+            ]}
+            onPress={() => {
+              fireHaptic('light');
+              onAnswer(true);
+            }}
+          >
+            <Text style={styles.primaryBtnText}>Turn on</Text>
+          </Pressable>
+        </View>
+      </View>
     </View>
   );
 }
@@ -1587,6 +1874,24 @@ function TabBar({ active, onSelect }: { active: string; onSelect: (k: string) =>
 }
 
 const styles = StyleSheet.create({
+  // B5.8 the notification rationale card.
+  pushCardScrim: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(22,41,107,0.18)',
+    paddingHorizontal: 16,
+  },
+  pushCard: {
+    backgroundColor: SURFACE,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: LINE,
+    padding: 20,
+  },
+  pushCardTitle: { fontFamily: SANS_SEMI, color: INK, fontSize: 18, lineHeight: 24 },
+  pushCardBody: { fontFamily: SANS, color: INK2, fontSize: 15, lineHeight: 22, marginTop: 6 },
+  pushCardActions: { flexDirection: 'row', gap: 12, marginTop: 18 },
+  pushCardBtn: { flex: 1, marginTop: 0 },
   root: { flex: 1, backgroundColor: PAGE },
   flex: { flex: 1, backgroundColor: PAGE },
   center: {

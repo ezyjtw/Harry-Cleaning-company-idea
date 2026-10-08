@@ -33,6 +33,29 @@ import {
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView, type WebViewMessageEvent, type WebViewNavigation } from 'react-native-webview';
 
+import {
+  INITIAL_NAV_STATE,
+  INITIAL_SESSION_LOSS,
+  buildNavCtx,
+  classifyNavigation,
+  isPortalLanding,
+  isRenaOrigin,
+  isStatementUrl,
+  locationAssignScript,
+  nextNavState,
+  parseShellMessage,
+  nextSessionLostAction,
+  pushDoorDecision,
+  pushEntryDecision,
+  resolveLink,
+  tabRootOf,
+  type NavRequest,
+  type NavState,
+  type NavVerdict,
+  type SignedUpMessage,
+  type SessionLossState,
+} from './nav';
+
 // James's official "RENA Cleaner" logo lockup, extracted from the supplied asset
 // with its exact colours untouched (navy RENA in Etna + teal "Cleaner"), on a
 // transparent ground so it sits on the app's light surfaces. Used on every native
@@ -68,6 +91,13 @@ const IOS_WEBVIEW_PROPS =
       } as const)
     : {};
 const BASE_HOST = (BASE_URL.match(/^https?:\/\/([^/:?#]+)/) || [])[1] || '';
+// B5: the parsed-URL context every navigation and deep-link decision uses
+// (mobile/nav.ts). The dev host is honoured only in __DEV__ on an http base.
+const NAV_CTX = buildNavCtx(
+  BASE_URL,
+  Platform.OS === 'android' ? 'android' : 'ios',
+  __DEV__ && /^http:\/\//.test(BASE_URL) ? BASE_HOST : null
+);
 const TOKEN_KEY = 'rena.pro.bearer';
 // Post-login lie fix (James-ruled): the moment ANY pane genuinely renders,
 // the network is provably alive. Module-level so every pane shares the truth.
@@ -87,6 +117,9 @@ const CUSTOMER_STORE_URL: string = (Constants.expoConfig?.extra?.customerStoreUr
 // C7 activation (1.0.1 cargo): the device's registered Expo push token —
 // stored so re-registration is a no-op and logout can deregister it.
 const PUSH_TOKEN_KEY = 'rena.pro.pushtoken';
+// B5.8 (RENA-046): ISO timestamp written when the rationale card (or the
+// settings door) is answered; the card shows once per install.
+const PUSH_ASKED_KEY = 'rena.pro.pushAsked';
 
 // C7 ACTIVATION (1.0.1 cargo — James's activation word SPENT for this build):
 // deregistration rides every path that clears the bearer. Fires BEFORE the
@@ -103,9 +136,13 @@ async function endWebSession(): Promise<void> {
   try {
     const ctrl = new AbortController();
     const cutoff = setTimeout(() => ctrl.abort(), 1500);
+    // B5.3 (RENA-029, D-w): send the Bearer so the server revokes THIS
+    // device's BEARER row and its bridged WEB children in one transaction
+    // (the cookie path stays the fallback). Read before the caller deletes it.
+    const bearer = await SecureStore.getItemAsync(TOKEN_KEY).catch(() => null);
     await fetch(`${BASE_URL}/api/auth/shell-logout`, {
       method: 'POST',
-      headers: SHELL_HEADER,
+      headers: bearer ? { ...SHELL_HEADER, Authorization: `Bearer ${bearer}` } : SHELL_HEADER,
       signal: ctrl.signal,
     });
     clearTimeout(cutoff);
@@ -171,7 +208,7 @@ SplashScreen.preventAutoHideAsync().catch(() => {});
 // Tab bar: first tab = the purpose-built Today screen; the rest are portal routes.
 // R5b port: paths are unprefixed — the site 307s /en/<route> to /<route>
 // (en is the default locale), so the old /en/ paths paid a redirect on
-// EVERY pane document load. tabRootKey matches both shapes.
+// EVERY pane document load. nav.ts strips the /en prefix, so both shapes match.
 // R12 Lane 4: the three rooms with nothing honest to show pre-verification.
 const LOCKED_UNTIL_VERIFIED: ReadonlySet<string> = new Set(['jobs', 'earnings', 'messages']);
 const EMPTY_LOCK: ReadonlySet<string> = new Set();
@@ -187,28 +224,14 @@ const TABS = [
 type Phase = 'boot' | 'locked' | 'start' | 'login' | 'join' | 'forgot' | 'wrongApp' | 'shell';
 
 // ─── Cross-tab nav fix (James-ruled): an in-page link to a TAB-ROOT route must
-// switch the native tab, never navigate inside the current tab's WebView (which
-// left e.g. the Today pane showing Availability while the tab bar said Today).
-// Matches ONLY the five tab roots — deeper routes (/app/offer/123, /cleaner/*)
-// stay in-pane by design. Regex, not new URL(): RN's URL polyfill is unreliable.
-function tabRootKey(url: string): string | null {
-  const m = url.match(
-    /^https?:\/\/[^/]+\/(?:en\/)?(?:app\/(today|jobs|availability|earnings)|(messages))\/?(?:[?#].*)?$/
-  );
-  if (!m) return null;
-  return m[1] || 'messages';
-}
+// switch the native tab, never navigate inside the current tab's WebView.
+// B5: the tab-root match is mobile/nav.ts tabRootOf (parsed, exact host).
 
-// ─── C7 binary trio (James-ruled: BUILT, NOT ACTIVATED) ──────────────────────
-// The store binary ships push-capable — aps-environment entitlement, remote-
-// notification background mode, the expo-notifications module, deep-link
-// routing, and icon-badge sync — but NOTHING here prompts for notification
-// permission or registers a push token. Offer-push ACTIVATION (permission ask,
-// token registration with the server, actual sends) holds for James's separate
-// explicit word once real cleaners are live. Until then no push ever arrives,
-// so the handlers below are dormant plumbing, and the iOS icon badge stays
-// invisible (badge display rides the notification permission that activation
-// will request).
+// ─── Push (C7, activated in the 1.0.1 cargo; RENA-078, B5.8) ───────────────
+// The binary is push-capable (aps-environment entitlement, remote-notification
+// background mode, expo-notifications, deep-link routing, icon-badge sync).
+// B5.8: the OS permission is asked only after the rationale card is answered
+// "Turn on", once per install; a settings door re-asks or opens Settings.
 
 // How an arriving notification presents if the app is foregrounded — set once
 // at module scope per expo-notifications docs. Inert until pushes exist.
@@ -220,27 +243,6 @@ Notifications.setNotificationHandler({
     shouldSetBadge: true,
   }),
 });
-
-/**
- * C7 deep links: resolve any of our URL shapes to a shell tab key —
- * renapro://jobs, renapro://app/jobs, https://www.renacleaning.co.uk/en/app/jobs,
- * and notification payloads carrying data.url in those shapes. Unknown URLs
- * resolve to null and are ignored (never a crash, never a wrong screen).
- */
-function tabForUrl(url: string): string | null {
-  try {
-    const parsed = Linking.parse(url);
-    const segments = [parsed.hostname, ...(parsed.path ? parsed.path.split('/') : [])]
-      .filter(Boolean)
-      .map((s) => String(s).toLowerCase());
-    for (const seg of segments) {
-      if (TABS.some((t) => t.key === seg)) return seg;
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
 
 // THE HAPTICS MAP (law — native and web bridge both follow it):
 //   light   → navigation taps: tabs, chips, steppers, opening sheets/links
@@ -348,43 +350,85 @@ function RootView() {
     boot();
   }, [boot]);
 
-  // ── C7 deep links: a link can arrive before the shell is up (cold start
-  // lands on the lock screen) — park the resolved tab and apply on shell entry.
-  const pendingTab = useRef<string | null>(null);
+  // ── B5.1 deep links (RENA-037, RENA-047): one resolver (mobile/nav.ts) for
+  // custom-scheme links, our https links and notification data.url. A link
+  // that arrives before the shell is up (cold start lands on the lock screen)
+  // is parked and applied on shell entry. A link deeper than its tab root, or
+  // carrying a query or hash, is forwarded into the owning pane (the customer
+  // shell's machinery, ported), so an offer push lands in the Offer room.
+  const pendingNav = useRef<{ tab: string; forward: string | null } | null>(null);
   const phaseRef = useRef(phase);
   phaseRef.current = phase;
+  const extNavSeq = useRef(0);
+  const [externalNav, setExternalNav] = useState<{ key: string; url: string; seq: number } | null>(
+    null
+  );
 
   const applyLink = useCallback((url: string | null | undefined) => {
     if (!url) return;
-    const tab = tabForUrl(url);
-    if (!tab) return;
-    if (phaseRef.current === 'shell') setActiveTab(tab);
-    else pendingTab.current = tab;
+    const r = resolveLink(url, NAV_CTX);
+    if (r.kind !== 'tab') return;
+    if (phaseRef.current === 'shell') {
+      if (r.forward) {
+        extNavSeq.current += 1;
+        setExternalNav({ key: r.tab, url: r.forward, seq: extNavSeq.current });
+      }
+      setActiveTab(r.tab);
+    } else {
+      pendingNav.current = { tab: r.tab, forward: r.forward };
+    }
   }, []);
+
+  // One notification response is applied once, whichever path reports it
+  // (the live listener, or the cold-start read below).
+  const lastResponseId = useRef<string | null>(null);
+  const applyResponse = useCallback(
+    (resp: Notifications.NotificationResponse | null) => {
+      if (!resp) return;
+      const id = resp.notification.request.identifier;
+      if (id && id === lastResponseId.current) return;
+      lastResponseId.current = id;
+      const data = resp.notification.request.content.data as { url?: unknown } | null;
+      if (data && typeof data.url === 'string') applyLink(data.url);
+    },
+    [applyLink]
+  );
 
   useEffect(() => {
     Linking.getInitialURL()
       .then(applyLink)
       .catch(() => {});
     const linkSub = Linking.addEventListener('url', (e) => applyLink(e.url));
-    // Notification taps route through the same resolver — dormant until C7
-    // activation sends the first push, harmless meanwhile.
-    const noteSub = Notifications.addNotificationResponseReceivedListener((resp) => {
-      const data = resp.notification.request.content.data as { url?: unknown } | null;
-      if (data && typeof data.url === 'string') applyLink(data.url);
-    });
+    const noteSub = Notifications.addNotificationResponseReceivedListener(applyResponse);
     return () => {
       linkSub.remove();
       noteSub.remove();
     };
-  }, [applyLink]);
+  }, [applyLink, applyResponse]);
 
+  // Cold start from a notification tap: read the last response once, on the
+  // first entry to the shell, then clear it so it never re-applies.
+  const coldStartRead = useRef(false);
   useEffect(() => {
-    if (phase === 'shell' && pendingTab.current) {
-      setActiveTab(pendingTab.current);
-      pendingTab.current = null;
+    if (phase !== 'shell') return;
+    if (pendingNav.current) {
+      const { tab, forward } = pendingNav.current;
+      pendingNav.current = null;
+      if (forward) {
+        extNavSeq.current += 1;
+        setExternalNav({ key: tab, url: forward, seq: extNavSeq.current });
+      }
+      setActiveTab(tab);
     }
-  }, [phase]);
+    if (coldStartRead.current) return;
+    coldStartRead.current = true;
+    Notifications.getLastNotificationResponseAsync()
+      .then((resp) => {
+        applyResponse(resp);
+        return Notifications.clearLastNotificationResponseAsync();
+      })
+      .catch(() => {});
+  }, [phase, applyResponse]);
 
   // C5: Face-ID-first. The lock screen (lockup + one Unlock button) is the
   // returning-user arrival; Face ID fires immediately on top of it. A failed or
@@ -448,19 +492,68 @@ function RootView() {
     setPhase('shell');
   }, []);
 
+  // B5.4 (RENA-031/082, James-ruled): the signup and join handoff. The page
+  // posts only a single-use code; it is redeemed here by NATIVE fetch, and
+  // only that response carries the Bearer and the bridge code, which take
+  // the login path itself (onLoggedIn stores the Bearer in SecureStore and
+  // bridges). Any failure, or a page that landed on the website portal
+  // instead, falls back to native login with the email prefilled.
+  const [loginPrefill, setLoginPrefill] = useState<{ email: string; notice: string } | null>(null);
+  const handoffFallback = useCallback((email: string | null) => {
+    setLoginPrefill({ email: email ?? '', notice: 'Your account is ready. Sign in to continue.' });
+    setPhase('login');
+  }, []);
+  const onSignedUp = useCallback(
+    async (msg: SignedUpMessage) => {
+      try {
+        const res = await fetch(`${BASE_URL}/api/auth/native-handoff`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...SHELL_HEADER },
+          body: JSON.stringify({ code: msg.handoffCode }),
+        });
+        const data = await res.json().catch(() => null);
+        if (res.ok && typeof data?.token === 'string' && typeof data?.bridgeCode === 'string') {
+          lastNativeOkAt = Date.now();
+          fireHaptic('success');
+          setLoginPrefill(null);
+          await onLoggedIn(data.token, data.bridgeCode);
+          return;
+        }
+      } catch {
+        /* fall back to native login below */
+      }
+      handoffFallback(msg.email);
+    },
+    [onLoggedIn, handoffFallback]
+  );
+
+  // B5.3: one logout at a time. Several panes, the watcher and the badges
+  // poll can all report a lost session at once; only the first runs.
+  const loggingOut = useRef(false);
   const logout = useCallback(async () => {
+    if (loggingOut.current) return;
+    loggingOut.current = true;
+    try {
+      await logoutOnce();
+    } finally {
+      loggingOut.current = false;
+    }
+  }, []);
+  const logoutOnce = async () => {
     await Promise.all([deregisterPush(), endWebSession()]);
     await SecureStore.deleteItemAsync(TOKEN_KEY);
     // Root-level survivors cleared with the session (James-ruled): a parked
     // deep-link tab and the lie check's witness clocks never outlive an account.
-    pendingTab.current = null;
+    pendingNav.current = null;
+    // A parked forward must not re-fire into a later account's shell.
+    setExternalNav(null);
     lastDressedAt = 0;
     lastNativeOkAt = 0;
     // C7: a signed-out app must not keep a stale count on the icon.
     Notifications.setBadgeCountAsync(0).catch(() => {});
     setBridgeUrl(null);
     setPhase('login');
-  }, []);
+  };
 
   // C5: leaving the lock screen for the password form or another account clears
   // the stored bearer either way; the destinations differ.
@@ -469,7 +562,9 @@ function RootView() {
     await SecureStore.deleteItemAsync(TOKEN_KEY);
     // Root-level survivors cleared with the session (James-ruled): a parked
     // deep-link tab and the lie check's witness clocks never outlive an account.
-    pendingTab.current = null;
+    pendingNav.current = null;
+    // A parked forward must not re-fire into a later account's shell.
+    setExternalNav(null);
     lastDressedAt = 0;
     lastNativeOkAt = 0;
     setBridgeUrl(null);
@@ -481,7 +576,9 @@ function RootView() {
     await SecureStore.deleteItemAsync(TOKEN_KEY);
     // Root-level survivors cleared with the session (James-ruled): a parked
     // deep-link tab and the lie check's witness clocks never outlive an account.
-    pendingTab.current = null;
+    pendingNav.current = null;
+    // A parked forward must not re-fire into a later account's shell.
+    setExternalNav(null);
     lastDressedAt = 0;
     lastNativeOkAt = 0;
     setBridgeUrl(null);
@@ -489,23 +586,14 @@ function RootView() {
     setPhase('start');
   }, []);
 
-  // C7 ACTIVATION (1.0.1 cargo — James's activation word SPENT for this
-  // build): the one clean permission ask, fired on arrival in the shell,
-  // then Expo-token registration to the signed-in account. Idempotent (the
-  // stored token short-circuits) and fail-soft throughout — activation must
-  // never break the shell. iOS grants the ask exactly one clean chance, so
-  // it lands here: in a binary that also carries the camera string, one
-  // coherent release (James's reasoning, on the record).
-  const registerPush = useCallback(async () => {
+  // B5.8: register this device's Expo token when (and only when) the OS
+  // permission is already granted. Never prompts. Idempotent and fail-soft.
+  const registerToken = useCallback(async () => {
     try {
       const bearer = await SecureStore.getItemAsync(TOKEN_KEY);
       if (!bearer) return;
       const current = await Notifications.getPermissionsAsync();
-      let status = current.status;
-      if (status !== 'granted' && current.canAskAgain !== false) {
-        status = (await Notifications.requestPermissionsAsync()).status;
-      }
-      if (status !== 'granted') return;
+      if (current.status !== 'granted') return;
       const projectId = Constants.expoConfig?.extra?.eas?.projectId as string | undefined;
       const expo = await Notifications.getExpoPushTokenAsync(projectId ? { projectId } : undefined);
       if (!expo?.data) return;
@@ -528,9 +616,67 @@ function RootView() {
       /* fail-soft */
     }
   }, []);
+
+  // B5.8 (RENA-046): on shell entry, nav.ts pushEntryDecision — granted
+  // registers silently; never asked shows the rationale card once; asked
+  // and not granted does nothing (the settings door re-asks).
+  const [pushCard, setPushCard] = useState(false);
   useEffect(() => {
-    if (phase === 'shell') registerPush();
-  }, [phase, registerPush]);
+    if (phase !== 'shell') return;
+    let alive = true;
+    (async () => {
+      try {
+        const current = await Notifications.getPermissionsAsync();
+        const asked = !!(await SecureStore.getItemAsync(PUSH_ASKED_KEY));
+        const d = pushEntryDecision({ asked, granted: current.status === 'granted' });
+        if (!alive) return;
+        if (d === 'register') registerToken();
+        else if (d === 'show_card') setPushCard(true);
+      } catch {
+        /* fail-soft */
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [phase, registerToken]);
+  const answerPushCard = useCallback(
+    async (turnOn: boolean) => {
+      setPushCard(false);
+      await SecureStore.setItemAsync(PUSH_ASKED_KEY, new Date().toISOString()).catch(() => {});
+      if (!turnOn) return;
+      try {
+        const r = await Notifications.requestPermissionsAsync();
+        if (r.status === 'granted') registerToken();
+      } catch {
+        /* fail-soft */
+      }
+    },
+    [registerToken]
+  );
+  // B5.8: the settings door (a page posts {type: 'pushSettings'}): re-ask
+  // while the OS still allows it, else open the app's system Settings.
+  const pushDoor = useCallback(async () => {
+    try {
+      const current = await Notifications.getPermissionsAsync();
+      const d = pushDoorDecision({
+        granted: current.status === 'granted',
+        canAskAgain: current.canAskAgain !== false,
+      });
+      if (d === 'already_on') {
+        registerToken();
+        Alert.alert('Notifications are on', 'You will hear about job offers and messages.');
+      } else if (d === 'ask') {
+        await SecureStore.setItemAsync(PUSH_ASKED_KEY, new Date().toISOString()).catch(() => {});
+        const r = await Notifications.requestPermissionsAsync();
+        if (r.status === 'granted') registerToken();
+      } else {
+        Linking.openSettings().catch(() => {});
+      }
+    } catch {
+      /* fail-soft */
+    }
+  }, [registerToken]);
 
   return (
     <View style={styles.root}>
@@ -559,13 +705,21 @@ function RootView() {
       {phase === 'login' && (
         <LoginScreen
           onLoggedIn={onLoggedIn}
+          initialEmail={loginPrefill?.email}
+          notice={loginPrefill?.notice}
           onWrongApp={() => setPhase('wrongApp')}
           onBack={() => setPhase('start')}
           onForgot={() => setPhase('forgot')}
         />
       )}
       {phase === 'wrongApp' && <WrongAppScreen onSwitchAccount={() => setPhase('login')} />}
-      {phase === 'join' && <JoinScreen onBack={() => setPhase('start')} />}
+      {phase === 'join' && (
+        <JoinScreen
+          onBack={() => setPhase('start')}
+          onSignedUp={onSignedUp}
+          onFallback={() => handoffFallback(null)}
+        />
+      )}
       {phase === 'forgot' && <ForgotScreen onBack={() => setPhase('login')} />}
       {phase === 'shell' && (
         <ShellScreen
@@ -574,6 +728,14 @@ function RootView() {
           bridgeUrl={bridgeUrl}
           onBridged={() => setBridgeUrl(null)}
           onSessionLost={logout}
+          externalNav={externalNav}
+          onPushDoor={pushDoor}
+        />
+      )}
+      {phase === 'shell' && pushCard && (
+        <PushRationaleCard
+          body="Rena Pro uses notifications for job offers and messages."
+          onAnswer={answerPushCard}
         />
       )}
 
@@ -709,14 +871,20 @@ function LoginScreen({
   onWrongApp,
   onBack,
   onForgot,
+  initialEmail,
+  notice,
 }: {
   onLoggedIn: (token: string, bridgeCode: string) => void;
   onWrongApp: () => void;
   onBack: () => void;
   onForgot: () => void;
+  /** B5.4 fallback: the just-created account's email, prefilled. */
+  initialEmail?: string;
+  /** B5.4 fallback: "Your account is ready. Sign in to continue." */
+  notice?: string | null;
 }) {
   const insets = useSafeAreaInsets();
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(initialEmail ?? '');
   const [password, setPassword] = useState('');
   const [showPw, setShowPw] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -777,6 +945,7 @@ function LoginScreen({
       >
         <Image source={logoLockup} style={styles.loginWordmark} resizeMode="contain" />
         <Text style={styles.loginSub}>Sign in to your cleaner account</Text>
+        {notice ? <Text style={styles.loginSub}>{notice}</Text> : null}
         <TextInput
           style={styles.input}
           placeholder="Email"
@@ -926,8 +1095,19 @@ const HIDE_CHROME_JS = `
   })(); true;
 `;
 
-function JoinScreen({ onBack }: { onBack: () => void }) {
+function JoinScreen({
+  onBack,
+  onSignedUp,
+  onFallback,
+}: {
+  onBack: () => void;
+  /** B5.4: the page posted the handoff (the code only); the root redeems it. */
+  onSignedUp: (msg: SignedUpMessage) => void;
+  /** B5.4: the page landed on the website portal instead; native login takes over. */
+  onFallback: () => void;
+}) {
   const insets = useSafeAreaInsets();
+  const handled = useRef(false);
   return (
     <View style={styles.flex}>
       <View style={[styles.joinHeader, { paddingTop: insets.top + 6 }]}>
@@ -940,6 +1120,19 @@ function JoinScreen({ onBack }: { onBack: () => void }) {
         uri={`${BASE_URL}/en/join`}
         injectBefore={HIDE_CHROME_JS + SEAM_KILL_JS}
         loaderTone="light"
+        onRawMessage={(raw) => {
+          const msg = parseShellMessage(raw);
+          if (msg && !handled.current) {
+            handled.current = true;
+            onSignedUp(msg);
+          }
+        }}
+        onNavUrl={(url) => {
+          if (!handled.current && isPortalLanding(url, NAV_CTX)) {
+            handled.current = true;
+            onFallback();
+          }
+        }}
       />
     </View>
   );
@@ -952,13 +1145,36 @@ function ShellScreen({
   bridgeUrl,
   onBridged,
   onSessionLost,
+  externalNav,
+  onPushDoor,
 }: {
   activeTab: string;
   setActiveTab: (k: string) => void;
   bridgeUrl: string | null;
   onBridged: () => void;
   onSessionLost: () => void;
+  /** B5.1: a push or deep-link URL to forward into its owning pane. */
+  externalNav?: { key: string; url: string; seq: number } | null;
+  /** B5.8: a page asked for the notification settings door. */
+  onPushDoor?: () => void;
 }) {
+  // B5.1 (ported from the customer shell): per-pane forwards. A deep link,
+  // a push, or an in-page link to another tab's root that carries something
+  // beyond the bare root is loaded in the target pane; a bare root only
+  // switches (state and scroll preserved).
+  const [forwards, setForwards] = useState<Record<string, { url: string; seq: number }>>({});
+  const forwardCount = useRef(0);
+  const extSeq = externalNav?.seq ?? 0;
+  useEffect(() => {
+    if (externalNav && extSeq > 0) {
+      forwardCount.current += 1;
+      const seq = forwardCount.current;
+      setForwards((f) => ({ ...f, [externalNav.key]: { url: externalNav.url, seq } }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [extSeq]);
+  // One tap forwards once: identical key and url inside 1.5 s collapse.
+  const lastForward = useRef<{ key: string; url: string; at: number } | null>(null);
   // Android hardware back (James-ruled, Phase 2 rule 6): active pane goBack()
   // when it can, else the Today tab, else system default. iOS never subscribes.
   const backHandlers = useRef<Record<string, () => boolean>>({});
@@ -979,8 +1195,24 @@ function ShellScreen({
   }, [setActiveTab]);
 
   const selectTab = useCallback(
-    (k: string) => {
+    (k: string, url?: string) => {
       fireHaptic('light');
+      const r = url ? resolveLink(url, NAV_CTX) : null;
+      const forward = r && r.kind === 'tab' && r.tab === k ? r.forward : null;
+      if (forward) {
+        const now = Date.now();
+        const dup =
+          lastForward.current &&
+          lastForward.current.key === k &&
+          lastForward.current.url === forward &&
+          now - lastForward.current.at < 1500;
+        if (!dup) {
+          lastForward.current = { key: k, url: forward, at: now };
+          forwardCount.current += 1;
+          const seq = forwardCount.current;
+          setForwards((f) => ({ ...f, [k]: { url: forward, seq } }));
+        }
+      }
       setActiveTab(k);
     },
     [setActiveTab]
@@ -1006,38 +1238,58 @@ function ShellScreen({
     if (lockNoticeTimer.current) clearTimeout(lockNoticeTimer.current);
     lockNoticeTimer.current = setTimeout(() => setLockNotice(null), 1800);
   }, []);
+  // B5.3 (RENA-029, James-ruled): the badges poll is also the session-lost
+  // probe. nav.ts nextSessionLostAction: a 2xx or a definitive 403 resets,
+  // a 401 counts, a 5xx, 429 or network failure neither counts nor resets;
+  // two genuine 401s at least 5 s apart within 3 minutes log out. A 401
+  // brings the next tick forward to 15 s so the second verdict comes fast.
   useEffect(() => {
     let alive = true;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    let loss: SessionLossState = INITIAL_SESSION_LOSS;
+    const schedule = (ms: number) => {
+      if (alive) timer = setTimeout(poll, ms);
+    };
     const poll = async () => {
+      let status: number | 'network' = 'network';
       try {
         const token = await SecureStore.getItemAsync(TOKEN_KEY);
-        if (!token) return;
+        if (!token) {
+          schedule(60000);
+          return;
+        }
         const res = await fetch(`${BASE_URL}/api/cleaner/badges`, {
           headers: { Authorization: `Bearer ${token}`, ...SHELL_HEADER },
         });
-        if (!res.ok) return;
-        lastNativeOkAt = Date.now();
-        const d = await res.json().catch(() => null);
-        if (alive && d && typeof d.goLive === 'boolean') setGoLive(d.goLive);
-        if (alive && d && typeof d.offers === 'number') {
-          setBadges({ offers: d.offers, messages: d.messages ?? 0 });
-          // C7: mirror the tab-badge total onto the app icon. Built now, but
-          // iOS only DISPLAYS icon badges once notification permission is
-          // granted — which is C7 activation's job — so this is invisible
-          // until James's activation word. Fail-soft like the poll itself.
-          Notifications.setBadgeCountAsync(d.offers + (d.messages ?? 0)).catch(() => {});
+        status = res.status;
+        if (res.ok) {
+          lastNativeOkAt = Date.now();
+          const d = await res.json().catch(() => null);
+          if (alive && d && typeof d.goLive === 'boolean') setGoLive(d.goLive);
+          if (alive && d && typeof d.offers === 'number') {
+            setBadges({ offers: d.offers, messages: d.messages ?? 0 });
+            // C7: mirror the tab-badge total onto the app icon (fail-soft).
+            Notifications.setBadgeCountAsync(d.offers + (d.messages ?? 0)).catch(() => {});
+          }
         }
       } catch {
-        /* fail-soft */
+        status = 'network';
       }
+      if (!alive) return;
+      const r = nextSessionLostAction(loss, status, Date.now());
+      loss = r.state;
+      if (r.logout) {
+        onSessionLost();
+        return;
+      }
+      schedule(status === 401 ? 15000 : 60000);
     };
     poll();
-    const t = setInterval(poll, 60000);
     return () => {
       alive = false;
-      clearInterval(t);
+      if (timer) clearTimeout(timer);
     };
-  }, []);
+  }, [onSessionLost]);
 
   return (
     <SafeAreaView style={styles.flex} edges={['top']}>
@@ -1059,6 +1311,15 @@ function ShellScreen({
                 onBridged={tab.key === 'today' ? onBridged : undefined}
                 tabKey={tab.key}
                 onCrossTab={selectTab}
+                forwardNav={forwards[tab.key]}
+                onRawMessage={(raw) => {
+                  if (!onPushDoor || raw.indexOf('pushSettings') < 0) return;
+                  try {
+                    if (JSON.parse(raw)?.type === 'pushSettings') onPushDoor();
+                  } catch {
+                    /* not ours */
+                  }
+                }}
                 active={isActive}
                 registerBack={(h) => {
                   backHandlers.current[tab.key] = h;
@@ -1226,9 +1487,12 @@ function SeamlessWebView({
   onBridged,
   tabKey,
   onCrossTab,
+  forwardNav,
   loaderTone = 'light',
   active,
   registerBack,
+  onRawMessage,
+  onNavUrl,
 }: {
   uri: string;
   injectBefore: string;
@@ -1236,14 +1500,20 @@ function SeamlessWebView({
   onBridged?: () => void;
   /** Which tab this pane belongs to — enables the cross-tab nav intercept. */
   tabKey?: string;
-  /** Called with the target tab key when an in-page link hits another tab's root. */
-  onCrossTab?: (key: string) => void;
+  /** Called with the target tab key (and the URL) when an in-page link hits another tab's root. */
+  onCrossTab?: (key: string, url?: string) => void;
+  /** B5.1: a URL forwarded into THIS pane; seq bumps per forward so repeats re-fire. */
+  forwardNav?: { url: string; seq: number };
   loaderTone?: 'light' | 'navy';
   /** Whether this pane is the visible tab — gates lazy revival of a
    *  recycled content process (hidden panes revive on show, not en masse). */
   active?: boolean;
   /** Android back (rule 6): the pane registers "go back if you can". */
   registerBack?: (handler: () => boolean) => void;
+  /** B5.4: every raw page message (the signup and join screens' handoff). */
+  onRawMessage?: (data: string) => void;
+  /** B5.4: every landed URL (the signup and join screens' fallback watcher). */
+  onNavUrl?: (url: string) => void;
 }) {
   const [offline, setOffline] = useState(false);
   // A9: designed 5xx interstitial (main-document server errors only).
@@ -1288,6 +1558,9 @@ function SeamlessWebView({
   // document + API fan every boot. Latched: prop changes never navigate a
   // mounted pane; a remount re-latches the then-current (direct) uri.
   const initialUri = useRef(uri);
+  // B5.1 (ported from the customer shell, R5 veil): a forwarded URL loads
+  // through the source prop, deterministic across content-process recycling.
+  const [overrideUri, setOverrideUri] = useState<string | null>(null);
   // R5b port: veil long-stop + lazy revival of recycled content processes.
   const longStop = useRef<ReturnType<typeof setTimeout> | null>(null);
   const needsRevive = useRef(false);
@@ -1302,10 +1575,10 @@ function SeamlessWebView({
   useEffect(() => {
     if (active !== false && needsRevive.current) revive();
   }, [active, revive]);
-  // R14 Lane 2 (James-ruled): true while this pane is inside the
-  // Stripe-hosted Connect flow. Set on a top-frame navigation to a
-  // stripe.com host, cleared on any top-frame landing back on our origin.
-  const inStripeFlow = useRef(false);
+  // B5.2 (RENA-024/039): the pane's navigation state for the classifier.
+  // R14 Lane 2 survives as its STRIPE_RETURN branch; deviation 3 (approved)
+  // narrows the Stripe flow to one that starts from the Connect page.
+  const navState = useRef<NavState>(INITIAL_NAV_STATE);
   // Android back (rule 6): the pane's half — go back through web history
   // when there is any. canGoBack rides onNavigationStateChange.
   const canGoBackRef = useRef(false);
@@ -1334,11 +1607,35 @@ function SeamlessWebView({
     []
   );
 
+  // B5.1: a forwarded navigation is a full document load in this pane.
+  const forwardSeq = forwardNav?.seq ?? 0;
+  const forwardUrl = forwardNav?.url;
+  useEffect(() => {
+    if (forwardSeq > 0 && forwardUrl) {
+      setLoaded(false);
+      fade.setValue(1);
+      if (overrideUri === forwardUrl) {
+        // The same URL forwarded again: the source would not change, so reload.
+        ref.current?.reload();
+      } else {
+        setOverrideUri(forwardUrl);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [forwardSeq]);
+
   // If the web session expires, the portal redirects to /login — bounce back to
   // the native login screen instead of showing the web form inside the shell.
   const onNav = (nav: WebViewNavigation) => {
     canGoBackRef.current = nav.canGoBack;
-    if (onSessionLost && (/\/login(\?|$)/.test(nav.url) || /\/api\/auth\/signin/.test(nav.url))) {
+    onNavUrl?.(nav.url);
+    // B5.3: only OUR /login (or the signin route, with or without B2's
+    // callbackUrl) means the session is gone; a foreign /login never logs out.
+    if (
+      onSessionLost &&
+      isRenaOrigin(nav.url, NAV_CTX) &&
+      (/\/login(\?|$)/.test(nav.url) || /\/api\/auth\/signin/.test(nav.url))
+    ) {
       onSessionLost();
     }
     // Cross-tab nav fix: Next.js links are SPA pushState navigations, which
@@ -1347,10 +1644,10 @@ function SeamlessWebView({
     // its own route (state preserved; a later onNav for the back-step matches
     // this pane's own key and no-ops).
     if (tabKey && onCrossTab) {
-      const target = tabRootKey(nav.url);
+      const target = tabRootOf(nav.url, NAV_CTX);
       if (target && target !== tabKey) {
         if (!crossTabDup(nav.url)) {
-          onCrossTab(target);
+          onCrossTab(target, nav.url);
           ref.current?.injectJavaScript('window.history.back(); true;');
         }
         return;
@@ -1382,6 +1679,13 @@ function SeamlessWebView({
   // the two paths never contend. Fail-soft: an error alerts, page untouched.
   const [statementUri, setStatementUri] = useState<string | null>(null);
   const fetchStatement = useCallback(async (url: string): Promise<string | null> => {
+    // RENA-036: the Bearer is read and attached ONLY for the exact statement
+    // URL (https, our host, /api/cleaner/statement). Anything else is the
+    // same "Download failed" alert, and the stored Bearer is never read.
+    if (!isStatementUrl(url, NAV_CTX)) {
+      Alert.alert('Download failed', "We couldn't fetch your statement — try again.");
+      return null;
+    }
     try {
       const bearer = await SecureStore.getItemAsync(TOKEN_KEY);
       const year = /[?&]taxYear=(\d{4})/.exec(url)?.[1];
@@ -1428,7 +1732,47 @@ function SeamlessWebView({
     [fetchStatement]
   );
 
+  // B5.2: act on the classifier's verdict. True means "load it in this pane".
+  const act = (req: NavRequest, url: string): boolean => {
+    const verdict: NavVerdict = classifyNavigation(req, navState.current, NAV_CTX);
+    navState.current = nextNavState(navState.current, req, verdict, NAV_CTX);
+    switch (verdict) {
+      case 'ALLOW_IN_PANE':
+        return true;
+      case 'OPEN_EXTERNAL':
+      case 'OS_HANDLE':
+        Linking.openURL(url).catch(() => {});
+        return false;
+      case 'STATEMENT':
+        // Rule 5 (Android): the statement download never paints.
+        androidStatement(url);
+        return false;
+      case 'STRIPE_RETURN':
+        // R14 Lane 2 (James-ruled): every exit from the Connect flow lands
+        // in the dressed return room, which reads the truth.
+        // The injection is unchanged from R14 (replace, so Back never
+        // returns to the page Stripe linked out to).
+        ref.current?.injectJavaScript(
+          `window.location.replace(${JSON.stringify(
+            `${BASE_URL}/en/cleaner/onboarding-complete`
+          )}); true;`
+        );
+        return false;
+      case 'CROSS_TAB': {
+        const target = tabRootOf(url, NAV_CTX);
+        if (tabKey && onCrossTab && target && target !== tabKey) {
+          if (!crossTabDup(url)) onCrossTab(target, url);
+          return false;
+        }
+        return true;
+      }
+      default:
+        return false;
+    }
+  };
+
   const onMessage = (e: WebViewMessageEvent) => {
+    onRawMessage?.(e.nativeEvent.data);
     try {
       const msg = JSON.parse(e.nativeEvent.data);
       if (msg?.type === 'haptic') fireHaptic(String(msg.style || 'light'));
@@ -1497,7 +1841,7 @@ function SeamlessWebView({
     <View style={styles.flex}>
       <WebView
         ref={ref}
-        source={{ uri: initialUri.current, headers: SHELL_HEADER }}
+        source={{ uri: overrideUri ?? initialUri.current, headers: SHELL_HEADER }}
         applicationNameForUserAgent={UA_SUFFIX}
         {...IOS_WEBVIEW_PROPS}
         thirdPartyCookiesEnabled
@@ -1530,46 +1874,19 @@ function SeamlessWebView({
           setLoaded(false);
           fade.setValue(1);
         }}
-        // Cross-tab nav fix, full-document half: real document loads CAN be
-        // cancelled here, so the origin pane never leaves its route at all.
-        onShouldStartLoadWithRequest={(req) => {
-          // Rule 5 (Android): the statement download navigation never paints —
-          // intercept, fetch natively, hand to the system sheet.
-          if (Platform.OS === 'android' && req.url.includes('/api/cleaner/statement')) {
-            androidStatement(req.url);
-            return false;
+        // B5.2 (RENA-024/039, RENA-036): one classifier decides every
+        // top-frame navigation (mobile/nav.ts); sub frames are never touched.
+        onShouldStartLoadWithRequest={(req) => act(req, req.url)}
+        // iOS window.open: the same classifier. Android loads window.open in
+        // this WebView (setSupportMultipleWindows false), so it reaches the
+        // intercept above.
+        onOpenWindow={(e) => {
+          const url = e.nativeEvent.targetUrl;
+          if (act({ url, isTopFrame: true }, url)) {
+            ref.current?.injectJavaScript(locationAssignScript(url));
           }
-          // R14 Lane 2 (James-ruled): EVERY exit from Stripe lands back in
-          // the app. Inside the Connect flow the only sanctioned doors to our
-          // origin are the return landing and the connect relaunch; any other
-          // our-origin landing (Stripe's header brand link points at the
-          // public website) reroutes to the dressed return room, which reads
-          // the truth and shows connected, checking, or not finished.
-          {
-            const host = (req.url.match(/^https?:\/\/([^/:?#]+)/) || [])[1] || '';
-            if (/(^|\.)stripe\.(com|network)$/i.test(host)) {
-              if (req.isTopFrame !== false) inStripeFlow.current = true;
-            } else if (inStripeFlow.current && host === BASE_HOST && req.isTopFrame !== false) {
-              inStripeFlow.current = false;
-              if (!/\/cleaner\/(onboarding-complete|stripe\/connect)([/?#]|$)/.test(req.url)) {
-                ref.current?.injectJavaScript(
-                  `window.location.replace(${JSON.stringify(
-                    `${BASE_URL}/en/cleaner/onboarding-complete`
-                  )}); true;`
-                );
-                return false;
-              }
-            }
-          }
-          if (tabKey && onCrossTab) {
-            const target = tabRootKey(req.url);
-            if (target && target !== tabKey) {
-              if (!crossTabDup(req.url)) onCrossTab(target);
-              return false;
-            }
-          }
-          return true;
         }}
+        setSupportMultipleWindows={false}
         onNavigationStateChange={onNav}
         onMessage={onMessage}
         onLoadEnd={() => {
@@ -1632,7 +1949,7 @@ function SeamlessWebView({
           // A9: a 5xx on OUR origin gets the designed interstitial; sub-resource
           // and third-party errors stay with the web pages' own states.
           const { statusCode, url } = e.nativeEvent;
-          if (statusCode >= 500 && typeof url === 'string' && url.startsWith(BASE_URL)) {
+          if (statusCode >= 500 && typeof url === 'string' && isRenaOrigin(url, NAV_CTX)) {
             setServerError(true);
           }
         }}
@@ -1697,6 +2014,52 @@ function SeamlessWebView({
   );
 }
 
+// ─── B5.8 the notification rationale card (RENA-046) ─────────────────────────
+// Shown once per install, before the OS prompt, in the shell phase. "Turn on"
+// asks the OS; "Not now" does not; either answer is stored so the card never
+// returns on its own (a settings door re-asks).
+function PushRationaleCard({
+  body,
+  onAnswer,
+}: {
+  body: string;
+  onAnswer: (turnOn: boolean) => void;
+}) {
+  const insets = useSafeAreaInsets();
+  return (
+    <View style={styles.pushCardScrim}>
+      <View style={[styles.pushCard, { marginBottom: insets.bottom + 84 }]}>
+        <Text style={styles.pushCardTitle}>Turn on notifications</Text>
+        <Text style={styles.pushCardBody}>{body}</Text>
+        <View style={styles.pushCardActions}>
+          <Pressable
+            style={({ pressed }) => [styles.pushCardSecondary, pressed && styles.pressed]}
+            onPress={() => {
+              fireHaptic('light');
+              onAnswer(false);
+            }}
+          >
+            <Text style={styles.pushCardSecondaryText}>Not now</Text>
+          </Pressable>
+          <Pressable
+            style={({ pressed }) => [
+              styles.primaryBtn,
+              styles.pushCardPrimary,
+              pressed && styles.pressed,
+            ]}
+            onPress={() => {
+              fireHaptic('light');
+              onAnswer(true);
+            }}
+          >
+            <Text style={styles.primaryBtnText}>Turn on</Text>
+          </Pressable>
+        </View>
+      </View>
+    </View>
+  );
+}
+
 // ─── Tab bar ─────────────────────────────────────────────────────────────────
 function TabBar({
   active,
@@ -1753,6 +2116,34 @@ function TabBar({
 }
 
 const styles = StyleSheet.create({
+  // B5.8 the notification rationale card.
+  pushCardScrim: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(22,41,107,0.18)',
+    paddingHorizontal: 16,
+  },
+  pushCard: {
+    backgroundColor: SURFACE,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: LINE,
+    padding: 20,
+  },
+  pushCardTitle: { fontFamily: SANS_SEMI, color: INK, fontSize: 18, lineHeight: 24 },
+  pushCardBody: { fontFamily: SANS, color: INK2, fontSize: 15, lineHeight: 22, marginTop: 6 },
+  pushCardActions: { flexDirection: 'row', gap: 12, marginTop: 18 },
+  pushCardSecondary: {
+    flex: 1,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: LINE,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+  },
+  pushCardSecondaryText: { fontFamily: SANS_MEDIUM, color: INK, fontSize: 16, lineHeight: 22 },
+  pushCardPrimary: { flex: 1, marginTop: 0 },
   root: { flex: 1, backgroundColor: PAGE },
   flex: { flex: 1, backgroundColor: PAGE },
   center: {

@@ -9,7 +9,7 @@ import FieldError, { fieldErrorProps } from '@/components/ui/FieldError';
 import PasswordInput from '@/components/ui/PasswordInput';
 import PasswordRequirements from '@/components/ui/PasswordRequirements';
 import { safeCallbackUrl } from '@/lib/auth/callback-url';
-import { isCustomerShellUA } from '@/lib/shell';
+import { isCustomerShellUA, postSignedUpToShell } from '@/lib/shell';
 import { displayName } from '@/lib/utils/name';
 import { validatePasswordPolicy } from '@/lib/utils/password-policy';
 
@@ -41,6 +41,8 @@ export default function SignupPage() {
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
+  // B5: the customer shell is redeeming the handoff (shell only).
+  const [handingOff, setHandingOff] = useState(false);
   // RENA-077 (James-ruled): the account exists even when the verification
   // email could not be sent; the page says so plainly and offers a retry.
   const [emailNotice, setEmailNotice] = useState<
@@ -96,6 +98,23 @@ export default function SignupPage() {
 
       if (!res.ok) {
         setErrors({ form: data.error || 'Failed to create account.' });
+        return;
+      }
+
+      // B5 (RENA-082): in the customer shell the native handoff replaces the
+      // website sign-in. The page posts only the single-use code; the shell
+      // redeems it natively and lands on Home (whose banner carries the
+      // verify-email retry). No web sign-in, no navigation to /account.
+      if (
+        isCustomerShellUA() &&
+        typeof data.handoffCode === 'string' &&
+        postSignedUpToShell({
+          handoffCode: data.handoffCode,
+          email: form.email.toLowerCase().trim(),
+          role: 'CLIENT',
+        })
+      ) {
+        setHandingOff(true);
         return;
       }
 
@@ -160,6 +179,15 @@ export default function SignupPage() {
             ? '0.5px solid rgba(239,68,68,0.4)'
             : '0.5px solid rgba(14,14,12,0.1)',
         };
+
+  if (handingOff) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center bg-page px-4 text-center">
+        <h1 className="font-newsreader text-2xl font-medium text-ink">Your account is ready.</h1>
+        <p className="mt-3 font-jost text-sm font-light text-ink-2">Signing you in&hellip;</p>
+      </div>
+    );
+  }
 
   if (!role) {
     return (

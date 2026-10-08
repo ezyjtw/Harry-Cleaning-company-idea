@@ -165,6 +165,12 @@ jobs:
           AUTH_SESSION_INTEGRATION: '1'
           NEXTAUTH_SECRET: ci-only-secret-for-session-integration
 
+      - name: Native handoff code against Postgres (B5, RENA-031, 082)
+        run: npx vitest run src/lib/auth/native-handoff.integration.test.ts
+        env:
+          NATIVE_HANDOFF_INTEGRATION: '1'
+          NEXTAUTH_SECRET: ci-only-secret-for-native-handoff-integration
+
       - name: Booking lifecycle concurrency matrix against Postgres (B3, RENA-012, 028, 030, 033)
         run: npx vitest run src/lib/booking/assign.integration.test.ts
         env:

@@ -2,6 +2,7 @@ import bcrypt from 'bcryptjs';
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
+import { mintNativeHandoffCode, shellHandoffApp } from '@/lib/auth/native-handoff';
 import { isNewToRena } from '@/lib/constants/badges';
 import prisma from '@/lib/db/prisma';
 import { CURRENT_AGREEMENT_VERSION } from '@/lib/legal/self-employment-acknowledgment';
@@ -518,9 +519,16 @@ export async function POST(request: NextRequest) {
       // welcome-verify at creation — resending at completion would double-email
       // every normal run. The banner's resend covers stragglers.)
 
+      // B5 (RENA-031): the Pro shell gets a single-use handoff code, never a
+      // Bearer; the website gets the unchanged body.
+      const upgradeHandoff = shellHandoffApp(request.headers, 'CLEANER')
+        ? await mintNativeHandoffCode({ userId: result.user.id, role: 'CLEANER', app: 'PRO' })
+        : null;
+
       return NextResponse.json(
         {
           message: 'Account upgraded to cleaner successfully',
+          ...(upgradeHandoff ? { handoffCode: upgradeHandoff } : {}),
           cleaner: {
             id: result.user.id,
             name: result.user.name,
@@ -710,9 +718,15 @@ export async function POST(request: NextRequest) {
         });
     }
 
+    // B5 (RENA-031): as above, a handoff code for the Pro shell only.
+    const handoffCode = shellHandoffApp(request.headers, 'CLEANER')
+      ? await mintNativeHandoffCode({ userId: result.user.id, role: 'CLEANER', app: 'PRO' })
+      : null;
+
     return NextResponse.json(
       {
         message: 'Application submitted successfully',
+        ...(handoffCode ? { handoffCode } : {}),
         cleaner: {
           id: result.user.id,
           name: result.user.name,

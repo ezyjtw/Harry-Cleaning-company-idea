@@ -86,3 +86,39 @@ export function shellCameraCapable(): boolean {
   const [maj, min, pat] = [Number(m[1]), Number(m[2]), Number(m[3])];
   return maj > 1 || (maj === 1 && (min > 0 || pat >= 1));
 }
+
+// B5 (RENA-031/082): the one gate both signup routes use.
+/**
+ * Which app, if any, a signup response may offer a handoff code to: the
+ * customer shell for a CLIENT account, the Pro shell for a CLEANER account,
+ * nobody else (the website, the wrong app). Response shape only, never
+ * authentication.
+ */
+export function shellHandoffApp(
+  headers: { get(name: string): string | null },
+  role: 'CLIENT' | 'CLEANER' | 'ADMIN'
+): 'PRO' | 'CUSTOMER' | null {
+  if (role === 'CLIENT' && isCustomerShell(headers)) return 'CUSTOMER';
+  if (role === 'CLEANER' && isRenaShell(headers)) return 'PRO';
+  return null;
+}
+
+/**
+ * B5 (RENA-031/082): hand a just-created account to the native shell. The
+ * message carries only the short-lived, single-use handoff code and
+ * non-secret display data (never a Bearer or a bridge code); the shell
+ * redeems the code by native fetch. Returns false when there is no native
+ * bridge to post to, so the caller keeps its website path.
+ */
+export function postSignedUpToShell(msg: {
+  handoffCode: string;
+  email: string;
+  role: 'CLIENT' | 'CLEANER';
+}): boolean {
+  if (typeof window === 'undefined') return false;
+  const bridge = (window as unknown as { ReactNativeWebView?: { postMessage(m: string): void } })
+    .ReactNativeWebView;
+  if (!bridge || typeof bridge.postMessage !== 'function') return false;
+  bridge.postMessage(JSON.stringify({ type: 'signedUp', ...msg }));
+  return true;
+}

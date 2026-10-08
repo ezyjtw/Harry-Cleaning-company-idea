@@ -39,7 +39,11 @@ export class ComplianceSchedulerService {
       return {
         job: 'sweepSessionRows',
         success: true,
-        details: { bridgeCodes: swept.bridgeCodes, sessions: swept.sessions },
+        details: {
+          bridgeCodes: swept.bridgeCodes,
+          sessions: swept.sessions,
+          handoffCodes: swept.handoffCodes,
+        },
         executedAt: new Date(),
       };
     } catch (error) {

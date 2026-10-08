@@ -1,0 +1,7 @@
+single-use claim dropped (usedAt not compared) [test H1|H2]: RED (caught) Tests  2 failed | 6 skipped (8)
+app binding dropped [test H3]: RED (caught) Tests  1 failed | 7 skipped (8)
+expiry not compared [test H4]: RED (caught) Tests  1 failed | 7 skipped (8)
+account checks dropped [test H5]: RED (caught) Tests  1 failed | 7 skipped (8)
+role binding dropped [test H5]: RED (caught) Tests  1 failed | 7 skipped (8)
+website offered a code (shell gate dropped) [test H6]: RED (caught) Tests  1 failed | 7 skipped (8)
+redeem route trusts any caller as Pro [test H7]: RED (caught) Tests  1 failed | 7 skipped (8)

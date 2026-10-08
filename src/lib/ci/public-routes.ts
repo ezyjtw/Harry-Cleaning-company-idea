@@ -1,5 +1,5 @@
 // Hash law (CLAUDE.md, James-ruled 2026-10-06): the one canonical list of the
-// 26 baselined public routes lives in docs/public-routes.json. Humans read the
+// 28 baselined public routes lives in docs/public-routes.json. Humans read the
 // copy in CLAUDE.md (a unit test keeps the two identical); the hash tool and
 // CI read this module, so neither can drift from the law.
 import list from '../../../docs/public-routes.json';

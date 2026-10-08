@@ -301,6 +301,7 @@ model User {
   deviceSessions         DeviceSession[]
   importedReviews        ImportedReview[]        @relation("ImportedReviews")
   notificationPreference NotificationPreference?
+  nativeHandoffCodes     NativeHandoffCode[]
 
   @@index([email])
   @@index([role])
@@ -342,6 +343,32 @@ model DeviceSession {
 // RENA-003: insert-as-claim for bridge codes. The first redemption inserts the
 // code's jti; a second insert is a unique violation and therefore a replay,
 // across restarts and instances alike. Rows are swept once expired.
+// RENA-031/082 (B5, James-ruled 2026-10-07): the signup and join handoff.
+// The page receives only this short-lived, single-use code; native redeems it
+// by native fetch and only that response carries the Bearer and bridge code.
+// The code itself is never stored: codeHash is its SHA-256. Bound to the user,
+// the role and the app it was minted for. usedAt is the atomic replay claim.
+enum NativeHandoffApp {
+  PRO
+  CUSTOMER
+}
+
+model NativeHandoffCode {
+  id        String           @id @default(cuid())
+  codeHash  String           @unique
+  userId    String
+  role      Role
+  app       NativeHandoffApp
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
 model BridgeCodeUse {
   jti       String   @id
   expiresAt DateTime

@@ -7,9 +7,17 @@ door.
 
 ## The switch
 
-- `PUSH_ACTIVATED = false` in BOTH shells: `mobile/App.tsx` and
-  `mobile-customer/App.tsx`. Registration is fully wired behind it
-  (`registerPush()` runs on shell entry only when the flag is true).
+- Correction (B5, 8 Oct 2026): the Pro shell has no `PUSH_ACTIVATED` flag.
+  Pro push was activated in the 1.0.1 cargo (C7 word spent for that build).
+  The flag exists only in `mobile-customer/App.tsx`, and B5 Customer-5 flips
+  it to `true` per James's ruling. It stays the customer kill switch.
+- B5.8 (RENA-046), both shells: the OS permission is asked only after the
+  rationale card is answered "Turn on", once per install
+  (`rena.pro.pushAsked`, `rena.customer.pushAsked`). Granted registers the
+  token silently via `registerToken()`; a page posting
+  `{type: 'pushSettings'}` opens the settings door (re-ask, else system
+  Settings). Decisions are `pushEntryDecision` and `pushDoorDecision` in
+  each shell's `nav.ts`.
 - Flipping it is pure shell JS ⇒ ships **OTA** (`eas update --channel
 production`) against the current runtimes — no store build needed.
 - FCM v1 service-account key: uploaded by James directly to both Expo
