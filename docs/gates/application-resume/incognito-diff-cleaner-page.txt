@@ -1,0 +1,5 @@
+Logged-out Chromium render, control main 9ef42d5 on :3001 vs branch on :3000, same rig database. The /cleaners/[id] cleaner is verified, insured, Stripe-ready and visible.
+=== /cleaners : visible text identical
+    structured data (presigned URLs masked): identical
+=== /cleaners/[id] (verified) : visible text identical
+    structured data (presigned URLs masked): identical

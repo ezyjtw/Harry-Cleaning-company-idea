@@ -48,6 +48,7 @@ export async function removeIncompleteSignup(params: {
       email: true,
       name: true,
       role: true,
+      image: true,
       cleanerProfile: { select: { id: true } },
       _count: { select: { bookingsAsClient: true, bookingsAsCleaner: true } },
     },
@@ -90,6 +91,22 @@ export async function removeIncompleteSignup(params: {
         { userId: user.id, documentId: d.id },
         err
       );
+      return {
+        ok: false,
+        error: 'Document storage is unavailable. Try again shortly.',
+        status: 503,
+      };
+    }
+  }
+
+  // RENA-101 (James-ruled): the object User.image names goes too (an
+  // unfinished applicant can hold one after a failed submit). A stored key
+  // only; an external URL or inline data has no object of ours.
+  if (user.image && !user.image.startsWith('http') && !user.image.startsWith('data:')) {
+    try {
+      await deleteObject(user.image);
+    } catch (err) {
+      log.error('incomplete_signup', 'image_delete_failed', { userId: user.id }, err);
       return {
         ok: false,
         error: 'Document storage is unavailable. Try again shortly.',

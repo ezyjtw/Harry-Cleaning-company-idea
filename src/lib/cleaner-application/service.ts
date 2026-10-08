@@ -28,7 +28,7 @@ import { currentAgreementHash } from '@/lib/services/agreement.service';
 import { AuditService } from '@/lib/services/audit.service';
 import { DocumentStorageService } from '@/lib/services/document-storage.service';
 import { validatePriceFloors, validateServiceTypePricing } from '@/lib/services/pricing.service';
-import { putObject } from '@/lib/storage/r2-client';
+import { deleteObject, putObject } from '@/lib/storage/r2-client';
 import { decodeBase64File, DOCUMENT_MIMES, IMAGE_MIMES } from '@/lib/utils/file-validation';
 import { displayName } from '@/lib/utils/name';
 import { lookupPostcodeOutcome } from '@/lib/utils/postcode';
@@ -423,7 +423,7 @@ export async function finaliseApplication(
     prisma.cleanerProfile.findUnique({ where: { userId }, select: { id: true } }),
     prisma.user.findUnique({
       where: { id: userId },
-      select: { id: true, email: true, name: true, phone: true, createdAt: true },
+      select: { id: true, email: true, name: true, phone: true, image: true, createdAt: true },
     }),
     activeDraftDocs(userId),
   ]);
@@ -566,7 +566,15 @@ export async function finaliseApplication(
       if (hooks.beforeCommit) await hooks.beforeCommit(tx);
       return created;
     })
-    .catch((err) => {
+    .catch(async (err) => {
+      // RENA-101 (James-ruled): a failed submit leaves no orphan. The public
+      // photo written above is removed again, unless the account already had
+      // that same image (then it was the live photo before this attempt).
+      if (imageKey && user.image !== imageKey) {
+        await deleteObject(imageKey).catch((e) =>
+          log.error('cleaner_application', 'photo_rollback_failed', { userId }, e)
+        );
+      }
       if (err instanceof FinaliseConflict) return null;
       throw err;
     });

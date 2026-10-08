@@ -1,3 +1,8 @@
 Hash sweep (hash law), control main 9ef42d5 on :3001 vs branch on :3000, same rig database.
 Branch hashed twice: all 28 routes identical (deterministic). Branch vs control: all 28 routes identical.
 /join is the one public route this lane touches; its server markup is unchanged (the wizard renders client side). Behaviour change, logged out: one extra GET /api/cleaners/application answered 200 {status: SIGNED_OUT} (incognito-diff-rendered.txt).
+
+Profile photo rulings delta (James, 2026-10-08), control main 9ef42d5 rebuilt on :3001, branch at the delta on :3000, same rig database:
+1. With one rig cleaner verified, insured and Stripe-ready (the /cleaners/[id] proof), /cleaners differed from the control in exactly two presigned photo URLs (X-Amz-Date and X-Amz-Signature, each server's own signing time); with those masked the normalised HTML is identical. This is the rig data, not the code.
+2. With that rig cleaner set back to ineligible (the dataset of the earlier baselines): branch hashed twice, all 28 identical; branch vs control, all 28 identical.
+3. /cleaners/[id] is not in the 28 governed routes; its logged-out rendered text and structured data for a verified cleaner are identical to the control (incognito-diff-cleaner-page.txt).

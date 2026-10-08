@@ -19,6 +19,8 @@ M=[
  ('reminders: the claim does not require an unset marker',[(L,"          status: 'IN_PROGRESS',\n          [pass.marker]: null,\n          lastActivityAt: { lte: pass.dueBefore },","          status: 'IN_PROGRESS',\n          lastActivityAt: { lte: pass.dueBefore },"),(L,"        [pass.marker]: null,\n        user: {","        user: {")],'A11'),
  ('expiry: account age instead of inactivity',[(I,"      OR: [\n        { cleanerApplication: { is: null } },\n        { cleanerApplication: { status: 'IN_PROGRESS', lastActivityAt: { lt: cutoff } } },\n      ],\n","")],'A12'),
  ('removal: objects not deleted',[(I,"      await deleteObject(d.storagePath);","      void d;")],'A13'),
+ ('photo: a failed submit keeps the public photo it wrote',[(S,"if (imageKey && user.image !== imageKey) {","if (false) {")],'A15'),
+ ('photo: removal and expiry leave the User.image object',[(I,"if (user.image && !user.image.startsWith('http') && !user.image.startsWith('data:')) {","if (false) {")],'A16'),
 ]
 out=[]
 for name,edits,t in M:

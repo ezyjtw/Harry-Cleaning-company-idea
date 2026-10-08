@@ -729,4 +729,84 @@ describe.skipIf(!enabled)('cleaner application against Postgres (RENA-100, 101)'
       (await prisma.documentUpload.findUnique({ where: { id: retired.id } }))?.storageState
     ).toBe('DELETED');
   });
+
+  it('A15. a failed submit removes the public photo it wrote; an account already holding that image keeps it', async () => {
+    const forced = {
+      beforeCommit: async () => {
+        throw new Error('forced failure');
+      },
+    };
+    const fresh = await applicant();
+    const v = await completeDraft(fresh.id);
+    expect(
+      (await svc.uploadDraftDocument(fresh.id, { category: 'profile_photo', fileData: PNG })).ok
+    ).toBe(true);
+    const freshKey = `profile-photos/${fresh.id}.png`;
+    await expect(
+      svc.finaliseApplication(
+        { userId: fresh.id, sessionJti: null },
+        { version: v, agreedToTerms: true },
+        req(),
+        forced
+      )
+    ).rejects.toThrow('forced failure');
+    expect(store.objects.has(freshKey)).toBe(false);
+    expect((await prisma.user.findUnique({ where: { id: fresh.id } }))?.image).toBeNull();
+    const ok = await svc.finaliseApplication(
+      { userId: fresh.id, sessionJti: null },
+      { version: v, agreedToTerms: true },
+      req()
+    );
+    expect(ok.ok).toBe(true);
+    expect(store.objects.has(freshKey)).toBe(true);
+    expect((await prisma.user.findUnique({ where: { id: fresh.id } }))?.image).toBe(freshKey);
+
+    const held = await applicant();
+    const heldKey = `profile-photos/${held.id}.png`;
+    await prisma.user.update({ where: { id: held.id }, data: { image: heldKey } });
+    store.objects.set(heldKey, Buffer.from('live photo'));
+    const v2 = await completeDraft(held.id);
+    expect(
+      (await svc.uploadDraftDocument(held.id, { category: 'profile_photo', fileData: PNG })).ok
+    ).toBe(true);
+    await expect(
+      svc.finaliseApplication(
+        { userId: held.id, sessionJti: null },
+        { version: v2, agreedToTerms: true },
+        req(),
+        forced
+      )
+    ).rejects.toThrow('forced failure');
+    expect(store.objects.has(heldKey)).toBe(true);
+  });
+
+  it('A16. admin removal and the expiry sweep delete the object User.image names', async () => {
+    const removed = await applicant();
+    const expired = await applicant('CLEANER', 40);
+    for (const u of [removed, expired]) {
+      await svc.saveApplicationStep(u.id, {
+        version: 0,
+        completedStep: 0,
+        data: DATA,
+        dateOfBirth: DOB,
+      });
+      await prisma.user.update({
+        where: { id: u.id },
+        data: { image: `profile-photos/${u.id}.jpg` },
+      });
+      store.objects.set(`profile-photos/${u.id}.jpg`, Buffer.from('orphan candidate'));
+    }
+    await prisma.cleanerApplicationDraft.update({
+      where: { userId: expired.id },
+      data: { lastActivityAt: new Date(Date.now() - 31 * 86400000) },
+    });
+    expect(await incomplete.removeIncompleteSignup({ userId: removed.id })).toMatchObject({
+      ok: true,
+    });
+    await incomplete.sweepIncompleteSignups();
+    for (const u of [removed, expired]) {
+      expect(store.objects.has(`profile-photos/${u.id}.jpg`)).toBe(false);
+      expect(await prisma.user.findUnique({ where: { id: u.id } })).toBeNull();
+    }
+  });
 });
