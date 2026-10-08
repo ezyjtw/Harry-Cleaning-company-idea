@@ -7,6 +7,7 @@
 // (isWithinTravelRange in lib/utils/postcode.ts), same as search, matching,
 // and the covers endpoint.
 
+import { publicProfileWhere } from '@/lib/cleaner/public-eligibility';
 import { isNewToRena } from '@/lib/constants/badges';
 import prisma from '@/lib/db/prisma';
 import { cleanerCoversPoint } from '@/lib/services/coverage.service';
@@ -24,16 +25,14 @@ import { haversineDistance } from '@/lib/utils/postcode';
  */
 export function eligibleCleanerWhere(now: Date): Record<string, unknown> {
   return {
-    verified: true,
-    insuranceVerified: true,
-    stripeChargesEnabled: true,
-    stripePayoutsEnabled: true,
-    // F26: the visibility switch — hidden profiles leave every discovery
-    // surface (directory, search, area pages, quotes, matching/cascade
-    // candidate searches) through this single predicate. Existing bookings,
-    // agreements, and already-issued cascade offers are untouched: they hold
-    // cleaner ids, they don't re-discover.
-    visibleInDirectory: true,
+    // RENA-101: verified, insured, Stripe-ready and visible come from the one
+    // shared public-profile rule (src/lib/cleaner/public-eligibility.ts).
+    // F26: the visibility switch inside it means hidden profiles leave every
+    // discovery surface (directory, search, area pages, quotes, matching and
+    // cascade candidate searches). Existing bookings, agreements and already
+    // issued cascade offers are untouched: they hold cleaner ids, they don't
+    // re-discover.
+    ...publicProfileWhere(),
     user: { accountStatus: 'ACTIVE', isDeleted: false },
     OR: [{ insuranceExpiresAt: null }, { insuranceExpiresAt: { gt: now } }],
     // Coverage gate: a cleaner with no geocoded location or no travel radius

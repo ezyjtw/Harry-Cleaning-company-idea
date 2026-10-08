@@ -20,6 +20,7 @@ const store = vi.hoisted(() => ({
   objects: new Map<string, Buffer>(),
   failPut: false,
   failDelete: false,
+  failDeleteKey: null as string | null,
 }));
 vi.mock('@/lib/storage/r2-client', () => ({
   putObject: async (key: string, body: Buffer) => {
@@ -32,24 +33,34 @@ vi.mock('@/lib/storage/r2-client', () => ({
     return b;
   },
   deleteObject: async (key: string) => {
-    if (store.failDelete) throw new Error('storage down');
+    if (store.failDelete || (store.failDeleteKey && key === store.failDeleteKey))
+      throw new Error('storage down');
     store.objects.delete(key);
   },
   resolveProfileImageUrl: async () => null,
   getPresignedDownloadUrl: async () => '',
   getCachedPresignedUrl: async () => '',
 }));
-const mail = vi.hoisted(() => ({ inactivity: [] as string[], expiry: [] as string[] }));
+const mail = vi.hoisted(() => ({
+  inactivity: [] as string[],
+  expiry: [] as string[],
+  failExpiry: false,
+  failSignup: false,
+}));
 vi.mock('@/lib/services/email.service', () => ({
   sendApplicationInactivityReminder: async (email: string) => {
     mail.inactivity.push(email);
     return true;
   },
   sendApplicationExpiryReminder: async (email: string) => {
+    if (mail.failExpiry) return false;
     mail.expiry.push(email);
     return true;
   },
-  sendSignupNotification: async () => true,
+  sendSignupNotification: async () => {
+    if (mail.failSignup) throw new Error('mail provider down');
+    return true;
+  },
 }));
 vi.mock('@/lib/utils/postcode', () => ({
   lookupPostcodeOutcome: async () => ({
@@ -179,6 +190,9 @@ describe.skipIf(!enabled)('cleaner application against Postgres (RENA-100, 101)'
   beforeEach(() => {
     store.failPut = false;
     store.failDelete = false;
+    store.failDeleteKey = null;
+    mail.failExpiry = false;
+    mail.failSignup = false;
     mail.inactivity.length = 0;
     mail.expiry.length = 0;
   });
@@ -632,7 +646,11 @@ describe.skipIf(!enabled)('cleaner application against Postgres (RENA-100, 101)'
     ).map((d) => d.storagePath);
     await prisma.cleanerApplicationDraft.update({
       where: { userId: old.id },
-      data: { lastActivityAt: new Date(Date.now() - 31 * day) },
+      // The delivery gate: expiry needs a delivered warning past its window.
+      data: {
+        lastActivityAt: new Date(Date.now() - 31 * day),
+        expiryReminderSentAt: new Date(Date.now() - 4 * day),
+      },
     });
     await prisma.cleanerApplicationDraft.update({
       where: { userId: active.id },
@@ -798,7 +816,10 @@ describe.skipIf(!enabled)('cleaner application against Postgres (RENA-100, 101)'
     }
     await prisma.cleanerApplicationDraft.update({
       where: { userId: expired.id },
-      data: { lastActivityAt: new Date(Date.now() - 31 * 86400000) },
+      data: {
+        lastActivityAt: new Date(Date.now() - 31 * 86400000),
+        expiryReminderSentAt: new Date(Date.now() - 4 * 86400000),
+      },
     });
     expect(await incomplete.removeIncompleteSignup({ userId: removed.id })).toMatchObject({
       ok: true,
@@ -808,5 +829,164 @@ describe.skipIf(!enabled)('cleaner application against Postgres (RENA-100, 101)'
       expect(store.objects.has(`profile-photos/${u.id}.jpg`)).toBe(false);
       expect(await prisma.user.findUnique({ where: { id: u.id } })).toBeNull();
     }
+  });
+
+  it('A17. the deletion warning gate: a failed send deletes nothing; the next-day retry records delivery; expiry waits out the window', async () => {
+    const day = 86400000;
+    const t0 = new Date();
+    const u = await applicant('CLEANER', 40);
+    await svc.saveApplicationStep(u.id, {
+      version: 0,
+      completedStep: 0,
+      data: DATA,
+      dateOfBirth: DOB,
+    });
+    await prisma.cleanerApplicationDraft.update({
+      where: { userId: u.id },
+      data: { lastActivityAt: new Date(t0.getTime() - 31 * day) },
+    });
+    const row = () => prisma.cleanerApplicationDraft.findUnique({ where: { userId: u.id } });
+
+    mail.failExpiry = true;
+    await life.sendApplicationReminders(t0);
+    let d = await row();
+    expect(d?.expiryReminderSentAt).toBeNull();
+    expect(d?.expiryReminderFailures).toBe(1);
+    expect(d?.expiryReminderAttemptAt).not.toBeNull();
+    // Same day: no second attempt.
+    await life.sendApplicationReminders(new Date(t0.getTime() + 3600000));
+    expect((await row())?.expiryReminderFailures).toBe(1);
+    // No delivered warning: expiry never deletes, however long it waits.
+    await incomplete.sweepIncompleteSignups(new Date(t0.getTime() + 20 * day));
+    expect(await prisma.user.findUnique({ where: { id: u.id } })).not.toBeNull();
+
+    // Next day the send succeeds: the timestamp is written only now.
+    mail.failExpiry = false;
+    const t1 = new Date(t0.getTime() + day + 60000);
+    await life.sendApplicationReminders(t1);
+    d = await row();
+    expect(d?.expiryReminderSentAt?.getTime()).toBe(t1.getTime());
+    expect(mail.expiry.filter((e) => e === u.email)).toHaveLength(1);
+    // Inside the window: still kept.
+    await incomplete.sweepIncompleteSignups(new Date(t1.getTime() + 2 * day));
+    expect(await prisma.user.findUnique({ where: { id: u.id } })).not.toBeNull();
+    // Window passed: now eligible, and removed.
+    await incomplete.sweepIncompleteSignups(new Date(t1.getTime() + 3 * day + 60000));
+    expect(await prisma.user.findUnique({ where: { id: u.id } })).toBeNull();
+  });
+
+  it('A18. removal with one storage delete failing keeps the applicant retryable and reports no success; the retry clears everything exactly once', async () => {
+    const u = await applicant();
+    await svc.saveApplicationStep(u.id, {
+      version: 0,
+      completedStep: 0,
+      data: DATA,
+      dateOfBirth: DOB,
+    });
+    await svc.uploadDraftDocument(u.id, { category: 'photo_id', fileData: PNG });
+    const photoKey = `profile-photos/${u.id}.png`;
+    await prisma.user.update({ where: { id: u.id }, data: { image: photoKey } });
+    store.objects.set(photoKey, Buffer.from('photo'));
+    const docPath =
+      (await prisma.documentUpload.findFirst({ where: { userId: u.id } }))?.storagePath ?? '';
+    const audits = () =>
+      prisma.auditLog.count({ where: { action: 'INCOMPLETE_SIGNUP_REMOVED', entityId: u.id } });
+
+    store.failDeleteKey = photoKey;
+    const first = await incomplete.removeIncompleteSignup({ userId: u.id });
+    expect(first).toMatchObject({ ok: false, status: 503 });
+    expect(await prisma.user.findUnique({ where: { id: u.id } })).not.toBeNull();
+    expect(
+      await prisma.cleanerApplicationDraft.findUnique({ where: { userId: u.id } })
+    ).not.toBeNull();
+    expect(await prisma.documentUpload.count({ where: { userId: u.id } })).toBe(1);
+    expect(store.objects.has(photoKey)).toBe(true);
+    expect(await audits()).toBe(0);
+
+    store.failDeleteKey = null;
+    expect(await incomplete.removeIncompleteSignup({ userId: u.id })).toMatchObject({ ok: true });
+    expect(await incomplete.removeIncompleteSignup({ userId: u.id })).toMatchObject({
+      ok: false,
+      status: 404,
+    });
+    expect(await prisma.user.findUnique({ where: { id: u.id } })).toBeNull();
+    expect(await prisma.documentUpload.count({ where: { userId: u.id } })).toBe(0);
+    expect(store.objects.has(photoKey)).toBe(false);
+    expect(store.objects.has(docPath)).toBe(false);
+    expect(await audits()).toBe(1);
+  });
+
+  it('A19. a replacement whose old-object delete fails: the new document stays active, the sweep retries only the old object', async () => {
+    const u = await applicant();
+    await svc.saveApplicationStep(u.id, {
+      version: 0,
+      completedStep: 0,
+      data: DATA,
+      dateOfBirth: DOB,
+    });
+    const first = await svc.uploadDraftDocument(u.id, { category: 'selfie', fileData: PNG });
+    const firstId = first.ok ? first.document.id : '';
+    const oldPath =
+      (await prisma.documentUpload.findUnique({ where: { id: firstId } }))?.storagePath ?? '';
+    store.failDeleteKey = oldPath;
+    const second = await svc.uploadDraftDocument(u.id, {
+      category: 'selfie',
+      fileData: PNG,
+      replaceId: firstId,
+    });
+    expect(second.ok).toBe(true);
+    const newRow = await prisma.documentUpload.findUnique({
+      where: { id: second.ok ? second.document.id : '' },
+    });
+    expect(newRow).toMatchObject({
+      storageState: 'STORED',
+      isDestroyed: false,
+      reviewState: 'DRAFT',
+    });
+    expect(await prisma.documentUpload.findUnique({ where: { id: firstId } })).toMatchObject({
+      isDestroyed: true,
+      storageState: 'STORED',
+    });
+    expect(store.objects.has(oldPath)).toBe(true);
+    store.failDeleteKey = null;
+    await prisma.documentUpload.update({
+      where: { id: firstId },
+      data: { destroyedAt: new Date(Date.now() - 2 * 3600000) },
+    });
+    await storage.DocumentStorageService.sweepIncompleteUploads();
+    expect(store.objects.has(oldPath)).toBe(false);
+    expect(store.objects.has(newRow?.storagePath ?? '')).toBe(true);
+    expect(
+      (await prisma.documentUpload.findUnique({ where: { id: newRow?.id ?? '' } }))?.storageState
+    ).toBe('STORED');
+  });
+
+  it('A20. failed post-commit work (notification email, handoff mint) never rolls the application back', async () => {
+    const { mintDeviceSession } = await import('@/lib/auth/device-session');
+    const u = await applicant();
+    const v = await completeDraft(u.id);
+    const web = await mintDeviceSession({
+      userId: u.id,
+      kind: 'WEB',
+      label: 'join',
+      sv: 0,
+      expiresAt: new Date(Date.now() + 3600000),
+    });
+    mail.failSignup = true;
+    const r = await svc.finaliseApplication(
+      { userId: u.id, sessionJti: web.jti },
+      { version: v, agreedToTerms: true },
+      req({ 'x-rena-shell': 'pro-ios/1.0.3' }),
+      {
+        mintHandoff: async () => {
+          throw new Error('mint down');
+        },
+      }
+    );
+    expect(r).toMatchObject({ ok: true, handoff: 'none', next: '/cleaner' });
+    expect(await prisma.cleanerProfile.count({ where: { userId: u.id } })).toBe(1);
+    expect(
+      (await prisma.cleanerApplicationDraft.findUnique({ where: { userId: u.id } }))?.status
+    ).toBe('SUBMITTED');
   });
 });

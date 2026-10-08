@@ -401,6 +401,8 @@ async function signedIntoProNatively(sessionJti: string | null): Promise<boolean
 export interface FinaliseHooks {
   /** Test seam only: runs inside the transaction just before it commits. */
   beforeCommit?: (tx: Prisma.TransactionClient) => Promise<void>;
+  /** Test seam only: replaces the handoff mint (to prove a failing mint). */
+  mintHandoff?: typeof mintNativeHandoffCode;
 }
 
 export async function finaliseApplication(
@@ -610,12 +612,23 @@ export async function finaliseApplication(
   }
   log.info('cleaner_application', 'submitted', { userId });
 
-  if (await signedIntoProNatively(applicant.sessionJti)) {
-    return { ok: true, handoff: 'none', next: '/app/today' };
-  }
-  if (shellHandoffApp(req.headers, 'CLEANER') === 'PRO') {
-    const handoffCode = await mintNativeHandoffCode({ userId, role: 'CLEANER', app: 'PRO' });
-    return { ok: true, handoff: 'code', handoffCode, next: null };
+  // The application is committed: nothing below may fail the request or
+  // undo it. A failed handoff mint falls back to no code (the shell's native
+  // login door), never to an error.
+  try {
+    if (await signedIntoProNatively(applicant.sessionJti)) {
+      return { ok: true, handoff: 'none', next: '/app/today' };
+    }
+    if (shellHandoffApp(req.headers, 'CLEANER') === 'PRO') {
+      const handoffCode = await (hooks.mintHandoff ?? mintNativeHandoffCode)({
+        userId,
+        role: 'CLEANER',
+        app: 'PRO',
+      });
+      return { ok: true, handoff: 'code', handoffCode, next: null };
+    }
+  } catch (err) {
+    log.error('cleaner_application', 'post_commit_handoff_failed', { userId }, err);
   }
   return { ok: true, handoff: 'none', next: '/cleaner' };
 }

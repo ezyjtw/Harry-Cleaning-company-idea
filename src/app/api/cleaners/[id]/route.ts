@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 
+import { publicProfileWhere } from '@/lib/cleaner/public-eligibility';
 import prisma from '@/lib/db/prisma';
 import { resolveProfileImageUrl } from '@/lib/storage/r2-client';
 
@@ -8,13 +9,10 @@ export async function GET(_request: Request, { params }: { params: { id: string 
     const profile = await prisma.cleanerProfile.findFirst({
       where: {
         userId: params.id,
-        verified: true,
-        insuranceVerified: true,
-        stripeChargesEnabled: true,
-        stripePayoutsEnabled: true,
-        // F26: hidden profiles are not served by direct URL either — the
-        // switch means gone from discovery, not merely delisted.
-        visibleInDirectory: true,
+        // RENA-101: the one shared public-profile rule (verified, insured,
+        // Stripe-ready, visible). F26: hidden profiles are not served by
+        // direct URL either; the switch means gone, not merely delisted.
+        ...publicProfileWhere(),
       },
       include: {
         user: {

@@ -366,6 +366,11 @@ model CleanerApplicationDraft {
   lastActivityAt           DateTime                 @default(now())
   inactivityReminderSentAt DateTime?
   expiryReminderSentAt     DateTime?
+  // James-ruled delivery gate: the deletion warning is marked sent only after
+  // a successful send. Each attempt is claimed (at most one per day); a
+  // failure counts here and shows to admin as "warning undelivered".
+  expiryReminderAttemptAt  DateTime?
+  expiryReminderFailures   Int                      @default(0)
   submittedAt              DateTime?
   createdAt                DateTime                 @default(now())
   updatedAt                DateTime                 @updatedAt

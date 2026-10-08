@@ -20,6 +20,9 @@ import { deleteObject } from '@/lib/storage/r2-client';
 // Exported so the admin dossier (F28) can show the exact auto-expiry date —
 // the sweep window has one definition, not a copy in the UI.
 export const SWEEP_AGE_DAYS = 30;
+// The deletion warning goes out 3 days before expiry; the sweep waits at least
+// this long after a delivered warning (lifecycle.ts sends it).
+export const EXPIRY_WARNING_WINDOW_DAYS = 3;
 const SWEEP_BATCH_LIMIT = 50;
 
 // James-ruled 7 Sep 2026: these two real incomplete signups are EXEMPT from
@@ -156,8 +159,13 @@ export async function removeIncompleteSignup(params: {
  * throws, caught per-row). Audit rows carry swept:true to distinguish them
  * from admin-pressed removals.
  */
-export async function sweepIncompleteSignups(): Promise<{ processed: number }> {
-  const cutoff = new Date(Date.now() - SWEEP_AGE_DAYS * 24 * 60 * 60 * 1000);
+export async function sweepIncompleteSignups(
+  now: Date = new Date()
+): Promise<{ processed: number }> {
+  const cutoff = new Date(now.getTime() - SWEEP_AGE_DAYS * 24 * 60 * 60 * 1000);
+  const warningWindowEnd = new Date(
+    now.getTime() - EXPIRY_WARNING_WINDOW_DAYS * 24 * 60 * 60 * 1000
+  );
   const candidates = await prisma.user.findMany({
     where: {
       role: 'CLEANER',
@@ -166,9 +174,18 @@ export async function sweepIncompleteSignups(): Promise<{ processed: number }> {
       // RENA-100: 30 days of INACTIVITY. An account with a server draft is due
       // only when the draft has been idle that long; one without (a pre-draft
       // signup) keeps the account-age rule.
+      // James-ruled delivery gate: an application with a draft is deleted
+      // only after its deletion warning was actually delivered AND the
+      // warning window has passed since that delivery.
       OR: [
         { cleanerApplication: { is: null } },
-        { cleanerApplication: { status: 'IN_PROGRESS', lastActivityAt: { lt: cutoff } } },
+        {
+          cleanerApplication: {
+            status: 'IN_PROGRESS',
+            lastActivityAt: { lt: cutoff },
+            expiryReminderSentAt: { not: null, lte: warningWindowEnd },
+          },
+        },
       ],
       bookingsAsClient: { none: {} },
       bookingsAsCleaner: { none: {} },

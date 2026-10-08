@@ -21,6 +21,10 @@ M=[
  ('removal: objects not deleted',[(I,"      await deleteObject(d.storagePath);","      void d;")],'A13'),
  ('photo: a failed submit keeps the public photo it wrote',[(S,"if (imageKey && user.image !== imageKey) {","if (false) {")],'A15'),
  ('photo: removal and expiry leave the User.image object',[(I,"if (user.image && !user.image.startsWith('http') && !user.image.startsWith('data:')) {","if (false) {")],'A16'),
+ ('warning gate: expiry without a delivered warning',[(I,"            expiryReminderSentAt: { not: null, lte: warningWindowEnd },\n","")],'A17'),
+ ('warning gate: expiry without waiting out the window',[(I,"expiryReminderSentAt: { not: null, lte: warningWindowEnd },","expiryReminderSentAt: { not: null },")],'A17'),
+ ('warning gate: marked sent before delivery',[(L,"data: { expiryReminderAttemptAt: now },","data: { expiryReminderAttemptAt: now, expiryReminderSentAt: now },")],'A17'),
+ ('warning gate: no once-a-day retry limit',[(L,"    OR: [{ expiryReminderAttemptAt: null }, { expiryReminderAttemptAt: { lte: retryBefore } }],\n","")],'A17'),
 ]
 out=[]
 for name,edits,t in M:

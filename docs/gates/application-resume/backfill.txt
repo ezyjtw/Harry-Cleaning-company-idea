@@ -28,8 +28,27 @@ where isDestroyed (destroyDocument deletes the object before it marks the row),
 STORED otherwise. Counts map one to one: 16+4 SUBMITTED, 8+2 VERIFIED, 8+2
 REJECTED; 32 STORED, 8 DELETED (the 8 destroyed rows).
 
+Auditor condition (a), added 2026-10-08:
+- No existing row becomes draft-owned: the backfill sets only VERIFIED,
+  REJECTED or keeps the default SUBMITTED; it never writes DRAFT. Rows in
+  DRAFT after the backfill: 0. Abandoned-application cleanup
+  (removeIncompleteSignup) acts only on a CLEANER with NO CleanerProfile (its
+  structural guard), so a completed cleaner's documents are never reachable by
+  it; the stale-upload sweep acts only on PENDING rows and destroyed rows,
+  which the backfill never creates.
+- Idempotent: rerunning the three backfill UPDATE statements on the migrated
+  database leaves the md5 over every column (new ones included) unchanged:
+  66f592778cfd5592047b8ed0422dbb09 before and after.
+
 Rollback note (only while no draft data exists; after go-live a rollback
-deletes unfinished applications and must not run without James's word):
+deletes unfinished applications and must not run without James's word).
+What cannot be undone once drafts exist: every unfinished application's saved
+steps, its restricted date of birth, its reminder and warning-delivery state,
+and the review and storage state of its draft documents are lost with the
+dropped tables and columns; their stored objects would be left untracked (run
+the removal for each unfinished applicant BEFORE any rollback); submitted
+cleaners' date of birth on CleanerVetting is lost. The 20261008170000 warning
+columns drop with the draft table.
   1. Revert the application code first (the routes read these columns).
   2. Run, in one transaction:
        DROP INDEX "DocumentUpload_one_active_draft_per_category";

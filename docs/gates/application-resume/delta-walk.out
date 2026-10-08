@@ -1,0 +1,4 @@
+1. admin list, failing warning: shows "Warning undelivered"; delivered warning: no chip
+2. logged out ?preview=1 on an unverified cleaner: not available view
+2. logged out ?preview=true&admin=1 on an unverified cleaner: not available view
+3. 31 idle days, sweep {"processed":1}: warning delivered 4 days ago -> removed; no warning delivered -> kept

@@ -16,7 +16,7 @@ async function main() {
     await prisma.user.update({ where: { id: u.id }, data: { createdAt: past } });
     await prisma.cleanerApplicationDraft.update({
       where: { userId: u.id },
-      data: { lastActivityAt: past },
+      data: { lastActivityAt: past, expiryReminderSentAt: new Date(Date.now() - 4 * 86400000) },
     });
     console.log('aged');
   }

@@ -43,80 +43,118 @@ function firstNameOf(data: unknown, fallback: string | null): string {
 export async function sendApplicationReminders(
   now: Date = new Date(),
   send: Send = realSend
-): Promise<{ inactivity: number; expiry: number }> {
-  const out = { inactivity: 0, expiry: 0 };
-  const passes = [
-    {
-      kind: 'inactivity' as const,
-      marker: 'inactivityReminderSentAt' as const,
-      dueBefore: new Date(now.getTime() - INACTIVITY_REMINDER_DAYS * DAY_MS),
+): Promise<{ inactivity: number; expiry: number; expiryFailed: number }> {
+  const out = { inactivity: 0, expiry: 0, expiryFailed: 0 };
+
+  // ─── Reminder 1, the 2-day nudge (James-ruled: claim, then send; a failed
+  // nudge is not retried, never repeating wins) ───
+  const nudgeDue = new Date(now.getTime() - INACTIVITY_REMINDER_DAYS * DAY_MS);
+  const nudges = await prisma.cleanerApplicationDraft.findMany({
+    where: {
+      status: 'IN_PROGRESS',
+      lastActivityAt: { lte: nudgeDue },
+      inactivityReminderSentAt: null,
+      user: { isDeleted: false, role: 'CLEANER', cleanerProfile: { is: null } },
     },
-    {
-      kind: 'expiry' as const,
-      marker: 'expiryReminderSentAt' as const,
-      dueBefore: new Date(now.getTime() - (SWEEP_AGE_DAYS - EXPIRY_REMINDER_DAYS_BEFORE) * DAY_MS),
-    },
-  ];
-  for (const pass of passes) {
-    const due = await prisma.cleanerApplicationDraft.findMany({
+    select: { id: true, userId: true, data: true, user: { select: { email: true, name: true } } },
+    take: BATCH,
+  });
+  for (const row of nudges) {
+    // The claim: exactly one run sets the marker, and only while the row is
+    // still due (a resume in between moves lastActivityAt and wins).
+    const claim = await prisma.cleanerApplicationDraft.updateMany({
       where: {
+        id: row.id,
         status: 'IN_PROGRESS',
-        lastActivityAt: { lte: pass.dueBefore },
-        [pass.marker]: null,
-        user: {
-          isDeleted: false,
-          role: 'CLEANER',
-          cleanerProfile: { is: null },
-          ...(pass.kind === 'expiry' ? { email: { notIn: SWEEP_EXEMPT_EMAILS } } : {}),
-        },
+        inactivityReminderSentAt: null,
+        lastActivityAt: { lte: nudgeDue },
       },
-      select: {
-        id: true,
-        userId: true,
-        data: true,
-        lastActivityAt: true,
-        user: { select: { email: true, name: true } },
-      },
-      take: BATCH,
+      data: { inactivityReminderSentAt: now },
     });
-    for (const row of due) {
-      // The claim: exactly one run sets the marker, and only while the row is
-      // still due (a resume in between moves lastActivityAt and wins).
-      const claim = await prisma.cleanerApplicationDraft.updateMany({
-        where: {
-          id: row.id,
-          status: 'IN_PROGRESS',
-          [pass.marker]: null,
-          lastActivityAt: { lte: pass.dueBefore },
-        },
-        data: { [pass.marker]: now },
+    if (claim.count !== 1) continue;
+    try {
+      if (await send.inactivity(row.user.email, firstNameOf(row.data, row.user.name)))
+        out.inactivity += 1;
+      else
+        log.error('cleaner_application', 'reminder_not_sent', {
+          userId: row.userId,
+          kind: 'inactivity',
+        });
+    } catch (err) {
+      log.error(
+        'cleaner_application',
+        'reminder_failed',
+        { userId: row.userId, kind: 'inactivity' },
+        err
+      );
+    }
+  }
+
+  // ─── Reminder 2, the deletion warning (James-ruled delivery gate) ───
+  // Marked sent ONLY after a successful send. Each attempt is claimed by a
+  // CAS on expiryReminderAttemptAt, at most once a day, so overlapping runs
+  // never double send and a failure retries the next day. Expiry waits for
+  // a delivered warning plus its window (incomplete-signup.service.ts).
+  const warnDue = new Date(now.getTime() - (SWEEP_AGE_DAYS - EXPIRY_REMINDER_DAYS_BEFORE) * DAY_MS);
+  const retryBefore = new Date(now.getTime() - DAY_MS);
+  const attemptable = {
+    status: 'IN_PROGRESS' as const,
+    lastActivityAt: { lte: warnDue },
+    expiryReminderSentAt: null,
+    OR: [{ expiryReminderAttemptAt: null }, { expiryReminderAttemptAt: { lte: retryBefore } }],
+  };
+  const warnings = await prisma.cleanerApplicationDraft.findMany({
+    where: {
+      ...attemptable,
+      user: {
+        isDeleted: false,
+        role: 'CLEANER',
+        cleanerProfile: { is: null },
+        email: { notIn: SWEEP_EXEMPT_EMAILS },
+      },
+    },
+    select: {
+      id: true,
+      userId: true,
+      data: true,
+      lastActivityAt: true,
+      user: { select: { email: true, name: true } },
+    },
+    take: BATCH,
+  });
+  for (const row of warnings) {
+    const claim = await prisma.cleanerApplicationDraft.updateMany({
+      where: { id: row.id, ...attemptable },
+      data: { expiryReminderAttemptAt: now },
+    });
+    if (claim.count !== 1) continue;
+    // The earliest the sweep may act: 30 idle days, and never sooner than the
+    // warning window after this delivery.
+    const closesOn = new Date(
+      Math.max(
+        row.lastActivityAt.getTime() + SWEEP_AGE_DAYS * DAY_MS,
+        now.getTime() + EXPIRY_REMINDER_DAYS_BEFORE * DAY_MS
+      )
+    );
+    let delivered = false;
+    try {
+      delivered = await send.expiry(row.user.email, firstNameOf(row.data, row.user.name), closesOn);
+    } catch (err) {
+      log.error('cleaner_application', 'expiry_warning_failed', { userId: row.userId }, err);
+    }
+    if (delivered) {
+      await prisma.cleanerApplicationDraft.updateMany({
+        where: { id: row.id, expiryReminderSentAt: null },
+        data: { expiryReminderSentAt: now },
       });
-      if (claim.count !== 1) continue;
-      const firstName = firstNameOf(row.data, row.user.name);
-      try {
-        const sent =
-          pass.kind === 'inactivity'
-            ? await send.inactivity(row.user.email, firstName)
-            : await send.expiry(
-                row.user.email,
-                firstName,
-                new Date(row.lastActivityAt.getTime() + SWEEP_AGE_DAYS * DAY_MS)
-              );
-        if (sent) out[pass.kind] += 1;
-        else
-          log.error('cleaner_application', 'reminder_not_sent', {
-            userId: row.userId,
-            kind: pass.kind,
-          });
-      } catch (err) {
-        // Never repeat beats at-least-once: the marker stays, loudly.
-        log.error(
-          'cleaner_application',
-          'reminder_failed',
-          { userId: row.userId, kind: pass.kind },
-          err
-        );
-      }
+      out.expiry += 1;
+    } else {
+      await prisma.cleanerApplicationDraft.updateMany({
+        where: { id: row.id },
+        data: { expiryReminderFailures: { increment: 1 } },
+      });
+      out.expiryFailed += 1;
+      log.error('cleaner_application', 'expiry_warning_undelivered', { userId: row.userId });
     }
   }
   return out;
