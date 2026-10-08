@@ -11,6 +11,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Animated,
   BackHandler,
   Image,
@@ -36,6 +37,8 @@ import {
   meaningfulPayload,
   nextNavState,
   parseShellMessage,
+  pushDoorDecision,
+  pushEntryDecision,
   resolveLink,
   tabRootOf,
   type NavRequest,
@@ -99,20 +102,24 @@ const NAV_CTX = buildNavCtx(
   __DEV__ && /^http:\/\//.test(BASE_URL) ? BASE_HOST : null
 );
 const PUSH_TOKEN_KEY = 'rena.customer.pushtoken';
+// B5.8 (RENA-046): ISO timestamp written when the rationale card (or the
+// settings door) is answered; the card shows once per install.
+const PUSH_ASKED_KEY = 'rena.customer.pushAsked';
 // Where the Pro app lives when it isn't installed. Empty until the App Store
 // listing exists — the wrong-app door shows TestFlight/invite guidance instead.
 const PRO_STORE_URL: string = (Constants.expoConfig?.extra?.proStoreUrl as string) || '';
 
-// ─── Push: PRESENT BUT INERT (James-ruled, the C7 law carried over) ──────────
-// The binary ships push-capable — aps-environment entitlement, remote-
-// notification background mode, the expo-notifications module, deep-link
-// routing — but NOTHING prompts for permission or registers a token until
-// James spends the activation word for THIS app. The flag is the gate.
-const PUSH_ACTIVATED = false;
+// ─── Push (RENA-078, activated in B5 per James's ruling) ────────────────────
+// The binary ships push-capable (aps-environment entitlement, remote-
+// notification background mode, expo-notifications, deep-link routing). B5.8:
+// the OS permission is asked only after the rationale card is answered
+// "Turn on", once per install; a settings door re-asks or opens Settings.
+// The flag stays as the single kill switch: false makes all of it inert again.
+const PUSH_ACTIVATED = true;
 
 // Deregistration rides every path that clears the bearer (fires before the
-// bearer is deleted — the endpoint is authed). Fail-soft; with activation
-// still gated there is never a token to remove, so this is dormant plumbing.
+// bearer is deleted — the endpoint is authed). Fail-soft; with no stored
+// token (never granted) there is nothing to remove and it returns at once.
 // Session lifecycle (James-ruled, Home-after-login): every shell logout ends
 // the WEB session too. The server expires the NextAuth session cookie on this
 // response, so the shared jar (iOS NSHTTPCookieStorage via the native fetch,
@@ -522,20 +529,14 @@ function RootView() {
     setPhase('start');
   }, []);
 
-  // Push registration — GATED. Wired and ready, but PUSH_ACTIVATED is false
-  // until James spends the activation word for this app: no permission prompt,
-  // no token, no sends. iOS grants the permission ask exactly one clean
-  // chance, so it stays unspent until the moment is chosen.
-  const registerPush = useCallback(async () => {
+  // B5.8: register this device's Expo token when (and only when) the OS
+  // permission is already granted. Never prompts. Idempotent and fail-soft.
+  const registerToken = useCallback(async () => {
     try {
       const bearer = await SecureStore.getItemAsync(TOKEN_KEY);
       if (!bearer) return;
       const current = await Notifications.getPermissionsAsync();
-      let status = current.status;
-      if (status !== 'granted' && current.canAskAgain !== false) {
-        status = (await Notifications.requestPermissionsAsync()).status;
-      }
-      if (status !== 'granted') return;
+      if (current.status !== 'granted') return;
       const projectId = Constants.expoConfig?.extra?.eas?.projectId as string | undefined;
       const expo = await Notifications.getExpoPushTokenAsync(projectId ? { projectId } : undefined);
       if (!expo?.data) return;
@@ -558,9 +559,68 @@ function RootView() {
       /* fail-soft */
     }
   }, []);
+
+  // B5.8 (RENA-046): on shell entry, nav.ts pushEntryDecision: granted
+  // registers silently; never asked shows the rationale card once; asked
+  // and not granted does nothing (the settings door re-asks).
+  const [pushCard, setPushCard] = useState(false);
   useEffect(() => {
-    if (phase === 'shell' && PUSH_ACTIVATED) registerPush();
-  }, [phase, registerPush]);
+    if (phase !== 'shell' || !PUSH_ACTIVATED) return;
+    let alive = true;
+    (async () => {
+      try {
+        const current = await Notifications.getPermissionsAsync();
+        const asked = !!(await SecureStore.getItemAsync(PUSH_ASKED_KEY));
+        const d = pushEntryDecision({ asked, granted: current.status === 'granted' });
+        if (!alive) return;
+        if (d === 'register') registerToken();
+        else if (d === 'show_card') setPushCard(true);
+      } catch {
+        /* fail-soft */
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [phase, registerToken]);
+  const answerPushCard = useCallback(
+    async (turnOn: boolean) => {
+      setPushCard(false);
+      await SecureStore.setItemAsync(PUSH_ASKED_KEY, new Date().toISOString()).catch(() => {});
+      if (!turnOn) return;
+      try {
+        const r = await Notifications.requestPermissionsAsync();
+        if (r.status === 'granted') registerToken();
+      } catch {
+        /* fail-soft */
+      }
+    },
+    [registerToken]
+  );
+  // B5.8: the settings door (a page posts {type: 'pushSettings'}): re-ask
+  // while the OS still allows it, else open the app's system Settings.
+  const pushDoor = useCallback(async () => {
+    if (!PUSH_ACTIVATED) return;
+    try {
+      const current = await Notifications.getPermissionsAsync();
+      const d = pushDoorDecision({
+        granted: current.status === 'granted',
+        canAskAgain: current.canAskAgain !== false,
+      });
+      if (d === 'already_on') {
+        registerToken();
+        Alert.alert('Notifications are on', 'You will hear about your bookings and messages.');
+      } else if (d === 'ask') {
+        await SecureStore.setItemAsync(PUSH_ASKED_KEY, new Date().toISOString()).catch(() => {});
+        const r = await Notifications.requestPermissionsAsync();
+        if (r.status === 'granted') registerToken();
+      } else {
+        Linking.openSettings().catch(() => {});
+      }
+    } catch {
+      /* fail-soft */
+    }
+  }, [registerToken]);
 
   return (
     <View style={styles.root}>
@@ -614,6 +674,13 @@ function RootView() {
           onBridged={() => setBridgeUrl(null)}
           onSessionLost={logout}
           externalNav={externalNav}
+          onPushDoor={pushDoor}
+        />
+      )}
+      {phase === 'shell' && pushCard && (
+        <PushRationaleCard
+          body="RENA uses notifications for booking updates and messages from your cleaner."
+          onAnswer={answerPushCard}
         />
       )}
 
@@ -1031,6 +1098,7 @@ function ShellScreen({
   onBridged,
   onSessionLost,
   externalNav,
+  onPushDoor,
 }: {
   activeTab: string;
   setActiveTab: (k: string) => void;
@@ -1039,6 +1107,8 @@ function ShellScreen({
   onSessionLost: () => void;
   /** R4 lane-3 sibling: a push/deep-link URL with payload, forwarded to its pane. */
   externalNav?: { key: string; url: string; seq: number } | null;
+  /** B5.8: a page asked for the notification settings door. */
+  onPushDoor?: () => void;
 }) {
   // Cross-tab deep links: when the tapped link carries a query or hash beyond
   // the bare tab root (the Home review card's ?review=<id>), hand the full URL
@@ -1127,6 +1197,14 @@ function ShellScreen({
                 tabKey={tab.key}
                 onCrossTab={selectTab}
                 forwardNav={forwards[tab.key]}
+                onRawMessage={(raw) => {
+                  if (!onPushDoor || raw.indexOf('pushSettings') < 0) return;
+                  try {
+                    if (JSON.parse(raw)?.type === 'pushSettings') onPushDoor();
+                  } catch {
+                    /* not ours */
+                  }
+                }}
                 active={isActive}
                 registerBack={(h) => {
                   backHandlers.current[tab.key] = h;
@@ -1710,6 +1788,56 @@ function SeamlessWebView({
   );
 }
 
+// ─── B5.8 the notification rationale card (RENA-046) ─────────────────────────
+// Shown once per install, before the OS prompt, in the shell phase. "Turn on"
+// asks the OS; "Not now" does not; either answer is stored so the card never
+// returns on its own (a settings door re-asks).
+function PushRationaleCard({
+  body,
+  onAnswer,
+}: {
+  body: string;
+  onAnswer: (turnOn: boolean) => void;
+}) {
+  const insets = useSafeAreaInsets();
+  return (
+    <View style={styles.pushCardScrim}>
+      <View style={[styles.pushCard, { marginBottom: insets.bottom + 96 }]}>
+        <Text style={styles.pushCardTitle}>Turn on notifications</Text>
+        <Text style={styles.pushCardBody}>{body}</Text>
+        <View style={styles.pushCardActions}>
+          <Pressable
+            style={({ pressed }) => [
+              styles.secondaryBtn,
+              styles.pushCardBtn,
+              pressed && styles.pressed,
+            ]}
+            onPress={() => {
+              fireHaptic('light');
+              onAnswer(false);
+            }}
+          >
+            <Text style={styles.secondaryBtnText}>Not now</Text>
+          </Pressable>
+          <Pressable
+            style={({ pressed }) => [
+              styles.primaryBtn,
+              styles.pushCardBtn,
+              pressed && styles.pressed,
+            ]}
+            onPress={() => {
+              fireHaptic('light');
+              onAnswer(true);
+            }}
+          >
+            <Text style={styles.primaryBtnText}>Turn on</Text>
+          </Pressable>
+        </View>
+      </View>
+    </View>
+  );
+}
+
 // ─── Tab bar: five slots, BOOK raised centre (the approved mockup) ────────────
 function TabBar({ active, onSelect }: { active: string; onSelect: (k: string) => void }) {
   const insets = useSafeAreaInsets();
@@ -1746,6 +1874,24 @@ function TabBar({ active, onSelect }: { active: string; onSelect: (k: string) =>
 }
 
 const styles = StyleSheet.create({
+  // B5.8 the notification rationale card.
+  pushCardScrim: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(22,41,107,0.18)',
+    paddingHorizontal: 16,
+  },
+  pushCard: {
+    backgroundColor: SURFACE,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: LINE,
+    padding: 20,
+  },
+  pushCardTitle: { fontFamily: SANS_SEMI, color: INK, fontSize: 18, lineHeight: 24 },
+  pushCardBody: { fontFamily: SANS, color: INK2, fontSize: 15, lineHeight: 22, marginTop: 6 },
+  pushCardActions: { flexDirection: 'row', gap: 12, marginTop: 18 },
+  pushCardBtn: { flex: 1, marginTop: 0 },
   root: { flex: 1, backgroundColor: PAGE },
   flex: { flex: 1, backgroundColor: PAGE },
   center: {
