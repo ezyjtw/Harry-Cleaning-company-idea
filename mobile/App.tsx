@@ -35,17 +35,20 @@ import { WebView, type WebViewMessageEvent, type WebViewNavigation } from 'react
 
 import {
   INITIAL_NAV_STATE,
+  INITIAL_SESSION_LOSS,
   buildNavCtx,
   classifyNavigation,
   isRenaOrigin,
   isStatementUrl,
   locationAssignScript,
   nextNavState,
+  nextSessionLostAction,
   resolveLink,
   tabRootOf,
   type NavRequest,
   type NavState,
   type NavVerdict,
+  type SessionLossState,
 } from './nav';
 
 // James's official "RENA Cleaner" logo lockup, extracted from the supplied asset
@@ -125,9 +128,13 @@ async function endWebSession(): Promise<void> {
   try {
     const ctrl = new AbortController();
     const cutoff = setTimeout(() => ctrl.abort(), 1500);
+    // B5.3 (RENA-029, D-w): send the Bearer so the server revokes THIS
+    // device's BEARER row and its bridged WEB children in one transaction
+    // (the cookie path stays the fallback). Read before the caller deletes it.
+    const bearer = await SecureStore.getItemAsync(TOKEN_KEY).catch(() => null);
     await fetch(`${BASE_URL}/api/auth/shell-logout`, {
       method: 'POST',
-      headers: SHELL_HEADER,
+      headers: bearer ? { ...SHELL_HEADER, Authorization: `Bearer ${bearer}` } : SHELL_HEADER,
       signal: ctrl.signal,
     });
     clearTimeout(cutoff);
@@ -482,7 +489,19 @@ function RootView() {
     setPhase('shell');
   }, []);
 
+  // B5.3: one logout at a time. Several panes, the watcher and the badges
+  // poll can all report a lost session at once; only the first runs.
+  const loggingOut = useRef(false);
   const logout = useCallback(async () => {
+    if (loggingOut.current) return;
+    loggingOut.current = true;
+    try {
+      await logoutOnce();
+    } finally {
+      loggingOut.current = false;
+    }
+  }, []);
+  const logoutOnce = async () => {
     await Promise.all([deregisterPush(), endWebSession()]);
     await SecureStore.deleteItemAsync(TOKEN_KEY);
     // Root-level survivors cleared with the session (James-ruled): a parked
@@ -496,7 +515,7 @@ function RootView() {
     Notifications.setBadgeCountAsync(0).catch(() => {});
     setBridgeUrl(null);
     setPhase('login');
-  }, []);
+  };
 
   // C5: leaving the lock screen for the password form or another account clears
   // the stored bearer either way; the destinations differ.
@@ -1083,38 +1102,58 @@ function ShellScreen({
     if (lockNoticeTimer.current) clearTimeout(lockNoticeTimer.current);
     lockNoticeTimer.current = setTimeout(() => setLockNotice(null), 1800);
   }, []);
+  // B5.3 (RENA-029, James-ruled): the badges poll is also the session-lost
+  // probe. nav.ts nextSessionLostAction: a 2xx or a definitive 403 resets,
+  // a 401 counts, a 5xx, 429 or network failure neither counts nor resets;
+  // two genuine 401s at least 5 s apart within 3 minutes log out. A 401
+  // brings the next tick forward to 15 s so the second verdict comes fast.
   useEffect(() => {
     let alive = true;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    let loss: SessionLossState = INITIAL_SESSION_LOSS;
+    const schedule = (ms: number) => {
+      if (alive) timer = setTimeout(poll, ms);
+    };
     const poll = async () => {
+      let status: number | 'network' = 'network';
       try {
         const token = await SecureStore.getItemAsync(TOKEN_KEY);
-        if (!token) return;
+        if (!token) {
+          schedule(60000);
+          return;
+        }
         const res = await fetch(`${BASE_URL}/api/cleaner/badges`, {
           headers: { Authorization: `Bearer ${token}`, ...SHELL_HEADER },
         });
-        if (!res.ok) return;
-        lastNativeOkAt = Date.now();
-        const d = await res.json().catch(() => null);
-        if (alive && d && typeof d.goLive === 'boolean') setGoLive(d.goLive);
-        if (alive && d && typeof d.offers === 'number') {
-          setBadges({ offers: d.offers, messages: d.messages ?? 0 });
-          // C7: mirror the tab-badge total onto the app icon. Built now, but
-          // iOS only DISPLAYS icon badges once notification permission is
-          // granted — which is C7 activation's job — so this is invisible
-          // until James's activation word. Fail-soft like the poll itself.
-          Notifications.setBadgeCountAsync(d.offers + (d.messages ?? 0)).catch(() => {});
+        status = res.status;
+        if (res.ok) {
+          lastNativeOkAt = Date.now();
+          const d = await res.json().catch(() => null);
+          if (alive && d && typeof d.goLive === 'boolean') setGoLive(d.goLive);
+          if (alive && d && typeof d.offers === 'number') {
+            setBadges({ offers: d.offers, messages: d.messages ?? 0 });
+            // C7: mirror the tab-badge total onto the app icon (fail-soft).
+            Notifications.setBadgeCountAsync(d.offers + (d.messages ?? 0)).catch(() => {});
+          }
         }
       } catch {
-        /* fail-soft */
+        status = 'network';
       }
+      if (!alive) return;
+      const r = nextSessionLostAction(loss, status, Date.now());
+      loss = r.state;
+      if (r.logout) {
+        onSessionLost();
+        return;
+      }
+      schedule(status === 401 ? 15000 : 60000);
     };
     poll();
-    const t = setInterval(poll, 60000);
     return () => {
       alive = false;
-      clearInterval(t);
+      if (timer) clearTimeout(timer);
     };
-  }, []);
+  }, [onSessionLost]);
 
   return (
     <SafeAreaView style={styles.flex} edges={['top']}>
@@ -1439,7 +1478,13 @@ function SeamlessWebView({
   // the native login screen instead of showing the web form inside the shell.
   const onNav = (nav: WebViewNavigation) => {
     canGoBackRef.current = nav.canGoBack;
-    if (onSessionLost && (/\/login(\?|$)/.test(nav.url) || /\/api\/auth\/signin/.test(nav.url))) {
+    // B5.3: only OUR /login (or the signin route, with or without B2's
+    // callbackUrl) means the session is gone; a foreign /login never logs out.
+    if (
+      onSessionLost &&
+      isRenaOrigin(nav.url, NAV_CTX) &&
+      (/\/login(\?|$)/.test(nav.url) || /\/api\/auth\/signin/.test(nav.url))
+    ) {
       onSessionLost();
     }
     // Cross-tab nav fix: Next.js links are SPA pushState navigations, which
