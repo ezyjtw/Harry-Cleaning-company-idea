@@ -425,6 +425,20 @@ export function parseShellMessage(raw: string): SignedUpMessage | null {
   return { type: 'signedUp', handoffCode: o.handoffCode, email: o.email, role: APP_ROLE };
 }
 
+/**
+ * B5.4 fallback (deviation 8): a same-origin landing on the website portal
+ * (/account, /cleaner, /dashboard) while the shell is still in its signup or
+ * join phase means the handoff message never arrived (an old page build, a
+ * lost post). The shell then switches to native login.
+ */
+export function isPortalLanding(url: string, ctx: NavCtx): boolean {
+  const p = parseRenaUrl(url, ctx);
+  if (!p || p.scheme !== 'https' || p.host !== ctx.host) return false;
+  return ['/account', '/cleaner', '/dashboard'].some(
+    (r) => p.path === r || p.path.startsWith(`${r}/`)
+  );
+}
+
 // ─── B5.8 the notification permission decision ───────────────────────────────
 
 /** At shell entry: register silently when granted; show the card once; else nothing. */

@@ -369,6 +369,23 @@ describe('B5.4 parseShellMessage', () => {
   });
 });
 
+describe('B5.4 isPortalLanding (the handoff fallback)', () => {
+  it.each([
+    [`${O}/account`, true],
+    [`${O}/en/account?welcome=1`, true],
+    [`${O}/cleaner`, true],
+    [`${O}/cleaner/jobs/j1`, true],
+    [`${O}/dashboard`, true],
+    [`${O}/signup`, false],
+    [`${O}/join`, false],
+    [`${O}/accounting`, false],
+    ['https://evil.example/account', false],
+    ['https://www.renacleaning.co.uk@evil.example/account', false],
+  ])('%s → %s', (url, want) => {
+    expect(pro.isPortalLanding(url, proCtx)).toBe(want);
+  });
+});
+
 describe('B5.8 push decisions', () => {
   it.each([
     [{ asked: false, granted: false }, 'show_card'],
