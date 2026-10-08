@@ -14,6 +14,12 @@ export interface HandlerResult {
   processed: number;
 }
 
+// B5 UAT ruling (James, 2026-10-08): the daily compliance run carries the
+// session sweep's counts onto the [Scheduler] summary line. Counts only.
+export interface ComplianceHandlerResult extends HandlerResult {
+  sessionSweep?: { bridgeCodes: number; sessions: number; handoffCodes: number } | { failed: true };
+}
+
 export interface SchedulerSummary {
   timestamp: string;
   cascadeWindows: HandlerResult;
@@ -23,7 +29,7 @@ export interface SchedulerSummary {
   exhaustedRefunds: HandlerResult;
   backgroundJobs: HandlerResult;
   abandonedBookings: HandlerResult;
-  compliance: HandlerResult;
+  compliance: ComplianceHandlerResult;
   stuckJobs: HandlerResult;
   completedAtBackfill: HandlerResult;
   catchmentHeal: HandlerResult;
@@ -298,7 +304,7 @@ const COMPLIANCE_MARKER_KEY = 'last_compliance_run_date';
 // before the server starts, so it always exists when a cron tick fires. If it
 // were somehow absent the CAS matches nothing and the batch simply skips (fails
 // safe) until the next deploy re-seeds it.
-async function processComplianceJobsDaily(): Promise<HandlerResult> {
+async function processComplianceJobsDaily(): Promise<ComplianceHandlerResult> {
   const { prisma } = await import('@/lib/db/prisma');
   const today = new Date().toISOString().slice(0, 10); // UTC yyyy-mm-dd
 
@@ -312,7 +318,15 @@ async function processComplianceJobsDaily(): Promise<HandlerResult> {
   }
 
   const results = await ComplianceSchedulerService.runAllJobs();
-  return { processed: results.length };
+  const sweep = results.find((r) => r.job === 'sweepSessionRows');
+  if (!sweep) return { processed: results.length };
+  const d = sweep.details as { bridgeCodes: number; sessions: number; handoffCodes: number };
+  return {
+    processed: results.length,
+    sessionSweep: sweep.success
+      ? { bridgeCodes: d.bridgeCodes, sessions: d.sessions, handoffCodes: d.handoffCodes }
+      : { failed: true },
+  };
 }
 
 // M4 safety net: stranded PAID bookings (webhook received but crashed before
