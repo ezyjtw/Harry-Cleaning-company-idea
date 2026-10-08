@@ -1,42 +1,40 @@
-// RENA customer app navigation (B5). Pure functions imported by App.tsx and
-// driven by src/lib/ci/shell-nav.test.ts. The shared core below is identical
-// to mobile/nav.ts; only this app's tables and constants differ.
+// Rena Pro navigation (B5). Pure functions imported by App.tsx and driven by
+// src/lib/ci/shell-nav.test.ts. The shared core below is identical to
+// mobile-customer/nav.ts; only this app's tables and constants differ.
 
-export const TAB_KEYS = ['home', 'mycleans', 'book', 'cleaners', 'messages'] as const;
+export const TAB_KEYS = ['today', 'jobs', 'availability', 'earnings', 'messages'] as const;
 export type TabKey = (typeof TAB_KEYS)[number];
 
 export const TAB_ROOTS: Record<TabKey, string> = {
-  home: '/app/home',
-  mycleans: '/account/bookings',
-  book: '/app/book',
-  cleaners: '/cleaners',
+  today: '/app/today',
+  jobs: '/app/jobs',
+  availability: '/app/availability',
+  earnings: '/app/earnings',
   messages: '/messages',
 };
 
 /** First match wins. Paths are compared after the /en prefix is stripped. */
 const OWNERS: { exact?: string; prefix?: string; tab: TabKey }[] = [
-  { exact: '/app/home', tab: 'home' },
-  { exact: '/app/book', tab: 'book' },
-  { exact: '/account/bookings', tab: 'mycleans' },
-  { prefix: '/account/bookings/', tab: 'mycleans' },
-  { prefix: '/booking/', tab: 'mycleans' },
-  { prefix: '/pay/', tab: 'mycleans' },
-  { exact: '/cleaners', tab: 'cleaners' },
-  { prefix: '/cleaners/', tab: 'cleaners' },
+  { exact: '/app/today', tab: 'today' },
+  { prefix: '/app/offer/', tab: 'today' },
+  { exact: '/app/jobs', tab: 'jobs' },
+  { prefix: '/app/jobs/', tab: 'jobs' },
+  { prefix: '/cleaner/jobs/', tab: 'jobs' },
+  { exact: '/app/availability', tab: 'availability' },
+  { exact: '/app/earnings', tab: 'earnings' },
   { exact: '/messages', tab: 'messages' },
   { prefix: '/messages/', tab: 'messages' },
-  { exact: '/account', tab: 'home' },
-  { prefix: '/account/', tab: 'home' },
-  { prefix: '/services/', tab: 'book' },
-  { prefix: '/book/', tab: 'book' },
+  // Deviation 6 (approved): any other /app/* (profile, documents,
+  // stripe-return, my-data, delete-account) opens in Today with a forward.
+  { prefix: '/app/', tab: 'today' },
 ];
 
-/** /open/customer/<rest> resolves <rest>; Pro's /open/pro/ is unowned here. */
-const OPEN_PREFIX = '/open/customer/';
-const IS_PRO = false;
-const APP_ROLE = 'CLIENT' as const;
-/** Same-origin pages a Stripe top-frame flow may start from (checkout, approve-topup, pay). */
-const STRIPE_FLOW_STARTS = ['/book/', '/services/', '/booking/', '/pay/'];
+/** /open/pro/<rest> resolves <rest>; the customer app's /open/customer/ is unowned here. */
+const OPEN_PREFIX = '/open/pro/';
+const IS_PRO = true;
+const APP_ROLE = 'CLEANER' as const;
+/** Same-origin pages a Stripe top-frame flow may start from (Connect onboarding). */
+const STRIPE_FLOW_STARTS = ['/cleaner/stripe/connect'];
 
 export function buildNavCtx(
   baseUrl: string,
@@ -44,35 +42,7 @@ export function buildNavCtx(
   devHost: string | null = null
 ): NavCtx {
   const host = ((baseUrl.match(/^https?:\/\/([^/:?#]+)/) || [])[1] || '').toLowerCase();
-  return { origin: `https://${host}`, host, scheme: 'rena', platform, devHost };
-}
-
-/**
- * Kept from the R4 storm fix: an in-page link to a TAB-ROOT route must
- * switch the native tab. Matches ONLY the five tab roots.
- */
-export function tabRootKey(url: string): string | null {
-  const m = url.match(
-    /^https?:\/\/[^/]+\/(?:en\/)?(?:(account\/bookings)|(app\/home)|(app\/book)|(cleaners)|(messages))\/?(?:[?#].*)?$/
-  );
-  if (!m) return null;
-  if (m[1]) return 'mycleans';
-  if (m[2]) return 'home';
-  if (m[3]) return 'book';
-  if (m[4]) return 'cleaners';
-  return 'messages';
-}
-
-/**
- * Kept from R4: forward a cross-tab URL only when it carries a non-empty
- * query or hash; a bare root, a stray '?' or '#', switch silently.
- */
-export function meaningfulPayload(url: string): boolean {
-  const q = url.indexOf('?');
-  const h = url.indexOf('#');
-  const queryPart = q >= 0 ? url.slice(q + 1, h > q ? h : undefined) : '';
-  const hashPart = h >= 0 ? url.slice(h + 1) : '';
-  return queryPart.length > 0 || hashPart.length > 0;
+  return { origin: `https://${host}`, host, scheme: 'renapro', platform, devHost };
 }
 
 // ─── Shared core (identical in mobile/nav.ts and mobile-customer/nav.ts) ─────
