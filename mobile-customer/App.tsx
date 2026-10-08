@@ -26,7 +26,20 @@ import {
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView, type WebViewMessageEvent, type WebViewNavigation } from 'react-native-webview';
 
-import { buildNavCtx, meaningfulPayload, resolveLink, tabRootKey } from './nav';
+import {
+  INITIAL_NAV_STATE,
+  buildNavCtx,
+  classifyNavigation,
+  isRenaOrigin,
+  locationAssignScript,
+  meaningfulPayload,
+  nextNavState,
+  resolveLink,
+  tabRootOf,
+  type NavRequest,
+  type NavState,
+  type NavVerdict,
+} from './nav';
 
 // The customer mark: the white RENA wordmark extracted from the confirmed
 // icon source (public/rena-logo.png) onto a transparent ground. White by
@@ -169,7 +182,7 @@ SplashScreen.preventAutoHideAsync().catch(() => {});
 // portal routes (My Cleans arrives skinned in-shell).
 // R5b: paths are unprefixed — the site 307s /en/<route> to /<route> (en is
 // the default locale), so the old /en/ paths paid a redirect on EVERY pane
-// document load. tabRootKey matches both shapes.
+// document load. nav.ts strips the /en prefix, so both shapes match.
 const TABS = [
   { key: 'home', label: 'Home', path: '/app/home', icon: 'home' },
   { key: 'mycleans', label: 'My Cleans', path: '/account/bookings', icon: 'sparkles' },
@@ -180,8 +193,9 @@ const TABS = [
 
 type Phase = 'boot' | 'locked' | 'start' | 'login' | 'signup' | 'forgot' | 'wrongApp' | 'shell';
 
-// Cross-tab nav judgment (tabRootKey + meaningfulPayload) lives in ./nav.ts —
-// pure functions the rig's judgment-table drive imports and proves directly.
+// Cross-tab nav judgment, the deep-link resolver and the navigation
+// classifier live in ./nav.ts: pure functions that
+// src/lib/ci/shell-nav.test.ts drives directly (B5, deviation 10).
 
 // How an arriving notification presents if the app is foregrounded — set once
 // at module scope per expo-notifications docs. Inert until activation.
@@ -1222,6 +1236,32 @@ function SeamlessWebView({
     lastCrossTab.current = { url, at: now };
     return false;
   };
+  // B5.2 (RENA-024/039): the pane's navigation state for the classifier.
+  const navState = useRef<NavState>(INITIAL_NAV_STATE);
+  // B5.2: act on the classifier's verdict. True means "load it in this pane".
+  const act = (req: NavRequest, url: string): boolean => {
+    const verdict: NavVerdict = classifyNavigation(req, navState.current, NAV_CTX);
+    navState.current = nextNavState(navState.current, req, verdict, NAV_CTX);
+    switch (verdict) {
+      case 'ALLOW_IN_PANE':
+        return true;
+      case 'OPEN_EXTERNAL':
+      case 'OS_HANDLE':
+        Linking.openURL(url).catch(() => {});
+        return false;
+      case 'CROSS_TAB': {
+        const target = tabRootOf(url, NAV_CTX);
+        if (tabKey && onCrossTab && target && target !== tabKey) {
+          if (!crossTabDup(url)) onCrossTab(target, url);
+          return false;
+        }
+        return true;
+      }
+      default:
+        // BLOCK (and the Pro-only verdicts, which this shell never receives).
+        return false;
+    }
+  };
   // R5 veil: the forwarded URL loads via the source prop (deterministic —
   // survives WebView content-process recycling, which silently swallowed the
   // old injectJavaScript delivery and cost the review card its landing).
@@ -1333,7 +1373,7 @@ function SeamlessWebView({
     // route. R5: deduped — nav events replay, and each replay used to inject
     // another history.back(), walking Home onto the spent bridge (401).
     if (tabKey && onCrossTab) {
-      const target = tabRootKey(nav.url);
+      const target = tabRootOf(nav.url, NAV_CTX);
       if (target && target !== tabKey) {
         if (!crossTabDup(nav.url)) {
           onCrossTab(target, nav.url);
@@ -1462,16 +1502,20 @@ function SeamlessWebView({
           setLoaded(false);
           fade.setValue(1);
         }}
-        onShouldStartLoadWithRequest={(req) => {
-          if (tabKey && onCrossTab) {
-            const target = tabRootKey(req.url);
-            if (target && target !== tabKey) {
-              if (!crossTabDup(req.url)) onCrossTab(target, req.url);
-              return false;
-            }
+        // B5.2 (RENA-024/039): one classifier decides every top-frame
+        // navigation (mobile-customer/nav.ts); sub frames (Stripe Elements,
+        // the 3DS challenge) are never touched.
+        onShouldStartLoadWithRequest={(req) => act(req, req.url)}
+        // iOS window.open: the same classifier. Android loads window.open in
+        // this WebView (setSupportMultipleWindows false), so it reaches the
+        // intercept above.
+        onOpenWindow={(e) => {
+          const url = e.nativeEvent.targetUrl;
+          if (act({ url, isTopFrame: true }, url)) {
+            ref.current?.injectJavaScript(locationAssignScript(url));
           }
-          return true;
         }}
+        setSupportMultipleWindows={false}
         onNavigationStateChange={onNav}
         onMessage={onMessage}
         onLoadEnd={() => {
@@ -1535,7 +1579,7 @@ function SeamlessWebView({
           // A 5xx on OUR origin gets the designed interstitial; sub-resource
           // and third-party errors stay with the web pages' own states.
           const { statusCode, url } = e.nativeEvent;
-          if (statusCode >= 500 && typeof url === 'string' && url.startsWith(BASE_URL)) {
+          if (statusCode >= 500 && typeof url === 'string' && isRenaOrigin(url, NAV_CTX)) {
             setServerError(true);
           }
         }}
