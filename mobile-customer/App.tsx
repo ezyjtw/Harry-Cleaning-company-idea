@@ -30,15 +30,18 @@ import {
   INITIAL_NAV_STATE,
   buildNavCtx,
   classifyNavigation,
+  isPortalLanding,
   isRenaOrigin,
   locationAssignScript,
   meaningfulPayload,
   nextNavState,
+  parseShellMessage,
   resolveLink,
   tabRootOf,
   type NavRequest,
   type NavState,
   type NavVerdict,
+  type SignedUpMessage,
 } from './nav';
 
 // The customer mark: the white RENA wordmark extracted from the confirmed
@@ -419,6 +422,41 @@ function RootView() {
     setPhase('wrongApp');
   }, []);
 
+  // B5.4 (RENA-031/082, James-ruled): the signup and join handoff. The page
+  // posts only a single-use code; it is redeemed here by NATIVE fetch, and
+  // only that response carries the Bearer and the bridge code, which take
+  // the login path itself (onLoggedIn stores the Bearer in SecureStore and
+  // bridges). Any failure, or a page that landed on the website portal
+  // instead, falls back to native login with the email prefilled.
+  const [loginPrefill, setLoginPrefill] = useState<{ email: string; notice: string } | null>(null);
+  const handoffFallback = useCallback((email: string | null) => {
+    setLoginPrefill({ email: email ?? '', notice: 'Your account is ready. Sign in to continue.' });
+    setPhase('login');
+  }, []);
+  const onSignedUp = useCallback(
+    async (msg: SignedUpMessage) => {
+      try {
+        const res = await fetch(`${BASE_URL}/api/auth/native-handoff`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...SHELL_HEADER },
+          body: JSON.stringify({ code: msg.handoffCode }),
+        });
+        const data = await res.json().catch(() => null);
+        if (res.ok && typeof data?.token === 'string' && typeof data?.bridgeCode === 'string') {
+          lastNativeOkAt = Date.now();
+          fireHaptic('success');
+          setLoginPrefill(null);
+          await onLoggedIn(data.token, data.bridgeCode);
+          return;
+        }
+      } catch {
+        /* fall back to native login below */
+      }
+      handoffFallback(msg.email);
+    },
+    [onLoggedIn, handoffFallback]
+  );
+
   // B5.3: one logout at a time. Several panes, the watcher and the badges
   // poll can all report a lost session at once; only the first runs.
   const loggingOut = useRef(false);
@@ -552,12 +590,20 @@ function RootView() {
       {phase === 'login' && (
         <LoginScreen
           onLoggedIn={onLoggedIn}
+          initialEmail={loginPrefill?.email}
+          notice={loginPrefill?.notice}
           onWrongApp={onWrongApp}
           onBack={() => setPhase('start')}
           onForgot={() => setPhase('forgot')}
         />
       )}
-      {phase === 'signup' && <SignupScreen onBack={() => setPhase('start')} />}
+      {phase === 'signup' && (
+        <SignupScreen
+          onBack={() => setPhase('start')}
+          onSignedUp={onSignedUp}
+          onFallback={() => handoffFallback(null)}
+        />
+      )}
       {phase === 'forgot' && <ForgotScreen onBack={() => setPhase('login')} />}
       {phase === 'wrongApp' && <WrongAppScreen onSwitchAccount={() => setPhase('login')} />}
       {phase === 'shell' && (
@@ -701,14 +747,20 @@ function LoginScreen({
   onWrongApp,
   onBack,
   onForgot,
+  initialEmail,
+  notice,
 }: {
   onLoggedIn: (token: string, bridgeCode: string) => void;
   onWrongApp: () => void;
   onBack: () => void;
   onForgot: () => void;
+  /** B5.4 fallback: the just-created account's email, prefilled. */
+  initialEmail?: string;
+  /** B5.4 fallback: "Your account is ready. Sign in to continue." */
+  notice?: string | null;
 }) {
   const insets = useSafeAreaInsets();
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(initialEmail ?? '');
   const [password, setPassword] = useState('');
   const [showPw, setShowPw] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -768,6 +820,7 @@ function LoginScreen({
           tintColor={INK}
         />
         <Text style={styles.loginSub}>Sign in to your Rena account</Text>
+        {notice ? <Text style={styles.loginSub}>{notice}</Text> : null}
         <TextInput
           style={styles.input}
           placeholder="Email"
@@ -927,8 +980,19 @@ const HIDE_CHROME_JS = `
 `;
 
 // ─── Create an Account (in-shell /signup, chrome hidden) ─────────────────────
-function SignupScreen({ onBack }: { onBack: () => void }) {
+function SignupScreen({
+  onBack,
+  onSignedUp,
+  onFallback,
+}: {
+  onBack: () => void;
+  /** B5.4: the page posted the handoff (the code only); the root redeems it. */
+  onSignedUp: (msg: SignedUpMessage) => void;
+  /** B5.4: the page landed on the website portal instead; native login takes over. */
+  onFallback: () => void;
+}) {
   const insets = useSafeAreaInsets();
+  const handled = useRef(false);
   return (
     <View style={styles.flex}>
       <View style={[styles.subHeader, { paddingTop: insets.top + 6 }]}>
@@ -941,6 +1005,19 @@ function SignupScreen({ onBack }: { onBack: () => void }) {
         uri={`${BASE_URL}/en/signup`}
         injectBefore={HIDE_CHROME_JS + SEAM_KILL_JS}
         loaderTone="light"
+        onRawMessage={(raw) => {
+          const msg = parseShellMessage(raw);
+          if (msg && !handled.current) {
+            handled.current = true;
+            onSignedUp(msg);
+          }
+        }}
+        onNavUrl={(url) => {
+          if (!handled.current && isPortalLanding(url, NAV_CTX)) {
+            handled.current = true;
+            onFallback();
+          }
+        }}
       />
     </View>
   );
@@ -1209,6 +1286,8 @@ function SeamlessWebView({
   loaderTone = 'light',
   active,
   registerBack,
+  onRawMessage,
+  onNavUrl,
 }: {
   uri: string;
   injectBefore: string;
@@ -1229,6 +1308,10 @@ function SeamlessWebView({
   active?: boolean;
   /** Android back (rule 6): the pane registers "go back if you can". */
   registerBack?: (handler: () => boolean) => void;
+  /** B5.4: every raw page message (the signup and join screens' handoff). */
+  onRawMessage?: (data: string) => void;
+  /** B5.4: every landed URL (the signup and join screens' fallback watcher). */
+  onNavUrl?: (url: string) => void;
 }) {
   const [offline, setOffline] = useState(false);
   const [serverError, setServerError] = useState(false);
@@ -1380,6 +1463,7 @@ function SeamlessWebView({
   // the native login screen instead of showing the web form inside the shell.
   const onNav = (nav: WebViewNavigation) => {
     canGoBackRef.current = nav.canGoBack;
+    onNavUrl?.(nav.url);
     // B5.3: only OUR /login (or the signin route, with or without B2's
     // callbackUrl) means the session is gone; a foreign /login never logs out.
     if (
@@ -1418,6 +1502,7 @@ function SeamlessWebView({
   };
 
   const onMessage = (e: WebViewMessageEvent) => {
+    onRawMessage?.(e.nativeEvent.data);
     try {
       const msg = JSON.parse(e.nativeEvent.data);
       if (msg?.type === 'haptic') fireHaptic(String(msg.style || 'light'));
