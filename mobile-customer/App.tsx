@@ -121,9 +121,13 @@ async function endWebSession(): Promise<void> {
   try {
     const ctrl = new AbortController();
     const cutoff = setTimeout(() => ctrl.abort(), 1500);
+    // B5.3 (RENA-029, D-w): send the Bearer so the server revokes THIS
+    // device's BEARER row and its bridged WEB children in one transaction
+    // (the cookie path stays the fallback). Read before the caller deletes it.
+    const bearer = await SecureStore.getItemAsync(TOKEN_KEY).catch(() => null);
     await fetch(`${BASE_URL}/api/auth/shell-logout`, {
       method: 'POST',
-      headers: SHELL_HEADER,
+      headers: bearer ? { ...SHELL_HEADER, Authorization: `Bearer ${bearer}` } : SHELL_HEADER,
       signal: ctrl.signal,
     });
     clearTimeout(cutoff);
@@ -415,7 +419,19 @@ function RootView() {
     setPhase('wrongApp');
   }, []);
 
+  // B5.3: one logout at a time. Several panes, the watcher and the badges
+  // poll can all report a lost session at once; only the first runs.
+  const loggingOut = useRef(false);
   const logout = useCallback(async () => {
+    if (loggingOut.current) return;
+    loggingOut.current = true;
+    try {
+      await logoutOnce();
+    } finally {
+      loggingOut.current = false;
+    }
+  }, []);
+  const logoutOnce = async () => {
     await Promise.all([deregisterPush(), endWebSession()]);
     await SecureStore.deleteItemAsync(TOKEN_KEY);
     // Root-level survivors cleared with the session (James-ruled): a parked
@@ -431,7 +447,7 @@ function RootView() {
     Notifications.setBadgeCountAsync(0).catch(() => {});
     setBridgeUrl(null);
     setPhase('login');
-  }, []);
+  };
 
   // Leaving the lock screen for the password form or another account clears
   // the stored bearer either way; the destinations differ.
@@ -1364,7 +1380,13 @@ function SeamlessWebView({
   // the native login screen instead of showing the web form inside the shell.
   const onNav = (nav: WebViewNavigation) => {
     canGoBackRef.current = nav.canGoBack;
-    if (onSessionLost && (/\/login(\?|$)/.test(nav.url) || /\/api\/auth\/signin/.test(nav.url))) {
+    // B5.3: only OUR /login (or the signin route, with or without B2's
+    // callbackUrl) means the session is gone; a foreign /login never logs out.
+    if (
+      onSessionLost &&
+      isRenaOrigin(nav.url, NAV_CTX) &&
+      (/\/login(\?|$)/.test(nav.url) || /\/api\/auth\/signin/.test(nav.url))
+    ) {
       onSessionLost();
     }
     // Cross-tab nav fix: SPA pushState navigations can't be cancelled by
