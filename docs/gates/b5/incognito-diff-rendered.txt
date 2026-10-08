@@ -1,0 +1,15 @@
+Logged-out Chromium render (fresh context, plain UA), control main e37e3f5 on :3001 vs branch on :3000, same rig database.
+=== /signup 200 -> 200 (no visible change)
+=== /join 200 -> 200 (no visible change)
+=== /get-app/pro 404 -> 200 (new route; control serves the 404 page). Branch main column:
+  RENA
+  Get Rena Pro
+  Rena Pro is the app for independent cleaners on the Rena Cleaning Network.
+  Rena Pro is on its way to the App Store and Google Play. Cleaners can use everything it offers on this website in the meantime.
+  Go to the Rena Cleaning Network website
+=== /get-app/customer 404 -> 200 (new route; control serves the 404 page). Branch main column:
+  RENA
+  Get RENA
+  RENA is the app for booking and managing your cleans with the Rena Cleaning Network.
+  RENA is on its way to the App Store and Google Play. Customers can use everything it offers on this website in the meantime.
+  Go to the Rena Cleaning Network website

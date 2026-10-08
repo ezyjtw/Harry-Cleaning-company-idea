@@ -1,0 +1,10 @@
+B5 hash sweep (hash law, same-build protocol, same rig database).
+Control: main e37e3f5, production build served on :3001.
+Branch: claude/intelligent-bohr-1gztgv head, production build served on :3000.
+Tool: scripts/public-route-hashes.ts over the 28 routes in docs/public-routes.json.
+
+Branch hashed twice: "Hash law: all 28 routes identical to the base." (deterministic).
+Branch vs control: "Hash law: 2 route(s) changed: /get-app/pro, /get-app/customer".
+Control answers 404 on both (the routes do not exist on main); branch answers 200.
+All 26 previously baselined routes, /signup and /join among them, are identical.
+New baseline for the two governed routes is hash-branch.json in this folder.
