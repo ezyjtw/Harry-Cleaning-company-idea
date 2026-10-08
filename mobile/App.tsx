@@ -475,6 +475,8 @@ function RootView() {
     // Root-level survivors cleared with the session (James-ruled): a parked
     // deep-link tab and the lie check's witness clocks never outlive an account.
     pendingNav.current = null;
+    // A parked forward must not re-fire into a later account's shell.
+    setExternalNav(null);
     lastDressedAt = 0;
     lastNativeOkAt = 0;
     // C7: a signed-out app must not keep a stale count on the icon.
@@ -491,6 +493,8 @@ function RootView() {
     // Root-level survivors cleared with the session (James-ruled): a parked
     // deep-link tab and the lie check's witness clocks never outlive an account.
     pendingNav.current = null;
+    // A parked forward must not re-fire into a later account's shell.
+    setExternalNav(null);
     lastDressedAt = 0;
     lastNativeOkAt = 0;
     setBridgeUrl(null);
@@ -503,6 +507,8 @@ function RootView() {
     // Root-level survivors cleared with the session (James-ruled): a parked
     // deep-link tab and the lie check's witness clocks never outlive an account.
     pendingNav.current = null;
+    // A parked forward must not re-fire into a later account's shell.
+    setExternalNav(null);
     lastDressedAt = 0;
     lastNativeOkAt = 0;
     setBridgeUrl(null);
