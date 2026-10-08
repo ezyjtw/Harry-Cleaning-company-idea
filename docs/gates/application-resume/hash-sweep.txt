@@ -6,3 +6,4 @@ Profile photo rulings delta (James, 2026-10-08), control main 9ef42d5 rebuilt on
 1. With one rig cleaner verified, insured and Stripe-ready (the /cleaners/[id] proof), /cleaners differed from the control in exactly two presigned photo URLs (X-Amz-Date and X-Amz-Signature, each server's own signing time); with those masked the normalised HTML is identical. This is the rig data, not the code.
 2. With that rig cleaner set back to ineligible (the dataset of the earlier baselines): branch hashed twice, all 28 identical; branch vs control, all 28 identical.
 3. /cleaners/[id] is not in the 28 governed routes; its logged-out rendered text and structured data for a verified cleaner are identical to the control (incognito-diff-cleaner-page.txt).
+4. Capability delta (D-ah): the head build against a fresh control build of main 9ef42d5, same rig, same data: all 28 routes identical to the base.

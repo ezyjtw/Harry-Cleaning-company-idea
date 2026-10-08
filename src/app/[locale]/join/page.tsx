@@ -20,7 +20,12 @@ import {
 } from '@/lib/constants/services';
 import { useAnalytics } from '@/lib/hooks/useAnalytics';
 import { CURRENT_AGREEMENT } from '@/lib/legal/self-employment-acknowledgment';
-import { isShellUA, postSignedUpToShell, shellCameraCapable } from '@/lib/shell';
+import {
+  isShellUA,
+  postSignedUpToShell,
+  shellCameraCapable,
+  SIGNED_UP_SAFETY_NET_MS,
+} from '@/lib/shell';
 import {
   dataUrlBytes,
   DOC_IMAGE_MAX_PX,
@@ -1077,6 +1082,14 @@ export default function JoinAsCleanerPage() {
   // B5: the Pro shell is redeeming the handoff (shell only).
   const [handingOff, setHandingOff] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  // B5 safety net (James-ruled 8 Oct): a page still on the completed or
+  // "Signing you in" state after 10 seconds moves on to /cleaner by itself,
+  // in every shell and on the website.
+  useEffect(() => {
+    if (!handingOff && !submitted) return;
+    const t = setTimeout(() => router.push('/cleaner'), SIGNED_UP_SAFETY_NET_MS);
+    return () => clearTimeout(t);
+  }, [handingOff, submitted, router]);
 
   const [mounted, setMounted] = useState(false);
   // H48/H51 retired by RENA-100: the server now holds the draft and its
@@ -1729,7 +1742,9 @@ export default function JoinAsCleanerPage() {
 
       // B5 (RENA-031): the logged-out native join flow gets the single-use
       // handoff code; a cleaner already signed into Rena Pro gets none and
-      // simply returns to the app (the server decided which).
+      // simply returns to the app (the server decided which). Only a shell
+      // advertising signedUpHandoffV1 is posted to and waited on; an older
+      // shell goes straight to /cleaner (an unused code simply expires).
       if (result.handoff === 'code' && typeof result.handoffCode === 'string') {
         if (
           isShellUA() &&

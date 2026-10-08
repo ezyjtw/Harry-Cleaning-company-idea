@@ -1,0 +1,5 @@
+gate: posts whenever the bridge exists (the legacy shell waits): RED (caught) [run src/lib/shell-capability.test.ts: RED; walk ii: RED; -g legacy shell: RED]
+gate: capability matched by containment: RED (caught) [run src/lib/shell-capability.test.ts: RED]
+net: join page never moves on by itself: RED (caught) [walk iv,net: RED]
+net: signup page never moves on by itself: RED (caught) [-g safety net: RED]
+net: fires early (3 seconds, a premature fallback): RED (caught) [walk iv: RED; -g no premature fallback: RED]

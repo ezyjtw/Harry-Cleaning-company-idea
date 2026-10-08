@@ -62,7 +62,12 @@ const BASE_URL: string =
 const SHELL_HEADER = {
   'x-rena-shell': `app-${Platform.OS}/${Constants.expoConfig?.version ?? '1'}`,
 };
-const UA_SUFFIX = `RenaApp/${Constants.expoConfig?.version ?? '1.0'}`;
+// B5 (James-ruled 8 Oct, Customer-4, unpublished): the shell advertises what it
+// can do, so the web never waits on a message an older shell ignores. The
+// capability token is behavioural negotiation only, never authentication.
+// signedUpHandoffV1: this shell redeems the web's `signedUp` handoff message.
+const SHELL_CAPABILITIES = ['signedUpHandoffV1'];
+const UA_SUFFIX = `RenaApp/${Constants.expoConfig?.version ?? '1.0'} RenaCap/${SHELL_CAPABILITIES.join(',')}`;
 
 // Platform law for the WebView prop block: iOS-shaped props never reach the
 // Android native component. react-native-webview's Android wrapper spreads
