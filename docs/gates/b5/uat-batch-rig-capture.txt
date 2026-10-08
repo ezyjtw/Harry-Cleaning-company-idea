@@ -9,3 +9,4 @@ Server stdout, native_handoff refusal lines (one per refusal; probes: browser, c
 No line carries a code: grep for the submitted code strings in the server log returns 0.
 
 Sweep: 0 expired handoff codes on the rig, 2 planted expired, compliance marker reset to the previous day, POST /api/cron/run-jobs:
+"compliance":{"processed":13,"sessionSweep":{"bridgeCodes":1,"sessions":0,"handoffCodes":2}}
