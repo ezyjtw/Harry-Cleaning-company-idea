@@ -33,6 +33,8 @@ import {
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView, type WebViewMessageEvent, type WebViewNavigation } from 'react-native-webview';
 
+import { buildNavCtx, resolveLink, tabRootOf } from './nav';
+
 // James's official "RENA Cleaner" logo lockup, extracted from the supplied asset
 // with its exact colours untouched (navy RENA in Etna + teal "Cleaner"), on a
 // transparent ground so it sits on the app's light surfaces. Used on every native
@@ -68,6 +70,13 @@ const IOS_WEBVIEW_PROPS =
       } as const)
     : {};
 const BASE_HOST = (BASE_URL.match(/^https?:\/\/([^/:?#]+)/) || [])[1] || '';
+// B5: the parsed-URL context every navigation and deep-link decision uses
+// (mobile/nav.ts). The dev host is honoured only in __DEV__ on an http base.
+const NAV_CTX = buildNavCtx(
+  BASE_URL,
+  Platform.OS === 'android' ? 'android' : 'ios',
+  __DEV__ && /^http:\/\//.test(BASE_URL) ? BASE_HOST : null
+);
 const TOKEN_KEY = 'rena.pro.bearer';
 // Post-login lie fix (James-ruled): the moment ANY pane genuinely renders,
 // the network is provably alive. Module-level so every pane shares the truth.
@@ -171,7 +180,7 @@ SplashScreen.preventAutoHideAsync().catch(() => {});
 // Tab bar: first tab = the purpose-built Today screen; the rest are portal routes.
 // R5b port: paths are unprefixed — the site 307s /en/<route> to /<route>
 // (en is the default locale), so the old /en/ paths paid a redirect on
-// EVERY pane document load. tabRootKey matches both shapes.
+// EVERY pane document load. nav.ts strips the /en prefix, so both shapes match.
 // R12 Lane 4: the three rooms with nothing honest to show pre-verification.
 const LOCKED_UNTIL_VERIFIED: ReadonlySet<string> = new Set(['jobs', 'earnings', 'messages']);
 const EMPTY_LOCK: ReadonlySet<string> = new Set();
@@ -187,17 +196,8 @@ const TABS = [
 type Phase = 'boot' | 'locked' | 'start' | 'login' | 'join' | 'forgot' | 'wrongApp' | 'shell';
 
 // ─── Cross-tab nav fix (James-ruled): an in-page link to a TAB-ROOT route must
-// switch the native tab, never navigate inside the current tab's WebView (which
-// left e.g. the Today pane showing Availability while the tab bar said Today).
-// Matches ONLY the five tab roots — deeper routes (/app/offer/123, /cleaner/*)
-// stay in-pane by design. Regex, not new URL(): RN's URL polyfill is unreliable.
-function tabRootKey(url: string): string | null {
-  const m = url.match(
-    /^https?:\/\/[^/]+\/(?:en\/)?(?:app\/(today|jobs|availability|earnings)|(messages))\/?(?:[?#].*)?$/
-  );
-  if (!m) return null;
-  return m[1] || 'messages';
-}
+// switch the native tab, never navigate inside the current tab's WebView.
+// B5: the tab-root match is mobile/nav.ts tabRootOf (parsed, exact host).
 
 // ─── C7 binary trio (James-ruled: BUILT, NOT ACTIVATED) ──────────────────────
 // The store binary ships push-capable — aps-environment entitlement, remote-
@@ -220,27 +220,6 @@ Notifications.setNotificationHandler({
     shouldSetBadge: true,
   }),
 });
-
-/**
- * C7 deep links: resolve any of our URL shapes to a shell tab key —
- * renapro://jobs, renapro://app/jobs, https://www.renacleaning.co.uk/en/app/jobs,
- * and notification payloads carrying data.url in those shapes. Unknown URLs
- * resolve to null and are ignored (never a crash, never a wrong screen).
- */
-function tabForUrl(url: string): string | null {
-  try {
-    const parsed = Linking.parse(url);
-    const segments = [parsed.hostname, ...(parsed.path ? parsed.path.split('/') : [])]
-      .filter(Boolean)
-      .map((s) => String(s).toLowerCase());
-    for (const seg of segments) {
-      if (TABS.some((t) => t.key === seg)) return seg;
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
 
 // THE HAPTICS MAP (law — native and web bridge both follow it):
 //   light   → navigation taps: tabs, chips, steppers, opening sheets/links
@@ -348,43 +327,85 @@ function RootView() {
     boot();
   }, [boot]);
 
-  // ── C7 deep links: a link can arrive before the shell is up (cold start
-  // lands on the lock screen) — park the resolved tab and apply on shell entry.
-  const pendingTab = useRef<string | null>(null);
+  // ── B5.1 deep links (RENA-037, RENA-047): one resolver (mobile/nav.ts) for
+  // custom-scheme links, our https links and notification data.url. A link
+  // that arrives before the shell is up (cold start lands on the lock screen)
+  // is parked and applied on shell entry. A link deeper than its tab root, or
+  // carrying a query or hash, is forwarded into the owning pane (the customer
+  // shell's machinery, ported), so an offer push lands in the Offer room.
+  const pendingNav = useRef<{ tab: string; forward: string | null } | null>(null);
   const phaseRef = useRef(phase);
   phaseRef.current = phase;
+  const extNavSeq = useRef(0);
+  const [externalNav, setExternalNav] = useState<{ key: string; url: string; seq: number } | null>(
+    null
+  );
 
   const applyLink = useCallback((url: string | null | undefined) => {
     if (!url) return;
-    const tab = tabForUrl(url);
-    if (!tab) return;
-    if (phaseRef.current === 'shell') setActiveTab(tab);
-    else pendingTab.current = tab;
+    const r = resolveLink(url, NAV_CTX);
+    if (r.kind !== 'tab') return;
+    if (phaseRef.current === 'shell') {
+      if (r.forward) {
+        extNavSeq.current += 1;
+        setExternalNav({ key: r.tab, url: r.forward, seq: extNavSeq.current });
+      }
+      setActiveTab(r.tab);
+    } else {
+      pendingNav.current = { tab: r.tab, forward: r.forward };
+    }
   }, []);
+
+  // One notification response is applied once, whichever path reports it
+  // (the live listener, or the cold-start read below).
+  const lastResponseId = useRef<string | null>(null);
+  const applyResponse = useCallback(
+    (resp: Notifications.NotificationResponse | null) => {
+      if (!resp) return;
+      const id = resp.notification.request.identifier;
+      if (id && id === lastResponseId.current) return;
+      lastResponseId.current = id;
+      const data = resp.notification.request.content.data as { url?: unknown } | null;
+      if (data && typeof data.url === 'string') applyLink(data.url);
+    },
+    [applyLink]
+  );
 
   useEffect(() => {
     Linking.getInitialURL()
       .then(applyLink)
       .catch(() => {});
     const linkSub = Linking.addEventListener('url', (e) => applyLink(e.url));
-    // Notification taps route through the same resolver — dormant until C7
-    // activation sends the first push, harmless meanwhile.
-    const noteSub = Notifications.addNotificationResponseReceivedListener((resp) => {
-      const data = resp.notification.request.content.data as { url?: unknown } | null;
-      if (data && typeof data.url === 'string') applyLink(data.url);
-    });
+    const noteSub = Notifications.addNotificationResponseReceivedListener(applyResponse);
     return () => {
       linkSub.remove();
       noteSub.remove();
     };
-  }, [applyLink]);
+  }, [applyLink, applyResponse]);
 
+  // Cold start from a notification tap: read the last response once, on the
+  // first entry to the shell, then clear it so it never re-applies.
+  const coldStartRead = useRef(false);
   useEffect(() => {
-    if (phase === 'shell' && pendingTab.current) {
-      setActiveTab(pendingTab.current);
-      pendingTab.current = null;
+    if (phase !== 'shell') return;
+    if (pendingNav.current) {
+      const { tab, forward } = pendingNav.current;
+      pendingNav.current = null;
+      if (forward) {
+        extNavSeq.current += 1;
+        setExternalNav({ key: tab, url: forward, seq: extNavSeq.current });
+      }
+      setActiveTab(tab);
     }
-  }, [phase]);
+    if (coldStartRead.current) return;
+    coldStartRead.current = true;
+    Notifications.getLastNotificationResponseAsync()
+      .then((resp) => {
+        applyResponse(resp);
+        return Notifications.clearLastNotificationResponseAsync();
+      })
+      .catch(() => {});
+  }, [phase, applyResponse]);
 
   // C5: Face-ID-first. The lock screen (lockup + one Unlock button) is the
   // returning-user arrival; Face ID fires immediately on top of it. A failed or
@@ -453,7 +474,7 @@ function RootView() {
     await SecureStore.deleteItemAsync(TOKEN_KEY);
     // Root-level survivors cleared with the session (James-ruled): a parked
     // deep-link tab and the lie check's witness clocks never outlive an account.
-    pendingTab.current = null;
+    pendingNav.current = null;
     lastDressedAt = 0;
     lastNativeOkAt = 0;
     // C7: a signed-out app must not keep a stale count on the icon.
@@ -469,7 +490,7 @@ function RootView() {
     await SecureStore.deleteItemAsync(TOKEN_KEY);
     // Root-level survivors cleared with the session (James-ruled): a parked
     // deep-link tab and the lie check's witness clocks never outlive an account.
-    pendingTab.current = null;
+    pendingNav.current = null;
     lastDressedAt = 0;
     lastNativeOkAt = 0;
     setBridgeUrl(null);
@@ -481,7 +502,7 @@ function RootView() {
     await SecureStore.deleteItemAsync(TOKEN_KEY);
     // Root-level survivors cleared with the session (James-ruled): a parked
     // deep-link tab and the lie check's witness clocks never outlive an account.
-    pendingTab.current = null;
+    pendingNav.current = null;
     lastDressedAt = 0;
     lastNativeOkAt = 0;
     setBridgeUrl(null);
@@ -574,6 +595,7 @@ function RootView() {
           bridgeUrl={bridgeUrl}
           onBridged={() => setBridgeUrl(null)}
           onSessionLost={logout}
+          externalNav={externalNav}
         />
       )}
 
@@ -952,13 +974,33 @@ function ShellScreen({
   bridgeUrl,
   onBridged,
   onSessionLost,
+  externalNav,
 }: {
   activeTab: string;
   setActiveTab: (k: string) => void;
   bridgeUrl: string | null;
   onBridged: () => void;
   onSessionLost: () => void;
+  /** B5.1: a push or deep-link URL to forward into its owning pane. */
+  externalNav?: { key: string; url: string; seq: number } | null;
 }) {
+  // B5.1 (ported from the customer shell): per-pane forwards. A deep link,
+  // a push, or an in-page link to another tab's root that carries something
+  // beyond the bare root is loaded in the target pane; a bare root only
+  // switches (state and scroll preserved).
+  const [forwards, setForwards] = useState<Record<string, { url: string; seq: number }>>({});
+  const forwardCount = useRef(0);
+  const extSeq = externalNav?.seq ?? 0;
+  useEffect(() => {
+    if (externalNav && extSeq > 0) {
+      forwardCount.current += 1;
+      const seq = forwardCount.current;
+      setForwards((f) => ({ ...f, [externalNav.key]: { url: externalNav.url, seq } }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [extSeq]);
+  // One tap forwards once: identical key and url inside 1.5 s collapse.
+  const lastForward = useRef<{ key: string; url: string; at: number } | null>(null);
   // Android hardware back (James-ruled, Phase 2 rule 6): active pane goBack()
   // when it can, else the Today tab, else system default. iOS never subscribes.
   const backHandlers = useRef<Record<string, () => boolean>>({});
@@ -979,8 +1021,24 @@ function ShellScreen({
   }, [setActiveTab]);
 
   const selectTab = useCallback(
-    (k: string) => {
+    (k: string, url?: string) => {
       fireHaptic('light');
+      const r = url ? resolveLink(url, NAV_CTX) : null;
+      const forward = r && r.kind === 'tab' && r.tab === k ? r.forward : null;
+      if (forward) {
+        const now = Date.now();
+        const dup =
+          lastForward.current &&
+          lastForward.current.key === k &&
+          lastForward.current.url === forward &&
+          now - lastForward.current.at < 1500;
+        if (!dup) {
+          lastForward.current = { key: k, url: forward, at: now };
+          forwardCount.current += 1;
+          const seq = forwardCount.current;
+          setForwards((f) => ({ ...f, [k]: { url: forward, seq } }));
+        }
+      }
       setActiveTab(k);
     },
     [setActiveTab]
@@ -1059,6 +1117,7 @@ function ShellScreen({
                 onBridged={tab.key === 'today' ? onBridged : undefined}
                 tabKey={tab.key}
                 onCrossTab={selectTab}
+                forwardNav={forwards[tab.key]}
                 active={isActive}
                 registerBack={(h) => {
                   backHandlers.current[tab.key] = h;
@@ -1226,6 +1285,7 @@ function SeamlessWebView({
   onBridged,
   tabKey,
   onCrossTab,
+  forwardNav,
   loaderTone = 'light',
   active,
   registerBack,
@@ -1236,8 +1296,10 @@ function SeamlessWebView({
   onBridged?: () => void;
   /** Which tab this pane belongs to — enables the cross-tab nav intercept. */
   tabKey?: string;
-  /** Called with the target tab key when an in-page link hits another tab's root. */
-  onCrossTab?: (key: string) => void;
+  /** Called with the target tab key (and the URL) when an in-page link hits another tab's root. */
+  onCrossTab?: (key: string, url?: string) => void;
+  /** B5.1: a URL forwarded into THIS pane; seq bumps per forward so repeats re-fire. */
+  forwardNav?: { url: string; seq: number };
   loaderTone?: 'light' | 'navy';
   /** Whether this pane is the visible tab — gates lazy revival of a
    *  recycled content process (hidden panes revive on show, not en masse). */
@@ -1288,6 +1350,9 @@ function SeamlessWebView({
   // document + API fan every boot. Latched: prop changes never navigate a
   // mounted pane; a remount re-latches the then-current (direct) uri.
   const initialUri = useRef(uri);
+  // B5.1 (ported from the customer shell, R5 veil): a forwarded URL loads
+  // through the source prop, deterministic across content-process recycling.
+  const [overrideUri, setOverrideUri] = useState<string | null>(null);
   // R5b port: veil long-stop + lazy revival of recycled content processes.
   const longStop = useRef<ReturnType<typeof setTimeout> | null>(null);
   const needsRevive = useRef(false);
@@ -1334,6 +1399,23 @@ function SeamlessWebView({
     []
   );
 
+  // B5.1: a forwarded navigation is a full document load in this pane.
+  const forwardSeq = forwardNav?.seq ?? 0;
+  const forwardUrl = forwardNav?.url;
+  useEffect(() => {
+    if (forwardSeq > 0 && forwardUrl) {
+      setLoaded(false);
+      fade.setValue(1);
+      if (overrideUri === forwardUrl) {
+        // The same URL forwarded again: the source would not change, so reload.
+        ref.current?.reload();
+      } else {
+        setOverrideUri(forwardUrl);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [forwardSeq]);
+
   // If the web session expires, the portal redirects to /login — bounce back to
   // the native login screen instead of showing the web form inside the shell.
   const onNav = (nav: WebViewNavigation) => {
@@ -1347,10 +1429,10 @@ function SeamlessWebView({
     // its own route (state preserved; a later onNav for the back-step matches
     // this pane's own key and no-ops).
     if (tabKey && onCrossTab) {
-      const target = tabRootKey(nav.url);
+      const target = tabRootOf(nav.url, NAV_CTX);
       if (target && target !== tabKey) {
         if (!crossTabDup(nav.url)) {
-          onCrossTab(target);
+          onCrossTab(target, nav.url);
           ref.current?.injectJavaScript('window.history.back(); true;');
         }
         return;
@@ -1497,7 +1579,7 @@ function SeamlessWebView({
     <View style={styles.flex}>
       <WebView
         ref={ref}
-        source={{ uri: initialUri.current, headers: SHELL_HEADER }}
+        source={{ uri: overrideUri ?? initialUri.current, headers: SHELL_HEADER }}
         applicationNameForUserAgent={UA_SUFFIX}
         {...IOS_WEBVIEW_PROPS}
         thirdPartyCookiesEnabled
@@ -1562,9 +1644,9 @@ function SeamlessWebView({
             }
           }
           if (tabKey && onCrossTab) {
-            const target = tabRootKey(req.url);
+            const target = tabRootOf(req.url, NAV_CTX);
             if (target && target !== tabKey) {
-              if (!crossTabDup(req.url)) onCrossTab(target);
+              if (!crossTabDup(req.url)) onCrossTab(target, req.url);
               return false;
             }
           }

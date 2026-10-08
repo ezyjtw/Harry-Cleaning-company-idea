@@ -208,8 +208,15 @@ describe('B5.2 classifyNavigation', () => {
 
   it('dev origin: http allowed only for the dev host', () => {
     const dev = pro.buildNavCtx(O, 'ios', '192.168.1.5');
-    expect(pro.classifyNavigation({ url: 'http://192.168.1.5:3000/x' }, S0, dev)).toBe('BLOCK');
+    expect(pro.classifyNavigation({ url: 'http://192.168.1.5:3000/x' }, S0, dev)).toBe(
+      'ALLOW_IN_PANE'
+    );
     expect(pro.classifyNavigation({ url: 'http://192.168.1.5/x' }, S0, dev)).toBe('ALLOW_IN_PANE');
+    expect(pro.classifyNavigation({ url: 'http://10.0.0.9:3000/x' }, S0, dev)).toBe('BLOCK');
+    // Production never accepts a port.
+    expect(
+      pro.classifyNavigation({ url: 'https://www.renacleaning.co.uk:443/x' }, S0, proCtx)
+    ).toBe('BLOCK');
   });
 });
 

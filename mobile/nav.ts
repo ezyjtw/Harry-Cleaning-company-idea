@@ -90,11 +90,16 @@ function normalisePath(raw: string): string {
   return p;
 }
 
-/** Parse an absolute hierarchical URL. A host with userinfo, a port or any non-host character is null. */
-export function parseHierarchical(raw: string): ParsedUrl | null {
+/**
+ * Parse an absolute hierarchical URL. A host with userinfo, a port or any
+ * non-host character is null; allowPort (development only) accepts and drops
+ * a numeric port.
+ */
+export function parseHierarchical(raw: string, allowPort = false): ParsedUrl | null {
   const m = raw.match(HIER);
   if (!m) return null;
-  const host = m[2];
+  let host = m[2];
+  if (allowPort) host = host.replace(/:\d{1,5}$/, '');
   if (!host || !HOST_OK.test(host)) return null;
   const rawPath = m[3] || '/';
   if (rawPath !== '/' && !rawPath.startsWith('/')) return null;
@@ -225,10 +230,10 @@ function startsStripeFlow(path: string | null): boolean {
   return !!path && STRIPE_FLOW_STARTS.some((p) => path.startsWith(p));
 }
 
-function parsedForClassifier(url: string): ParsedUrl | 'opaque' | null {
+function parsedForClassifier(url: string, ctx: NavCtx): ParsedUrl | 'opaque' | null {
   const s = (url ?? '').trim();
   if (!s) return null;
-  if (HIER.test(s)) return parseHierarchical(s);
+  if (HIER.test(s)) return parseHierarchical(s, !!ctx.devHost);
   return OPAQUE.test(s) ? 'opaque' : null;
 }
 
@@ -236,7 +241,7 @@ export function classifyNavigation(req: NavRequest, state: NavState, ctx: NavCtx
   // 1. Sub frames (Stripe Elements, 3DS challenge iframes) are never touched.
   if (req.isTopFrame === false) return 'ALLOW_IN_PANE';
   const s = (req.url ?? '').trim();
-  const p = parsedForClassifier(s);
+  const p = parsedForClassifier(s, ctx);
   // 2. Unparsable (including a userinfo or port trick in the host).
   if (p === null) return 'BLOCK';
   if (p === 'opaque') {
@@ -279,7 +284,7 @@ export function nextNavState(
   ctx: NavCtx
 ): NavState {
   if (req.isTopFrame === false) return state;
-  const p = parsedForClassifier(req.url);
+  const p = parsedForClassifier(req.url, ctx);
   if (!p || p === 'opaque') return state;
   if (p.scheme === 'https' && p.host === ctx.host) {
     if (verdict === 'ALLOW_IN_PANE' || verdict === 'STRIPE_RETURN') {
