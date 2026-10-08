@@ -339,6 +339,23 @@ export function isStatementUrl(url: string, ctx: NavCtx): boolean {
   );
 }
 
+/**
+ * STRING-LAW (B5.2): the one script the iOS onOpenWindow path injects. Built
+ * at runtime by a template with no backslash in its text (so cooked equals
+ * raw): a plain assignment of a JSON-encoded string. JSON.stringify escapes quotes, backslashes and control characters;
+ * the U+2028 and U+2029 separators are escaped too so older engines can never
+ * read them as line terminators. The cooked-parse proof
+ * (src/lib/ci/shell-nav.test.ts) parses and runs the delivered string.
+ */
+export function locationAssignScript(url: string): string {
+  const literal = JSON.stringify(String(url))
+    .split(String.fromCharCode(0x2028))
+    .join('\\u2028')
+    .split(String.fromCharCode(0x2029))
+    .join('\\u2029');
+  return `window.location.href = ${literal}; true;`;
+}
+
 // ─── B5.3 session loss (James-ruled) ─────────────────────────────────────────
 //
 // 2xx resets; 401 counts; a definitive 403 RESETS; 5xx, 429 and network

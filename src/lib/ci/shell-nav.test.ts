@@ -386,3 +386,29 @@ describe('B5.8 push decisions', () => {
     expect(pro.pushDoorDecision(input)).toBe(want);
   });
 });
+
+describe('STRING-LAW: the onOpenWindow script, cooked and delivered (B5.2)', () => {
+  it.each([
+    [`${O}/app/offer/abc`],
+    [`${O}/x?q="quoted"&a='single'`],
+    [`${O}/x?back=\\slash`],
+    [`${O}/x#</script><script>alert(1)</script>`],
+    [`${O}/x?ls=\u2028ps=\u2029`],
+    [`${O}/x?u=caf\u00e9\u{1F9F9}`],
+    ['javascript:alert(1)'],
+  ])('%s parses and assigns exactly the URL', (url) => {
+    const delivered = pro.locationAssignScript(url);
+    expect(delivered).toBe(cust.locationAssignScript(url));
+    expect(delivered.includes('\u2028')).toBe(false);
+    expect(delivered.includes('\u2029')).toBe(false);
+    // The engine's own parse of the exact string the WebView receives
+    // (CLAUDE.md STRING-LAW requires new Function over the delivered string).
+    // eslint-disable-next-line no-new-func
+    const run = new Function('window', delivered) as (w: {
+      location: { href?: string };
+    }) => unknown;
+    const w = { location: {} as { href?: string } };
+    expect(run(w)).toBeUndefined();
+    expect(w.location.href).toBe(url);
+  });
+});
