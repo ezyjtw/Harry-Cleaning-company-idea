@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 
 // B5 UAT ruling (James, 2026-10-08): every native-handoff refusal writes one
 // log line naming the app (or "browser") and the reason, and never the code.
@@ -15,7 +15,10 @@ vi.mock('@/lib/log', () => ({
 }));
 vi.mock('@/lib/db/prisma', () => ({ default: {}, prisma: {} }));
 
-const { POST } = await import('./route');
+let POST: (request: Request) => Promise<Response>;
+beforeAll(async () => {
+  ({ POST } = await import('./route'));
+});
 
 const MALFORMED = 'this-is-not-a-handoff-code';
 
