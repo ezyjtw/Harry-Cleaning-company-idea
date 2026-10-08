@@ -1,0 +1,12 @@
+B5 UAT batch rig capture, 2026-10-08, production build (npm start) on the rig, rig Postgres rena_b5.
+Server stdout, native_handoff refusal lines (one per refusal; probes: browser, customer malformed, Pro empty body, Pro well formed unknown code, then 10 browser calls and an 11th rate limited):
+{"ts":"2026-10-08T10:24:40.387Z","level":"warn","scope":"native_handoff","event":"refused","app":"browser","reason":"not_shell"}
+{"ts":"2026-10-08T10:24:40.424Z","level":"warn","scope":"native_handoff","event":"refused","app":"CUSTOMER","reason":"malformed"}
+{"ts":"2026-10-08T10:24:40.448Z","level":"warn","scope":"native_handoff","event":"refused","app":"PRO","reason":"malformed"}
+{"ts":"2026-10-08T10:24:40.779Z","level":"warn","scope":"native_handoff","event":"refused","app":"PRO","reason":"unknown"}
+{"ts":"2026-10-08T10:24:41.020Z","level":"warn","scope":"native_handoff","event":"refused","app":"browser","reason":"rate_limited"}
+(the 10 intermediate browser not_shell lines omitted, identical in shape)
+No line carries a code: grep for the submitted code strings in the server log returns 0.
+
+Sweep: 0 expired handoff codes on the rig, 2 planted expired, compliance marker reset to the previous day, POST /api/cron/run-jobs:
+"compliance":{"processed":13,"sessionSweep":{"bridgeCodes":1,"sessions":0,"handoffCodes":2}}

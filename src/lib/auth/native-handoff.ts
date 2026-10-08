@@ -69,6 +69,8 @@ export async function redeemNativeHandoffCode(
   now: Date = new Date()
 ): Promise<HandoffRedemption> {
   if (typeof code !== 'string' || !/^[A-Za-z0-9_-]{43}$/.test(code)) {
+    // B5 UAT ruling: every refusal logs once; the code itself never does.
+    log.warn('native_handoff', 'refused', { app, reason: 'malformed' });
     return { ok: false, reason: 'malformed' };
   }
   const codeHash = hashCode(code);
