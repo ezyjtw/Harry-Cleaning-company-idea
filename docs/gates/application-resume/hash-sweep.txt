@@ -1,0 +1,3 @@
+Hash sweep (hash law), control main 9ef42d5 on :3001 vs branch on :3000, same rig database.
+Branch hashed twice: all 28 routes identical (deterministic). Branch vs control: all 28 routes identical.
+/join is the one public route this lane touches; its server markup is unchanged (the wizard renders client side). Behaviour change, logged out: one extra GET /api/cleaners/application answered 200 {status: SIGNED_OUT} (incognito-diff-rendered.txt).

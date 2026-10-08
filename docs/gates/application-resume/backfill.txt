@@ -1,0 +1,42 @@
+DocumentUpload backfill proof (migration 20261008150000_cleaner_application_draft), rig Postgres 16.
+Fresh database rena_backfill migrated to main's last migration (20261008120000), 40 synthetic DocumentUpload rows seeded across every existing state (docs/gates/application-resume/backfill-seed.sql), then the new migration applied.
+
+BEFORE (main schema, 40 synthetic rows)
+f | f | f | 16
+f | f | t | 4
+f | t | f | 8
+f | t | t | 2
+t | f | f | 8
+t | f | t | 2
+existing-columns md5: 0c07405bf98da784a180de89d1905c76
+
+AFTER (migration 20261008150000_cleaner_application_draft applied)
+SUBMITTED | STORED | f | f | f | 16
+SUBMITTED | DELETED | f | f | t | 4
+VERIFIED | STORED | t | f | f | 8
+VERIFIED | DELETED | t | f | t | 2
+REJECTED | STORED | f | t | f | 8
+REJECTED | DELETED | f | t | t | 2
+existing-columns md5: 0c07405bf98da784a180de89d1905c76
+partial unique index present: 1
+
+Reading: every row keeps every existing column byte for byte (the md5 over all
+22 pre-existing columns, updatedAt included, is identical). The two new columns
+take the state the row's own columns already prove: VERIFIED where isVerified,
+REJECTED where rejectedAt is set and not verified, SUBMITTED otherwise; DELETED
+where isDestroyed (destroyDocument deletes the object before it marks the row),
+STORED otherwise. Counts map one to one: 16+4 SUBMITTED, 8+2 VERIFIED, 8+2
+REJECTED; 32 STORED, 8 DELETED (the 8 destroyed rows).
+
+Rollback note (only while no draft data exists; after go-live a rollback
+deletes unfinished applications and must not run without James's word):
+  1. Revert the application code first (the routes read these columns).
+  2. Run, in one transaction:
+       DROP INDEX "DocumentUpload_one_active_draft_per_category";
+       ALTER TABLE "DocumentUpload" DROP COLUMN "reviewState", DROP COLUMN "storageState";
+       DROP TABLE "CleanerVetting";
+       DROP TABLE "CleanerApplicationDraft";
+       DROP TYPE "DocumentReviewState"; DROP TYPE "DocumentStorageState"; DROP TYPE "CleanerApplicationStatus";
+       DELETE FROM "_prisma_migrations" WHERE migration_name = '20261008150000_cleaner_application_draft';
+  3. The pre-existing DocumentUpload columns need no restore: the backfill
+     never changed them (proven above).

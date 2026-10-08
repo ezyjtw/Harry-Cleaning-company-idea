@@ -1,0 +1,2 @@
+Rig scheduler run after the build (POST /api/cron/run-jobs), the two new summary entries:
+"applicationReminders":{"processed":0,"inactivity":0,"expiry":0},"documentIntegrity":{"processed":0,"pendingCleared":0,"retiredDeleted":0}

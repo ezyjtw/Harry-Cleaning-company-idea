@@ -1152,6 +1152,7 @@ export default function JoinAsCleanerPage() {
       if (res.status === 403) return 'not_cleaner';
       if (!res.ok) return 'error';
       const body = await res.json();
+      if (body.status === 'SIGNED_OUT') return 'signed_out';
       if (body.status === 'SUBMITTED') return 'submitted';
       const email = typeof body.account?.email === 'string' ? body.account.email : '';
       if (body.status !== 'IN_PROGRESS') {
@@ -1960,7 +1961,7 @@ export default function JoinAsCleanerPage() {
                 {accountExists && (
                   <p className="mt-1 font-jost text-[12px]">
                     <Link href="/login?callbackUrl=/join" className="text-primary underline">
-                      Log in to continue
+                      Sign in
                     </Link>
                   </p>
                 )}

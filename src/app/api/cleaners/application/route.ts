@@ -22,6 +22,13 @@ function failure(f: Failure) {
 
 export async function GET() {
   const a = await resolveApplicant();
+  // A logged-out visitor to /join is the normal case, not an error: answer
+  // plainly so the public page never logs a 401. Saves still answer 401.
+  if (a.kind === 'unauthenticated')
+    return NextResponse.json(
+      { status: 'SIGNED_OUT' },
+      { headers: { 'Cache-Control': 'no-store' } }
+    );
   if (a.kind !== 'ok') return failure(applicantFailure(a));
   const app = await getApplication(a.userId);
   return NextResponse.json(app, { headers: { 'Cache-Control': 'no-store' } });
