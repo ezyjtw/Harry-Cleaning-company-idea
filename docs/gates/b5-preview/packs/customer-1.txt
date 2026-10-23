@@ -1,0 +1,17 @@
+PIECE customer-1  app=mobile-customer  commit=77e0af2  B5 shell piece Customer-1 (NOT PUBLISHED): the deep link resolver and cold start in the RENA app (RE
+tracked source dirty before config edit: 0
+version/runtime: 1.0.1 {'policy': 'appVersion'}
+shell-nav tests:  Tests 110 passed (110)
+typecheck mobile-customer: rc=0
+STRING-LAW cooked-parse:
+  mobile-customer/App.tsx
+    blocks present: HIDE_CHROME_JS, SEAM_KILL_JS, PREFETCH_KILL_JS, DRESSED_JS
+    delivered length 6207; new Function(delivered): clean
+    lone backslashes in raw literals: none
+config difference from 77e0af2:  1 file changed, 1 insertion(+), 1 deletion(-) (- "baseUrl": "https://www.renacleaning.co.uk", + "baseUrl": "https://rena-web-staging-staging.up.railway.app", )
+EAS publish (branch preview-customer-1):
+  Branch             preview-customer-1
+  Runtime version    1.0.1
+  Platform           android, ios
+  Update group ID    bb729430-d364-4816-8019-d6f520097b13
+  Commit             77e0af2e070b610ee81e1cbd1718fef5d5ce3196*

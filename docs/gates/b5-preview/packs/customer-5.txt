@@ -1,0 +1,17 @@
+PIECE customer-5  app=mobile-customer  commit=1814367  B5 shell piece Customer-5 (NOT PUBLISHED): push activated per ruling, with the rationale card and se
+tracked source dirty before config edit: 0
+version/runtime: 1.0.1 {'policy': 'appVersion'}
+shell-nav tests:  Tests 127 passed (127)
+typecheck mobile-customer: rc=0
+STRING-LAW cooked-parse:
+  mobile-customer/App.tsx
+    blocks present: HIDE_CHROME_JS, SEAM_KILL_JS, PREFETCH_KILL_JS, DRESSED_JS
+    delivered length 6207; new Function(delivered): clean
+    lone backslashes in raw literals: none
+config difference from 1814367:  1 file changed, 1 insertion(+), 1 deletion(-) (- "baseUrl": "https://www.renacleaning.co.uk", + "baseUrl": "https://rena-web-staging-staging.up.railway.app", )
+EAS publish (branch preview-customer-5):
+  Branch             preview-customer-5
+  Runtime version    1.0.1
+  Platform           android, ios
+  Update group ID    8d812781-225c-4a71-a9c5-a58ebf49e2ba
+  Commit             18143671f117b40bff8b53653900dd9da01da7b1*

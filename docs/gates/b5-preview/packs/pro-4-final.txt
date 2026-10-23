@@ -1,0 +1,17 @@
+PIECE pro-4-final  app=mobile  commit=5b4ae89  Pre-OTA handoff gate (D-ai item 5, not for merge): RENA-103 dossier and the handoff redemption state
+tracked source dirty before config edit: 0
+version/runtime: 1.0.3 {'policy': 'appVersion'}
+shell-nav tests:  Tests 153 passed (153)
+typecheck mobile: rc=0
+STRING-LAW cooked-parse:
+  mobile/App.tsx
+    blocks present: HIDE_CHROME_JS, SEAM_KILL_JS, PREFETCH_KILL_JS, DRESSED_JS
+    delivered length 5752; new Function(delivered): clean
+    lone backslashes in raw literals: none
+config difference from 5b4ae89:  1 file changed, 1 insertion(+), 1 deletion(-) (- "baseUrl": "https://www.renacleaning.co.uk", + "baseUrl": "https://rena-web-staging-staging.up.railway.app", )
+EAS publish (branch preview-pro-4-final):
+  Branch             preview-pro-4-final
+  Runtime version    1.0.3
+  Platform           android, ios
+  Update group ID    e95422bc-560d-4855-8ec0-26ccec0faed1
+  Commit             5b4ae89836cd6633095c20ede6e9e5e281cf796d*

@@ -1,0 +1,17 @@
+PIECE customer-2  app=mobile-customer  commit=74a6afb  B5 shell piece Customer-2 (NOT PUBLISHED): one navigation classifier in the RENA app (RENA-024, 039)
+tracked source dirty before config edit: 0
+version/runtime: 1.0.1 {'policy': 'appVersion'}
+shell-nav tests:  Tests 117 passed (117)
+typecheck mobile-customer: rc=0
+STRING-LAW cooked-parse:
+  mobile-customer/App.tsx
+    blocks present: HIDE_CHROME_JS, SEAM_KILL_JS, PREFETCH_KILL_JS, DRESSED_JS
+    delivered length 6207; new Function(delivered): clean
+    lone backslashes in raw literals: none
+config difference from 74a6afb:  1 file changed, 1 insertion(+), 1 deletion(-) (- "baseUrl": "https://www.renacleaning.co.uk", + "baseUrl": "https://rena-web-staging-staging.up.railway.app", )
+EAS publish (branch preview-customer-2):
+  Branch             preview-customer-2
+  Runtime version    1.0.1
+  Platform           android, ios
+  Update group ID    5152cf84-14cd-4f69-bb50-570390761d03
+  Commit             74a6afbbd7c3e8387d2fd24669686cbffdaf6b14*
