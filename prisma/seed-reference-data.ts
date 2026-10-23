@@ -48,7 +48,8 @@ const SERVICE_TYPES = [
 
 // Fixed-price rows for the two FIXED services: the calendar hold per property
 // size (LB-6). Every FIXED service needs a row for all 6 PropertySize values.
-// B6 (D-ad): the dead customer price column is gone; the price is the cleaner's own.
+// B6 (D-ad): the dead customer price column is no longer written (dormant until
+// its contraction gate); the price is the cleaner's own.
 const FIXED_PRICES: Record<
   string,
   Array<{ propertySize: PropertySize; estimatedHours: number }>
@@ -95,8 +96,9 @@ const ADDONS: Record<string, Array<{ name: string; price: number }>> = {
 // code (src/lib/pricing/rates.ts) and the money_ledger migration deleted the
 // rows. N8 (James-ruled): every row below is create-if-missing, so an admin's
 // edit is never reset by a deploy. B6 (D-ad): the four multiplier keys were
-// inert (cleaner-set rates, no multipliers) and are gone; the
-// pricing_dead_furniture migration deleted their rows.
+// inert (cleaner-set rates, no multipliers): no longer seeded, read or
+// editable. Their production rows stay dormant until the contraction gate
+// deletes them.
 const PLATFORM_CONFIG = [
   {
     key: 'min_cleaner_rate',

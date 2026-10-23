@@ -1,5 +1,6 @@
 import Link from 'next/link';
 
+import { advertisedPrice } from '@/lib/pricing/display';
 import type { Cleaner } from '@/lib/types';
 
 import CleanerIdentity from './CleanerIdentity';
@@ -44,9 +45,9 @@ export default function CleanerCard({
 }: CleanerCardProps) {
   const isVerified = cleaner.identityVerified || cleaner.backgroundChecked;
   const hasFixed = fixedServicePrice !== null && fixedServicePrice !== undefined;
-  const fixedWithFee = hasFixed
-    ? (Math.round((fixedServicePrice as number) * 1.06 * 100) / 100).toFixed(2)
-    : null;
+  // B6 delta (James's fee ruling): the cleaner's own price; the 6% service
+  // fee is added and labelled at checkout only.
+  const fixedPrice = hasFixed ? advertisedPrice(fixedServicePrice as number) : null;
 
   return (
     <div
@@ -68,9 +69,8 @@ export default function CleanerCard({
               <>
                 {' · '}
                 <span className="font-newsreader text-[14px] font-medium text-ink">
-                  £{fixedWithFee}
-                </span>{' '}
-                <span className="text-ink-3">incl. fee</span>
+                  £{fixedPrice}
+                </span>
               </>
             ) : (
               <>
@@ -90,8 +90,7 @@ export default function CleanerCard({
 
       {hasFixed && fixedServiceLabel && (
         <p className="mt-3 rounded-[8px] bg-primary-soft px-3 py-2 font-jost text-[12px] font-medium text-ink">
-          Total for your {fixedServiceLabel}: £{fixedWithFee}
-          <span className="font-light text-ink-3"> · all-inclusive</span>
+          Price for your {fixedServiceLabel}: £{fixedPrice}
         </p>
       )}
 

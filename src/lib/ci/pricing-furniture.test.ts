@@ -5,9 +5,11 @@ import { describe, expect, it } from 'vitest';
 
 import { EDITABLE_PLATFORM_CONFIG_KEYS } from '@/lib/pricing/rates';
 
-// B6 (D-ad, James-ruled 2026-10-07): the pricing dead furniture stays gone.
-// Prices are each cleaner's own; FixedServicePrice keeps only estimatedHours
-// (the LB-6 calendar hold) and no multiplier key exists anywhere.
+// B6 (D-ad, James-ruled 2026-10-07; split by the second auditor's condition 1,
+// 23 Oct): the pricing dead furniture has no reader and no writer. The
+// customerPrice column and the four multiplier rows stay dormant in
+// production until their own contraction gate drops them, so B6 ships no
+// destructive migration and pre-B6 code stays a safe rollback.
 const ROOT = join(__dirname, '..', '..', '..');
 const read = (p: string) => readFileSync(join(ROOT, p), 'utf8');
 const MULTIPLIER_KEYS = [
@@ -18,10 +20,10 @@ const MULTIPLIER_KEYS = [
 ];
 
 describe('pricing dead furniture', () => {
-  it('the schema and the reference seed carry no customer price column', () => {
+  it('the column is dormant: optional in the schema, never written by the seed', () => {
     const model = read('prisma/schema.prisma').match(/model FixedServicePrice \{[^}]*\}/)?.[0];
     expect(model).toBeDefined();
-    expect(model).not.toMatch(/customerPrice/);
+    expect(model).toMatch(/customerPrice\s+Float\?/);
     expect(model).toMatch(/estimatedHours/);
     expect(read('prisma/seed-reference-data.ts')).not.toMatch(/customerPrice/);
   });
@@ -33,15 +35,18 @@ describe('pricing dead furniture', () => {
       expect(EDITABLE_PLATFORM_CONFIG_KEYS as readonly string[]).not.toContain(k);
   });
 
-  it('a migration drops the column and deletes the four rows', () => {
+  it('no migration drops the column or deletes the rows (that is the contraction gate)', () => {
     const dir = join(ROOT, 'prisma/migrations');
     const sql = readdirSync(dir)
       .filter((d) => statSync(join(dir, d)).isDirectory())
       .map((d) => readFileSync(join(dir, d, 'migration.sql'), 'utf8'))
       .join('\n');
-    expect(sql).toMatch(/ALTER TABLE "FixedServicePrice" DROP COLUMN "customerPrice"/);
+    expect(sql).not.toMatch(/DROP COLUMN "customerPrice"/);
     for (const k of MULTIPLIER_KEYS)
-      expect(sql).toMatch(new RegExp(`DELETE FROM "PlatformConfig"[^;]*'${k}'`));
+      expect(sql).not.toMatch(new RegExp(`DELETE FROM "PlatformConfig"[^;]*'${k}'`));
+    expect(sql).toMatch(
+      /ALTER TABLE "FixedServicePrice" ALTER COLUMN "customerPrice" DROP NOT NULL/
+    );
   });
 
   it('/api/pricing/services selects only what its callers read', () => {

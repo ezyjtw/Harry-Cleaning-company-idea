@@ -25,6 +25,12 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
   ],
+  // Rate limits (James-ruled 23 Oct, test infrastructure only): the app's
+  // per-IP limiters are in-memory per server process, and every test shares
+  // one IP. Run the suite against a FRESH server (CI always starts one), and
+  // restart it between repeated runs (--repeat-each or back-to-back suites):
+  // a reused server carries the previous run's budget (check-email allows 10
+  // per 15 minutes) and later cases see 429s. Production limits never change.
   webServer: {
     command: process.env.CI ? 'npm start' : 'npm run dev',
     url: 'http://localhost:3000',

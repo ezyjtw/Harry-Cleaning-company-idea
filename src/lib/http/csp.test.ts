@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { middleware } from '../../middleware';
 
-import { enforcedPolicy, isPublicStaticPath, reportOnlyPolicy } from './csp';
+import { enforcedPolicy, isPublicNoNoncePath, reportOnlyPolicy } from './csp';
 import { parseCspReports } from './csp-report';
 
 // RENA-005 (B6.1): the policy per route class, the report parser and the
@@ -70,9 +70,9 @@ describe('CSP headers per route class (middleware)', () => {
       expect((await get(path)).headers.get('content-security-policy')).toBeNull();
   });
 
-  it('a public static page: no report-only twin, no nonce', async () => {
+  it('a public/no-nonce page (static, ISR or per request): no report-only twin, no nonce', async () => {
     for (const path of ['/', '/pricing', '/cleaning/chingford', '/cleaning/walthamstow']) {
-      expect(isPublicStaticPath(path)).toBe(true);
+      expect(isPublicNoNoncePath(path)).toBe(true);
       const res = await get(path);
       expect(res.headers.get('content-security-policy-report-only')).toBeNull();
       expect(res.headers.get('x-middleware-request-x-nonce')).toBeNull();
@@ -99,7 +99,7 @@ describe('CSP headers per route class (middleware)', () => {
   });
 
   it('the auth pages are dynamic: they get the twin too', async () => {
-    expect(isPublicStaticPath('/login')).toBe(false);
+    expect(isPublicNoNoncePath('/login')).toBe(false);
     const res = await get('/login');
     expect(res.headers.get('content-security-policy-report-only')).not.toBeNull();
   });

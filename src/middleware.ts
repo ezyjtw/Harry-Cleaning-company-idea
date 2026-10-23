@@ -5,7 +5,7 @@ import createIntlMiddleware from 'next-intl/middleware';
 
 import { routing } from '@/i18n/routing';
 import { clientIpOrUnknown } from '@/lib/http/client-ip';
-import { isPublicStaticPath, newNonce, reportOnlyPolicy } from '@/lib/http/csp';
+import { isPublicNoNoncePath, newNonce, reportOnlyPolicy } from '@/lib/http/csp';
 import { canonicalOrigin, csrfVerdict } from '@/lib/http/csrf';
 
 // ─── Client IP resolution ───────────────────────────────────────────────────
@@ -313,7 +313,7 @@ export async function middleware(request: NextRequest) {
   // Reporting-Endpoints header come from next.config.js (src/lib/http/
   // csp-policy.js says why); fonts are self-hosted, so no font host is
   // allowed. Authed pages add the report-only nonce twin here.
-  if (!isPublicStaticPath(pathnameWithoutLocale)) {
+  if (!isPublicNoNoncePath(pathnameWithoutLocale)) {
     const nonce = newNonce();
     const reportOnly = reportOnlyPolicy(nonce);
     response.headers.set('Content-Security-Policy-Report-Only', reportOnly);
