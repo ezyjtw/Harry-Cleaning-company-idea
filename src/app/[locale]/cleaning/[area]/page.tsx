@@ -11,9 +11,12 @@ import { lookupOutcode } from '@/lib/utils/postcode';
 
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://www.renacleaning.co.uk';
 
-// Live cleaner data (counts, cards, rates) refreshes hourly — same cadence as
-// the homepage reviews section.
-export const revalidate = 3600;
+// RENA-051 (B6.3, named for James's ruling): kept per request, as in
+// production today. Railway builds without the private network (and before
+// the deploy's migrations), so a build-time render of this database-reading
+// page would cache an empty fallback until it revalidated (benched: /cleaners
+// served its no-data build render on the first request after start).
+export const dynamic = 'force-dynamic';
 
 export function generateMetadata({ params }: { params: { area: string } }): Metadata {
   const area = getServiceArea(params.area);

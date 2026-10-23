@@ -3,8 +3,6 @@ import { notFound } from 'next/navigation';
 import { hasLocale, NextIntlClientProvider } from 'next-intl';
 import { getMessages, getTranslations, setRequestLocale } from 'next-intl/server';
 
-export const dynamic = 'force-dynamic';
-
 import AIChatWidget from '@/components/AIChatWidget';
 import ContactFab from '@/components/ContactFab';
 import CookieConsent from '@/components/CookieConsent';
@@ -25,6 +23,13 @@ type Props = {
   children: React.ReactNode;
   params: Promise<{ locale: string }>;
 };
+
+// RENA-051 (B6.3, James-ruled least-invasive): no blanket force-dynamic; each
+// segment declares its own mode (public pages static or ISR, signed-in and
+// request-bound segments force-dynamic in their own layouts).
+export function generateStaticParams() {
+  return routing.locales.map((locale) => ({ locale }));
+}
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { locale } = await params;
