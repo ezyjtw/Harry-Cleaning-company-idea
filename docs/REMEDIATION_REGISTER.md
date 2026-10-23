@@ -875,7 +875,7 @@ Migration or config: none.
 Tests: route test; a grep sweep of web and both shells for callers.
 Delivery WEB. Proof RIG-AUTO.
 Last verified commit (B6). Decision owner and date: James, 2026-10-08 (D-ag). Overlap group M. Regression evidence: none yet.
-Implementation status: TODO (B6).
+Implementation status: BUILT on claude/b6 (B6 gate pending, not merged, not DONE). 9b22083 and dc3e03e: src/app/api/cleaners/route.ts keeps GET only (POST, uploadProfilePhoto and 18 imports removed); src/lib/ci/old-cleaner-post.test.ts proves the GET-only export and no POST caller in src, components or either shell; the rig answers POST with 405 (gate evidence). Earlier: TODO (B6).
 
 #### RENA-103 Admin incomplete-signup dossier shows the real saved step
 
@@ -950,7 +950,7 @@ Migration or config: none.
 Tests: middleware header assertions; Playwright checkout on the rig with the stricter header (Elements mounts, 3DS iframe loads). Manual: one test-mode payment with the header enforced.
 Delivery WEB. Proof RIG-AUTO. Incognito diff of the public pages rides the gate (headers served on them); HASH-LAW does not apply to headers.
 Last verified commit 766f98c. Decision owner and date: none needed. Overlap group none. Regression evidence: none yet.
-Implementation status: TODO (B6 steps one and two; step three after the report-only fortnight).
+Implementation status: BUILT on claude/b6 (B6 gate pending, not merged, not DONE). b754bde and the next.config placement commit: step one enforced (no unsafe-eval in production, frame-ancestors none, report-uri and report-to /api/csp-report, X-Frame-Options set once by the middleware); step two report-only nonce and strict-dynamic twin on authed pages only (James ruling), public static pages carry no nonce; /api/csp-report (204, 60 a minute per IP, both formats, path, directive and host only; log keys directive and blockedHost allowlisted). Deviation from the design, named: the enforced header is a next.config header, not a middleware one, because Next 14 copies middleware response headers onto the render request and reads the nonce from Content-Security-Policy first (benched: the nonce never landed until moved). Tests: src/lib/http/csp.test.ts (13), e2e/csp.spec.ts (enforced violations zero on five pages; authed-class scripts carry the nonce). Step three waits for the observation period and James's word. Earlier: TODO (B6 steps one and two; step three after the report-only fortnight).
 
 #### RENA-049 and RENA-050 Dialog accessibility, one primitive
 
@@ -961,7 +961,7 @@ Migration or config: none.
 Tests: axe plus a keyboard Playwright test (Tab cycles inside, Escape closes, focus returns). Manual: none.
 Delivery WEB. Proof RIG-AUTO. HASH-LAW (/cleaners modal).
 Last verified commit 766f98c. Decision owner and date: none needed. Overlap group none. Regression evidence: none yet.
-Implementation status: TODO (B6).
+Implementation status: BUILT on claude/b6 (B6 gate pending, not merged, not DONE). d8c859c merged as 67916bb: src/components/ui/Dialog.tsx (Modal.tsx deleted) with dialog-a11y.ts, sixteen consumers migrated, none disproved; unit dialog-a11y.test.ts (10), e2e/dialog-a11y.spec.ts (2, axe with color-contrast excluded). Seven choices named for ruling at the gate (styling props, new Escape and backdrop closes, new accessible names, CleanerProfileModal backdrop fold, inert scope, axe scope, nested stack proven by unit only). Earlier: TODO (B6).
 
 #### RENA-051 Locale subtree forced dynamic
 
@@ -972,7 +972,7 @@ Migration or config: none.
 Tests: a check that the build manifest marks the marketing routes static or ISR; Playwright incognito diff of the 26 baselined public routes. Manual: none.
 Delivery WEB. Proof RIG-AUTO. HASH-LAW (all 26 baselined public routes; every affected route named before implementation).
 Last verified commit 766f98c. Decision owner and date: none needed. Overlap group none. Regression evidence: none yet.
-Implementation status: TODO (B6).
+Implementation status: BUILT on claude/b6 (B6 gate pending, not merged, not DONE). c813a18 merged as 2432a99, b91ceeb: locale force-dynamic removed, generateStaticParams added; signed-in and request-bound segments force-dynamic in their own layouts (account and cleaner gain thin server layouts); sixteen public routes ISR 3600. Deviations named for ruling: /, /cleaners and /cleaning/[area] stay per request (Railway builds without the database and before migrations; benched with a dead database, /cleaners served its no-data build render on first request), /services/[category] stays dynamic (searchParams; B6.4 excluded). Mode table src/lib/ci/render-modes.ts, hash tool --modes check, render-modes.test.ts. Earlier: TODO (B6).
 
 #### RENA-052 Booking page size
 
@@ -992,7 +992,7 @@ Migration or config: none.
 Tests: the schema has no geo or has the centroid. Manual: none.
 Delivery WEB. Proof RIG-AUTO. HASH-LAW (homepage).
 Last verified commit 766f98c. Decision owner and date: none needed. Overlap group none. Regression evidence: none yet.
-Implementation status: TODO (B6).
+Implementation status: BUILT on claude/b6 (B6 gate pending, not merged, not DONE). 8e8f363: homepage LocalBusiness without geo, registered office address, areaServed the nine areas by name and outward code; each area Service names its Place with the centroid when the lookup succeeds; breadcrumb and review aggregate generators deleted. Raw-content proof: src/lib/seo/structured-data.test.ts and e2e/structured-data.spec.ts (the rig cannot reach postcodes.io, so the centroid form is unit-proven and owed on staging after deploy). Earlier: TODO (B6).
 
 #### RENA-083 Production build fetches Google Fonts at build time
 
@@ -1003,7 +1003,7 @@ Migration or config: none. Font files added to the repository.
 Tests: next build on the rig with outbound network blocked succeeds; the rendered CSS variables and font-face declarations match before and after; Playwright asserts the computed font-family on a heading and a body paragraph. Public pages: HASH-LAW (the font-face output changes the served CSS, so the incognito diff reviews it and baselines update in the gate).
 Delivery WEB. Proof RIG-AUTO.
 Last verified commit 6026a97. Decision owner and date: James, 2026-10-06. Overlap group none. Regression evidence: none yet.
-Implementation status: TODO (B6; nothing built now).
+Implementation status: BUILT on claude/b6 (B6 gate pending, not merged, not DONE). f4110ea: next/font/local from committed @fontsource 5.2.8 woff2 files with their OFL.txt; one local family per Google subset (latin, latin-ext, cyrillic for Jost, vietnamese for Newsreader) chained in globals.css so every character keeps its face. Network-blocked build passes. @font-face compare: every face matches by family, weight, style and range except the latin-ext range ends U+20C0 instead of U+20C4 and the adjusted Jost fallback face is gone (adjustFontFallback false, as designed). e2e/fonts.spec.ts. Hash law: all 28 routes change in exactly two font plumbing lines (the html font class names, the next-size-adjust meta), re-baseline proposed at the gate. Earlier: TODO (B6; nothing built now).
 
 #### RENA-056 SEO locale strategy
 
@@ -1028,7 +1028,7 @@ Migration or config: none.
 Tests: the hash tool shows all 26 baselined public routes unchanged; the app surfaces render the same text.
 Delivery WEB. Proof RIG-AUTO. HASH-LAW (proof of no change).
 Last verified commit 843b7b5. Decision owner and date: James, 2026-10-06 (D-ab). Overlap group none. Regression evidence: none yet.
-Implementation status: TODO (B6).
+Implementation status: BUILT on claude/b6 (B6 gate pending, not merged, not DONE). 35ab077: the locale provider sends only the ten client namespaces (src/i18n/client-namespaces.ts), five unreferenced namespaces deleted, CI check src/lib/ci/client-namespaces.test.ts. Register change proposed, not built: the app-only provider as designed is disproved by source (ShellConsentSheet mounts from CookieConsent in the locale layout, outside both proposed mount points; AnalyticsChoice also serves the website /account/settings). With the pick in place the mechanism no longer exists: future app strings take a namespace the public pick excludes, served by an app provider when its first consumer lands. Earlier: TODO (B6).
 
 #### RENA-096 Confirmation page polls the booking at an unbounded rate
 
@@ -1050,7 +1050,7 @@ Migration or config: none.
 Tests: all six in one invocation, parallel, green; or the runner refuses parallel mode.
 Delivery WEB. Proof RIG-AUTO.
 Last verified commit e066f3b. Decision owner and date: James, 2026-10-08 (D-ai). Overlap group none. Regression evidence: none yet.
-Implementation status: TODO (B6).
+Implementation status: BUILT on claude/b6 (B6 gate pending, not merged, not DONE). 6708b43, 72e458a: vitest.integration.config.ts (the six suites, one file at a time), npm run test:integration, src/lib/ci/integration-config.test.ts, CLAUDE.md section. Cause proven on the rig (S1 and S2 saw a foreign booking mid-run with zero before and after). Earlier: TODO (B6).
 
 ### B7 Scheduler, operations and GDPR
 
@@ -1165,7 +1165,7 @@ Migration or config: none expected (expiryReminderFailures and expiryReminderAtt
 Tests: a fixture application at and below the threshold; the alert fires once, carries no personal data, and clears.
 Delivery WEB. Proof RIG-AUTO.
 Last verified commit 165916d. Decision owner and date: James, 2026-10-08 (D-ai). Overlap group H. Regression evidence: none yet.
-Implementation status: TODO (B7).
+Implementation status: BUILT on claude/b6 (B6 gate pending, not merged, not DONE). b5aa921 (pulled into B6 by name, James 23 Oct): after WARNING_ALERT_FAILURES (3) undelivered daily attempts, one alert to RESEND_NOTIFICATION_EMAIL with ids and the count only; audit row APPLICATION_WARNING_ALERT_RAISED written only after it sends (a failed alert retries, a sent one never repeats); expiry_warning_alert_cleared logged on a later delivery. Integration A23 on the rig Postgres; two mutants red. Threshold 3 and the channel proposed for James's ruling. Earlier: TODO (B7).
 
 ### B8 Native rebuild
 
@@ -1275,6 +1275,7 @@ From B3 (James's B3 UAT ruling, 2026-10-07; the 28-of-28 concurrency matrix stay
 
 ## 9. Change log
 
+- 2026-10-23: B6 BUILT on claude/b6 (gate pending): RENA-005, 049/050, 051, 057, 083, 086, 102, 104 (by name), 105, the ui barrel (f73c3e2), the pricing dead furniture (fd094a7, migration 20261023120000_pricing_dead_furniture) and the book/[id] dead step (dc3e03e) under D-ad. B6.4 and lazy panes excluded by James's word.
 - 2026-10-23: Pre-OTA gate rulings (D-aj): the removal date approved; the dossier Documents line built from the draft documents (A22, bench 9 and 10); the measured redemption timeout owed at both OTA gates; the preview-channel build against the rig ruled for the forced failure walk. At its gate.
 - 2026-10-08: Pre-OTA handoff gate built (D-ai item 5): RENA-103 dossier reads the saved application; the handoff redemption state in both shells' source (unpublished); 8 bench entries red; the OTA gate device walks written. At its gate.
 - 2026-10-08: Application resume lane and D-ah merged (165916d through e066f3b) and deployed (c8f0803f), both migrations applied (D-ai). CI integration isolation confirmed; RENA-104 (B7 alert) and RENA-105 (B6 suite collision) entered; RENA-103 and the handoff redemption state opened as one pre-OTA gate. No OTA.
