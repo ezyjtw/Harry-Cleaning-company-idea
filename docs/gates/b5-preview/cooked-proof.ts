@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 // STRING-LAW proof (CLAUDE.md): the DELIVERED injection, cooked as the engine
 // cooks it, never the source text. Usage: tsx cooked-proof.ts <App.tsx> [cleanApp.tsx]
 import { readFileSync } from 'node:fs';
@@ -43,6 +44,8 @@ const t = load(file);
 const delivered = NAMES.filter((n) => t.values[n] !== null).map((n) => t.values[n]).join('');
 let parse = 'clean';
 try {
+  // The proof IS a parse of the delivered string (STRING-LAW): nothing runs it.
+  // eslint-disable-next-line no-new-func
   new Function(delivered);
 } catch (e) {
   parse = `SYNTAX ERROR: ${(e as Error).message}`;
