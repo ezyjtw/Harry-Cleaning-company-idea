@@ -5,6 +5,14 @@ import createIntlMiddleware from 'next-intl/middleware';
 
 import { routing } from '@/i18n/routing';
 import { clientIpOrUnknown } from '@/lib/http/client-ip';
+import {
+  CSP_REPORT_GROUP,
+  CSP_REPORT_PATH,
+  enforcedPolicy,
+  isPublicStaticPath,
+  newNonce,
+  reportOnlyPolicy,
+} from '@/lib/http/csp';
 import { canonicalOrigin, csrfVerdict } from '@/lib/http/csrf';
 
 // ─── Client IP resolution ───────────────────────────────────────────────────
@@ -96,6 +104,31 @@ function matchesRoute(path: string, route: string): boolean {
 }
 
 const intlMiddleware = createIntlMiddleware(routing);
+
+/**
+ * Add request headers for the render behind a response another middleware
+ * built (the mechanism NextResponse.next({ request: { headers } }) uses). An
+ * override list replaces the whole request header set, so a fresh list
+ * carries every original header; an existing one is extended.
+ */
+function forwardRequestHeaders(
+  request: NextRequest,
+  response: NextResponse,
+  extra: Record<string, string>
+): void {
+  const existing = response.headers.get('x-middleware-override-headers');
+  const names = new Set(existing ? existing.split(',').filter(Boolean) : []);
+  if (!existing)
+    request.headers.forEach((value, key) => {
+      names.add(key);
+      response.headers.set(`x-middleware-request-${key}`, value);
+    });
+  for (const [key, value] of Object.entries(extra)) {
+    names.add(key);
+    response.headers.set(`x-middleware-request-${key}`, value);
+  }
+  response.headers.set('x-middleware-override-headers', Array.from(names).join(','));
+}
 
 // ─── Middleware ─────────────────────────────────────────────────────────────
 
@@ -283,26 +316,25 @@ export async function middleware(request: NextRequest) {
     'Permissions-Policy',
     'camera=(), microphone=(), geolocation=(self), interest-cohort=()'
   );
+  // RENA-005 (B6.1): fonts are self-hosted (next/font/local plus Etna's
+  // same-origin @font-face), so the policy allows no font host. The policy
+  // itself lives in src/lib/http/csp.ts.
   response.headers.set(
     'Content-Security-Policy',
-    [
-      "default-src 'self'",
-      "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://js.stripe.com",
-      // Fonts are self-hosted via next/font (Newsreader/Jost) + a same-origin
-      // @font-face (Etna) — no Google Fonts at runtime, so the CSP no longer
-      // allows fonts.googleapis.com / fonts.gstatic.com. (The dev-only preview
-      // script scripts/generate-cleaner-preview.ts pulls from Google, but it
-      // renders static HTML offline and is never served by the app.)
-      "style-src 'self' 'unsafe-inline'",
-      "img-src 'self' data: blob: https:",
-      "font-src 'self' data:",
-      "connect-src 'self' https://api.stripe.com https://m.stripe.network https://*.sentry.io https://api.postcodes.io",
-      'frame-src https://js.stripe.com https://hooks.stripe.com',
-      "object-src 'none'",
-      "base-uri 'self'",
-      "form-action 'self'",
-    ].join('; ')
+    enforcedPolicy(process.env.NODE_ENV === 'production')
   );
+  response.headers.set('Reporting-Endpoints', `${CSP_REPORT_GROUP}="${CSP_REPORT_PATH}"`);
+  if (!isPublicStaticPath(pathnameWithoutLocale)) {
+    const nonce = newNonce();
+    const reportOnly = reportOnlyPolicy(nonce);
+    response.headers.set('Content-Security-Policy-Report-Only', reportOnly);
+    // The render reads the nonce from the request (Next applies it to its own
+    // scripts; layouts read x-nonce).
+    forwardRequestHeaders(request, response, {
+      'content-security-policy-report-only': reportOnly,
+      'x-nonce': nonce,
+    });
+  }
 
   // Rate limiting for non-API page routes
   const ip = clientIpOrUnknown(request.headers);

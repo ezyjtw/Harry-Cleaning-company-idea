@@ -85,6 +85,9 @@ const EXACT_KEYS = new Set([
   'platform',
   'pane',
   'phaseName',
+  // B6.1 CSP reports: a directive name and a host, never a URL.
+  'directive',
+  'blockedHost',
 ]);
 
 // Key families: identifiers (…Id, …Ids), counts (…Count), durations (…Ms).
