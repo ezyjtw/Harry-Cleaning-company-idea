@@ -125,6 +125,26 @@ export function shellHasCapability(cap: string): boolean {
   return !!m && m[1].split(',').includes(cap);
 }
 
+/**
+ * B5.8 settings door (RENA-046, James-ruled 23 Oct): a shell that handles the
+ * web's `{type: 'pushSettings'}` message (re-ask the OS while it allows it,
+ * else open the app's system Settings) advertises this token. Shells that do
+ * not (every binary and update before it is added) never see the door, so no
+ * tap is ever lost on a shell that would ignore it.
+ */
+export const PUSH_SETTINGS_CAPABILITY = 'pushSettingsV1';
+
+/** Ask the shell to open the notification settings door. False when it cannot. */
+export function postPushSettingsToShell(): boolean {
+  if (typeof window === 'undefined') return false;
+  if (!shellHasCapability(PUSH_SETTINGS_CAPABILITY)) return false;
+  const bridge = (window as unknown as { ReactNativeWebView?: { postMessage(m: string): void } })
+    .ReactNativeWebView;
+  if (!bridge || typeof bridge.postMessage !== 'function') return false;
+  bridge.postMessage(JSON.stringify({ type: 'pushSettings' }));
+  return true;
+}
+
 /** How long a completed signup page waits on the shell before moving on. */
 export const SIGNED_UP_SAFETY_NET_MS = 10_000;
 

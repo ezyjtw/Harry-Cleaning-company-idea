@@ -6,6 +6,7 @@ import { useState, useEffect } from 'react';
 import { AccountSection, Field } from '@/components/account/primitives';
 import AnalyticsChoice from '@/components/app/AnalyticsChoice';
 import { CustomerBackLink, useCustomerShell } from '@/components/app/customer';
+import PushSettingsDoor from '@/components/app/PushSettingsDoor';
 import PasswordRequirements from '@/components/ui/PasswordRequirements';
 import { validatePasswordPolicy } from '@/lib/utils/password-policy';
 
@@ -562,6 +563,13 @@ export default function SettingsPage() {
           <AnalyticsChoice variant="section" />
         </div>
       </AccountSection>
+
+      {/* B5.8 (RENA-046, D-ae): the customer notifications settings door, in a
+          shell that advertises it; the website renders nothing here. */}
+      <PushSettingsDoor
+        variant="section"
+        frame={(door) => <AccountSection title="Notifications">{door}</AccountSection>}
+      />
 
       {/* D-g (RENA-007): sign out everywhere, the current browser included. */}
       <AccountSection title="Signed-in devices">
