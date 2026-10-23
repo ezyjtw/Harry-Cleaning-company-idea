@@ -13,6 +13,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import AnalyticsChoice from '@/components/app/AnalyticsChoice';
 import { haptic } from '@/components/app/job-cards';
+import PushSettingsDoor from '@/components/app/PushSettingsDoor';
 
 interface HubProfile {
   name: string;
@@ -387,6 +388,16 @@ export default function ProfileHubPage() {
       <section className="mt-4 overflow-hidden rounded-2xl border border-line bg-surface">
         <AnalyticsChoice />
       </section>
+
+      {/* B5.8 (RENA-046): the notifications settings door, in a shell that
+          advertises it; nothing renders anywhere else. */}
+      <PushSettingsDoor
+        frame={(door) => (
+          <section className="mt-4 overflow-hidden rounded-2xl border border-line bg-surface">
+            {door}
+          </section>
+        )}
+      />
 
       {/* D-g (RENA-007): sign out everywhere, this device included. */}
       <section className="mt-4 overflow-hidden rounded-2xl border border-line bg-surface">

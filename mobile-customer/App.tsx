@@ -70,7 +70,10 @@ const SHELL_HEADER = {
 // can do, so the web never waits on a message an older shell ignores. The
 // capability token is behavioural negotiation only, never authentication.
 // signedUpHandoffV1: this shell redeems the web's `signedUp` handoff message.
-const SHELL_CAPABILITIES = ['signedUpHandoffV1'];
+// pushSettingsV1 (James-ruled 23 Oct, Customer-5, unpublished): this shell opens
+// the notification settings door on the web's `pushSettings` message, so the
+// web shows the door only to shells that answer it.
+const SHELL_CAPABILITIES = ['signedUpHandoffV1', 'pushSettingsV1'];
 const UA_SUFFIX = `RenaApp/${Constants.expoConfig?.version ?? '1.0'} RenaCap/${SHELL_CAPABILITIES.join(',')}`;
 
 // Platform law for the WebView prop block: iOS-shaped props never reach the
