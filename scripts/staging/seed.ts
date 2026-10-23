@@ -5,7 +5,10 @@
 // holds. Synthetic people only (@integration.invalid); the password comes
 // from STAGING_SEED_PASSWORD, never from the repo.
 //
-// Modes (SEED_MODE):
+// Runs as the rena-staging web service's pre-deploy command, so it runs
+// before every staging deploy; SEED_MODE unset or none does nothing, so an
+// ordinary main merge never reseeds. Modes (SEED_MODE):
+//   none      nothing (the default)
 //   base      the accounts, the customer's bookings, messages and the
 //             cleaner's public page (idempotent; rerun safely)
 //   offer     a new live offer to the cleaner, with the real offer push
@@ -15,41 +18,14 @@ import bcrypt from 'bcryptjs';
 
 import { PrismaClient } from '@prisma/client';
 
+import { seedMode, seedRefusals } from './guard';
+
 const DOMAIN = '@integration.invalid';
 export const STAGING = {
   cleaner: { email: `staging-cleaner${DOMAIN}`, name: 'Stella Staging' },
   customer: { email: `staging-customer${DOMAIN}`, name: 'Casey Staging' },
   admin: { email: `staging-admin${DOMAIN}`, name: 'Ada Staging' },
 } as const;
-
-function guard(): string {
-  const url = process.env.DATABASE_URL ?? '';
-  const host = (() => {
-    try {
-      return new URL(url).hostname;
-    } catch {
-      return '';
-    }
-  })();
-  const fails: string[] = [];
-  if (process.env.RENA_STAGING_SEED !== 'rena-staging')
-    fails.push('RENA_STAGING_SEED is not rena-staging');
-  if (!/staging/i.test(process.env.NEXTAUTH_URL ?? ''))
-    fails.push('NEXTAUTH_URL is not a staging address');
-  if (/renacleaning\.co\.uk/i.test(`${process.env.NEXTAUTH_URL} ${url}`))
-    fails.push('a production hostname is configured');
-  if (/^sk_live_|^rk_live_/.test(process.env.STRIPE_SECRET_KEY ?? ''))
-    fails.push('a live Stripe key is configured');
-  if (!(host.endsWith('.railway.internal') || host === '127.0.0.1' || host === 'localhost'))
-    fails.push(`database host ${host || '(none)'} is not staging-internal`);
-  const password = process.env.STAGING_SEED_PASSWORD ?? '';
-  if (password.length < 12) fails.push('STAGING_SEED_PASSWORD missing or shorter than 12');
-  if (fails.length) {
-    console.error(`[staging-seed] REFUSED: ${fails.join('; ')}`);
-    process.exit(1);
-  }
-  return password;
-}
 
 const prisma = new PrismaClient();
 
@@ -225,12 +201,22 @@ async function offer(windowMs: number) {
 }
 
 async function main() {
-  const password = guard();
-  const mode = process.env.SEED_MODE ?? 'base';
+  const mode = seedMode(process.env.SEED_MODE);
+  if (mode === null) throw new Error('unknown SEED_MODE');
+  if (mode === 'none') {
+    console.log('[staging-seed] SEED_MODE none: nothing to do');
+    return;
+  }
+  const refusals = seedRefusals(process.env);
+  if (refusals.length) {
+    console.error(`[staging-seed] REFUSED: ${refusals.join('; ')}`);
+    process.exitCode = 1;
+    return;
+  }
+  const password = process.env.STAGING_SEED_PASSWORD as string;
   if (mode === 'base') await base(await bcrypt.hash(password, 10));
   else if (mode === 'offer') await offer(30 * 60_000);
-  else if (mode === 'offer-expiring') await offer(90_000);
-  else throw new Error(`unknown SEED_MODE ${mode}`);
+  else await offer(90_000);
 }
 
 main()
