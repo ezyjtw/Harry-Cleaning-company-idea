@@ -15,6 +15,7 @@ import NavProgress from '@/components/nav/NavProgress';
 import Navbar from '@/components/Navbar';
 import AuthProvider from '@/components/providers/AuthProvider';
 import ServiceWorkerRegistration from '@/components/ServiceWorkerRegistration';
+import { pickClientMessages } from '@/i18n/client-namespaces';
 import { routing } from '@/i18n/routing';
 import { LIVE_CHAT_ENABLED } from '@/lib/config/features';
 import { fontVariables } from '@/lib/fonts';
@@ -84,7 +85,7 @@ export default async function LocaleLayout({ children, params }: Props) {
         <JsonLd data={generateOrganizationSchema()} />
       </head>
       <body className="flex min-h-screen flex-col">
-        <NextIntlClientProvider messages={messages}>
+        <NextIntlClientProvider messages={pickClientMessages(messages)}>
           <AuthProvider>
             <a
               href="#main-content"
