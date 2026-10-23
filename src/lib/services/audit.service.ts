@@ -145,7 +145,9 @@ export type AuditAction =
   // Dispute evidence (F1)
   | 'DISPUTE_EVIDENCE_UPLOADED'
   | 'DISPUTE_EVIDENCE_VIEWED'
-  | 'DISPUTE_EVIDENCE_DESTROYED';
+  | 'DISPUTE_EVIDENCE_DESTROYED'
+  // RENA-104: the undelivered deletion warning alert, raised once per application
+  | 'APPLICATION_WARNING_ALERT_RAISED';
 
 interface AuditLogParams {
   userId?: string;

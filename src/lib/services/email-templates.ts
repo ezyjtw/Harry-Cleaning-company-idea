@@ -1601,6 +1601,28 @@ export function buildSignupNotification(data: {
  *  evidence deadline is the headline — miss it and the dispute is lost by
  *  default. Alerting only; the money legs (funds_withdrawn/reinstated) are
  *  handled separately by the Xero pipeline. */
+/** RENA-104: an applicant's deletion warning keeps failing to send. Internal
+ *  ids and counts only: no name, no email address. */
+export function buildAdminApplicationWarningUndelivered(data: {
+  applicationId: string;
+  userId: string;
+  failures: number;
+}): EmailContent {
+  const subject = `Application deletion warning undelivered ${data.failures} times`;
+  const contentHtml =
+    h('A deletion warning is not getting through') +
+    p(
+      'An unfinished cleaner application is due its deletion warning, and every daily attempt to send it has failed. The application is held open until a warning is delivered, so it will not expire on its own. Check the email provider, then the applicant record.'
+    ) +
+    infoBlock([
+      ['Application', data.applicationId],
+      ['Applicant record', data.userId],
+      ['Failed attempts', String(data.failures)],
+    ]) +
+    button(`${appUrl()}/admin/cleaners/${data.userId}`, 'Open the applicant record');
+  return { subject, html: renderEmail({ contentHtml }) };
+}
+
 export function buildAdminDisputeOpened(data: {
   bookingRef: string;
   bookingId: string | null;

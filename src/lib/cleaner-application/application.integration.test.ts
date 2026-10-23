@@ -46,6 +46,8 @@ const mail = vi.hoisted(() => ({
   expiry: [] as string[],
   failExpiry: false,
   failSignup: false,
+  failAlert: false,
+  alerts: [] as Array<{ applicationId: string; userId: string; failures: number }>,
 }));
 vi.mock('@/lib/services/email.service', () => ({
   sendApplicationInactivityReminder: async (email: string) => {
@@ -55,6 +57,15 @@ vi.mock('@/lib/services/email.service', () => ({
   sendApplicationExpiryReminder: async (email: string) => {
     if (mail.failExpiry) return false;
     mail.expiry.push(email);
+    return true;
+  },
+  sendAdminApplicationWarningUndelivered: async (data: {
+    applicationId: string;
+    userId: string;
+    failures: number;
+  }) => {
+    if (mail.failAlert) return false;
+    mail.alerts.push(data);
     return true;
   },
   sendSignupNotification: async () => {
@@ -193,6 +204,8 @@ describe.skipIf(!enabled)('cleaner application against Postgres (RENA-100, 101)'
     store.failDeleteKey = null;
     mail.failExpiry = false;
     mail.failSignup = false;
+    mail.failAlert = false;
+    mail.alerts.length = 0;
     mail.inactivity.length = 0;
     mail.expiry.length = 0;
   });
@@ -1075,5 +1088,84 @@ describe.skipIf(!enabled)('cleaner application against Postgres (RENA-100, 101)'
       selfie: 'uploading',
       profile_photo: 'missing',
     });
+  });
+
+  it('A23. RENA-104: a warning undelivered for WARNING_ALERT_FAILURES days raises one alert, ids only; a failed alert retries; delivery clears it', async () => {
+    const day = 86400000;
+    const t0 = new Date();
+    const u = await applicant('CLEANER', 40);
+    await svc.saveApplicationStep(u.id, {
+      version: 0,
+      completedStep: 0,
+      data: DATA,
+      dateOfBirth: DOB,
+    });
+    await prisma.cleanerApplicationDraft.update({
+      where: { userId: u.id },
+      data: { lastActivityAt: new Date(t0.getTime() - 31 * day) },
+    });
+    const draft = await prisma.cleanerApplicationDraft.findUniqueOrThrow({
+      where: { userId: u.id },
+    });
+    const at = (n: number) => new Date(t0.getTime() + n * (day + 60000));
+    const raised = () =>
+      prisma.auditLog.count({
+        where: { action: 'APPLICATION_WARNING_ALERT_RAISED', entityId: draft.id },
+      });
+    const { log } = await import('@/lib/log');
+    const info = vi.spyOn(log, 'info');
+    expect(life.WARNING_ALERT_FAILURES).toBe(3);
+
+    mail.failExpiry = true;
+    // Below the threshold: two failed days, no alert.
+    await life.sendApplicationReminders(at(0));
+    await life.sendApplicationReminders(at(1));
+    expect(mail.alerts).toHaveLength(0);
+    expect(await raised()).toBe(0);
+    // At the threshold, the alert itself fails: nothing recorded, so it retries.
+    mail.failAlert = true;
+    expect((await life.sendApplicationReminders(at(2))).alerts).toBe(0);
+    expect(await raised()).toBe(0);
+    // The next failed day the alert sends, once.
+    mail.failAlert = false;
+    expect((await life.sendApplicationReminders(at(3))).alerts).toBe(1);
+    // Overlapping and later failed runs never repeat it.
+    await Promise.all([life.sendApplicationReminders(at(4)), life.sendApplicationReminders(at(4))]);
+    expect(mail.alerts).toEqual([{ applicationId: draft.id, userId: u.id, failures: 4 }]);
+    expect(await raised()).toBe(1);
+    expect(
+      (await prisma.cleanerApplicationDraft.findUnique({ where: { id: draft.id } }))
+        ?.expiryReminderFailures
+    ).toBe(5);
+
+    // No personal data in the payload, the rendered mail or the audit row.
+    const { buildAdminApplicationWarningUndelivered } =
+      await import('@/lib/services/email-templates');
+    const rendered = buildAdminApplicationWarningUndelivered(mail.alerts[0]);
+    const audit = await prisma.auditLog.findFirst({
+      where: { action: 'APPLICATION_WARNING_ALERT_RAISED', entityId: draft.id },
+    });
+    for (const text of [
+      JSON.stringify(mail.alerts),
+      rendered.subject + rendered.html,
+      JSON.stringify(audit?.metadata),
+    ]) {
+      expect(text).not.toContain(u.email);
+      expect(text).not.toContain('Rig Applicant');
+      expect(text).not.toContain(`${DATA.firstName} `);
+    }
+
+    // Delivery clears it: the warning is recorded and the clear is logged.
+    mail.failExpiry = false;
+    await life.sendApplicationReminders(at(5));
+    expect(
+      (await prisma.cleanerApplicationDraft.findUnique({ where: { id: draft.id } }))
+        ?.expiryReminderSentAt
+    ).not.toBeNull();
+    expect(info).toHaveBeenCalledWith('cleaner_application', 'expiry_warning_alert_cleared', {
+      userId: u.id,
+    });
+    expect(mail.alerts).toHaveLength(1);
+    info.mockRestore();
   });
 });

@@ -561,7 +561,7 @@ async function processIncompleteSignups(): Promise<HandlerResult> {
 // RENA-100 (James-ruled 2026-10-08): the two unfinished-application reminder
 // emails, each claimed once by a marker CAS (lifecycle.ts). Never throws.
 async function processApplicationReminders(): Promise<
-  HandlerResult & { inactivity?: number; expiry?: number; expiryFailed?: number }
+  HandlerResult & { inactivity?: number; expiry?: number; expiryFailed?: number; alerts?: number }
 > {
   try {
     const { sendApplicationReminders } = await import('@/lib/cleaner-application/lifecycle');
