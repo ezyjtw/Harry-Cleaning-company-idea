@@ -21,6 +21,7 @@
     "db:seed": "tsx prisma/seed.ts",
     "db:seed-reference": "tsx prisma/seed-reference-data.ts",
     "test": "vitest run",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
     "test:e2e": "playwright test",
     "check:runtime-bump": "tsx scripts/check-runtime-bump.ts",
     "prepare": "husky || true"
