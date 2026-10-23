@@ -11,6 +11,7 @@ import {
   postSignedUpToShell,
   shellHandoffApp,
   shellHasCapability,
+  PUSH_SETTINGS_CAPABILITY,
   SIGNED_UP_HANDOFF_CAPABILITY,
 } from './shell';
 
@@ -50,6 +51,16 @@ function asClient(ua: string, bridge?: (m: string) => void) {
 afterEach(() => vi.unstubAllGlobals());
 
 describe('shellHasCapability', () => {
+  it('the Pro-5 and Customer-5 source advertise pushSettingsV1 alongside the handoff token', () => {
+    for (const ua of [PRO_4, CUSTOMER_4]) {
+      asClient(ua);
+      expect(shellHasCapability(PUSH_SETTINGS_CAPABILITY)).toBe(true);
+      expect(shellHasCapability(SIGNED_UP_HANDOFF_CAPABILITY)).toBe(true);
+    }
+    asClient(PRO_LEGACY);
+    expect(shellHasCapability(PUSH_SETTINGS_CAPABILITY)).toBe(false);
+  });
+
   it('the Pro-4 and Customer-4 source advertise signedUpHandoffV1 and stay their own shell', () => {
     asClient(PRO_4);
     expect(shellHasCapability(SIGNED_UP_HANDOFF_CAPABILITY)).toBe(true);
@@ -128,11 +139,13 @@ describe('the capability is never authorisation', () => {
     );
   });
 
-  it('only the client helper and the two client signup pages read the capability', () => {
+  it('only the client helper, the two client signup pages and the client settings door read the capability', () => {
     const allowed = new Set([
       'src/lib/shell.ts',
       'src/app/[locale]/join/page.tsx',
       'src/app/[locale]/signup/page.tsx',
+      // B5.8 settings door (James-ruled 23 Oct): a client component.
+      'src/components/app/PushSettingsDoor.tsx',
     ]);
     const hits: string[] = [];
     const walk = (dir: string) => {
@@ -148,7 +161,9 @@ describe('the capability is never authorisation', () => {
     };
     walk(join(ROOT, 'src'));
     expect(hits.filter((f) => !allowed.has(f))).toEqual([]);
-    for (const f of hits.filter((x) => x.endsWith('page.tsx')))
+    for (const f of hits.filter(
+      (x) => x.endsWith('page.tsx') || x.endsWith('PushSettingsDoor.tsx')
+    ))
       expect(readFileSync(join(ROOT, f), 'utf8').startsWith("'use client'")).toBe(true);
   });
 });

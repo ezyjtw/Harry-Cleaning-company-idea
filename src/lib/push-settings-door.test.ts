@@ -6,8 +6,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { PUSH_SETTINGS_CAPABILITY, postPushSettingsToShell } from './shell';
 
 // B5.8 settings door (RENA-046, James-ruled 23 Oct). The message goes only to
-// a shell advertising pushSettingsV1; every current shell (none advertises it
-// yet) and every browser gets nothing, so no tap is lost on a shell that
+// a shell advertising pushSettingsV1 (the unpublished Pro-5 and Customer-5
+// source); every published shell and every browser gets nothing, so no tap is lost on a shell that
 // would ignore it. The served pages carry no door markup at all.
 const BASE = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15';
 function asClient(ua: string, bridge?: (m: string) => void) {
@@ -40,10 +40,12 @@ describe('the push settings door', () => {
     expect(postPushSettingsToShell()).toBe(false);
   });
 
-  it('no shell advertises the token yet (the shells are frozen; adding it is a named word)', () => {
+  it('the Pro-5 and Customer-5 source advertise the token (published binaries do not)', () => {
     const root = join(__dirname, '..', '..');
     for (const app of ['mobile/App.tsx', 'mobile-customer/App.tsx'])
-      expect(readFileSync(join(root, app), 'utf8')).not.toContain(PUSH_SETTINGS_CAPABILITY);
+      expect(readFileSync(join(root, app), 'utf8')).toContain(
+        "const SHELL_CAPABILITIES = ['signedUpHandoffV1', 'pushSettingsV1'];"
+      );
   });
 
   it('the door decides after mount and renders nothing until then', () => {
