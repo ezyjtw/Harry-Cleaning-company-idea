@@ -1,0 +1,17 @@
+PIECE pro-3  app=mobile  commit=1e3bd67  B5 shell piece Pro-3 (NOT PUBLISHED): the session-lost contract in Rena Pro (RENA-029, James-ruled)
+tracked source dirty before config edit: 0
+version/runtime: 1.0.3 {'policy': 'appVersion'}
+shell-nav tests:  Tests 117 passed (117)
+typecheck mobile: rc=0
+STRING-LAW cooked-parse:
+  mobile/App.tsx
+    blocks present: HIDE_CHROME_JS, SEAM_KILL_JS, PREFETCH_KILL_JS, DRESSED_JS
+    delivered length 5752; new Function(delivered): clean
+    lone backslashes in raw literals: none
+config difference from 1e3bd67:  1 file changed, 1 insertion(+), 1 deletion(-) (- "baseUrl": "https://www.renacleaning.co.uk", + "baseUrl": "https://rena-web-staging-staging.up.railway.app", )
+EAS publish (branch preview-pro-3):
+  Branch             preview-pro-3
+  Runtime version    1.0.3
+  Platform           android, ios
+  Update group ID    8276a423-7d5f-4fd7-920f-c51a07f6582a
+  Commit             1e3bd6766f4fcc2766c3cad525ace51fc8ec2b6f*

@@ -1,0 +1,17 @@
+PIECE pro-5  app=mobile  commit=958f34c  B5 shell piece Pro-5 (NOT PUBLISHED): notification rationale card and settings door (RENA-046, RENA-
+tracked source dirty before config edit: 0
+version/runtime: 1.0.3 {'policy': 'appVersion'}
+shell-nav tests:  Tests 127 passed (127)
+typecheck mobile: rc=0
+STRING-LAW cooked-parse:
+  mobile/App.tsx
+    blocks present: HIDE_CHROME_JS, SEAM_KILL_JS, PREFETCH_KILL_JS, DRESSED_JS
+    delivered length 5752; new Function(delivered): clean
+    lone backslashes in raw literals: none
+config difference from 958f34c:  1 file changed, 1 insertion(+), 1 deletion(-) (- "baseUrl": "https://www.renacleaning.co.uk", + "baseUrl": "https://rena-web-staging-staging.up.railway.app", )
+EAS publish (branch preview-pro-5):
+  Branch             preview-pro-5
+  Runtime version    1.0.3
+  Platform           android, ios
+  Update group ID    f9addf6d-745e-4cea-95cc-2b4632e2c35d
+  Commit             958f34cd503fcceb1de5ec218503bb6d50471ffa*

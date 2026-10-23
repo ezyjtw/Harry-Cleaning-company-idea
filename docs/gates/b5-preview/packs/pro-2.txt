@@ -1,0 +1,17 @@
+PIECE pro-2  app=mobile  commit=26d505c  B5 shell piece Pro-2 (NOT PUBLISHED): one navigation classifier and the statement validator in Rena 
+tracked source dirty before config edit: 0
+version/runtime: 1.0.3 {'policy': 'appVersion'}
+shell-nav tests:  Tests 117 passed (117)
+typecheck mobile: rc=0
+STRING-LAW cooked-parse:
+  mobile/App.tsx
+    blocks present: HIDE_CHROME_JS, SEAM_KILL_JS, PREFETCH_KILL_JS, DRESSED_JS
+    delivered length 5752; new Function(delivered): clean
+    lone backslashes in raw literals: none
+config difference from 26d505c:  1 file changed, 1 insertion(+), 1 deletion(-) (- "baseUrl": "https://www.renacleaning.co.uk", + "baseUrl": "https://rena-web-staging-staging.up.railway.app", )
+EAS publish (branch preview-pro-2):
+  Branch             preview-pro-2
+  Runtime version    1.0.3
+  Platform           android, ios
+  Update group ID    c63ac560-d7ab-42b1-86f8-8c92a15c04c7
+  Commit             26d505c35cecd87dc2f88b991ee5803337ca8f01*

@@ -1,0 +1,17 @@
+PIECE customer-4  app=mobile-customer  commit=5c63713  B5 nav core: isPortalLanding, the handoff fallback test (deviation 8), with its table
+tracked source dirty before config edit: 0
+version/runtime: 1.0.1 {'policy': 'appVersion'}
+shell-nav tests:  Tests 127 passed (127)
+typecheck mobile-customer: rc=0
+STRING-LAW cooked-parse:
+  mobile-customer/App.tsx
+    blocks present: HIDE_CHROME_JS, SEAM_KILL_JS, PREFETCH_KILL_JS, DRESSED_JS
+    delivered length 6207; new Function(delivered): clean
+    lone backslashes in raw literals: none
+config difference from 5c63713:  1 file changed, 1 insertion(+), 1 deletion(-) (- "baseUrl": "https://www.renacleaning.co.uk", + "baseUrl": "https://rena-web-staging-staging.up.railway.app", )
+EAS publish (branch preview-customer-4):
+  Branch             preview-customer-4
+  Runtime version    1.0.1
+  Platform           android, ios
+  Update group ID    64115d0c-996d-4f51-9c94-dab79b1e5a48
+  Commit             5c6371387f8ef36a58b371c2334c417dc42604eb*

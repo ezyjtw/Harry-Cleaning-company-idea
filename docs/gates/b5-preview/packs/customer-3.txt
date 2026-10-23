@@ -1,0 +1,17 @@
+PIECE customer-3  app=mobile-customer  commit=19f76d0  B5 shell piece Customer-3 (NOT PUBLISHED): the session-lost watcher in the RENA app (RENA-029 native
+tracked source dirty before config edit: 0
+version/runtime: 1.0.1 {'policy': 'appVersion'}
+shell-nav tests:  Tests 117 passed (117)
+typecheck mobile-customer: rc=0
+STRING-LAW cooked-parse:
+  mobile-customer/App.tsx
+    blocks present: HIDE_CHROME_JS, SEAM_KILL_JS, PREFETCH_KILL_JS, DRESSED_JS
+    delivered length 6207; new Function(delivered): clean
+    lone backslashes in raw literals: none
+config difference from 19f76d0:  1 file changed, 1 insertion(+), 1 deletion(-) (- "baseUrl": "https://www.renacleaning.co.uk", + "baseUrl": "https://rena-web-staging-staging.up.railway.app", )
+EAS publish (branch preview-customer-3):
+  Branch             preview-customer-3
+  Runtime version    1.0.1
+  Platform           android, ios
+  Update group ID    421d57a4-2dd5-4bba-a083-a159385c80e6
+  Commit             19f76d0ad9964303adc8d694d460045cee4ac1c7*
