@@ -13,7 +13,7 @@ const ROUTE = join(ROOT, 'src/app/api/cleaners/route.ts');
 describe('POST /api/cleaners is retired', () => {
   it('the route exports GET only', () => {
     const src = readFileSync(ROUTE, 'utf8');
-    const exported = [...src.matchAll(/^export (?:async )?function (\w+)/gm)].map((m) => m[1]);
+    const exported = Array.from(src.matchAll(/^export (?:async )?function (\w+)/gm), (m) => m[1]);
     expect(exported).toEqual(['GET']);
   });
 
