@@ -274,12 +274,23 @@ async function getIncompleteSignupDetail(userId: string): Promise<IncompleteSign
     select: { expires: true },
   });
 
+  // RENA-103 (James-ruled 23 Oct): the documents line reads the active
+  // draft documents, never assumes none.
+  const draftDocuments =
+    user.cleanerApplication?.status === 'IN_PROGRESS'
+      ? await prisma.documentUpload.findMany({
+          where: { userId: user.id, reviewState: 'DRAFT', isDestroyed: false },
+          select: { documentType: true, storageState: true },
+        })
+      : [];
   const application =
     user.cleanerApplication?.status === 'IN_PROGRESS'
-      ? applicationDossier(user.cleanerApplication, user.createdAt, {
-          sweepAgeDays: SWEEP_AGE_DAYS,
-          warningWindowDays: EXPIRY_WARNING_WINDOW_DAYS,
-        })
+      ? applicationDossier(
+          user.cleanerApplication,
+          user.createdAt,
+          { sweepAgeDays: SWEEP_AGE_DAYS, warningWindowDays: EXPIRY_WARNING_WINDOW_DAYS },
+          draftDocuments
+        )
       : null;
 
   // RENA-103: below is the ESTIMATE for pre-draft accounts only. Before the

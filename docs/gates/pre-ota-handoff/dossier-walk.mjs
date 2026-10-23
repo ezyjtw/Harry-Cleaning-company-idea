@@ -1,7 +1,7 @@
 /* eslint-disable */
 // Rig-only walk (gate evidence for RENA-103); not product code.
 // RENA-103 rig walk: an admin views the dossier of one applicant with a saved
-// application (stopped at step 3) and one pre-draft account (no draft row).
+// application (stopped at step 5, photo ID and right to work uploaded) and one pre-draft account (no draft row).
 import { chromium } from '@playwright/test';
 import { PrismaClient } from '@prisma/client';
 import * as L from '../application-resume/rig/lib.mjs';
@@ -13,13 +13,15 @@ let ip = 1;
 const out = [];
 const ctx = () => b.newContext({ extraHTTPHeaders: { 'x-forwarded-for': NET + ip++ } });
 
-// 1. A real applicant who stops after step 2 (saved step 3 of 7).
+// 1. A real applicant who stops after step 4 (saved step 3 of 7).
 const email = `walk-dossier-draft-${Date.now()}@integration.invalid`;
 const c = await ctx();
 const p = await c.newPage();
 await L.open(p);
 await L.step0(p, email);
 await L.step1(p);
+await L.step2(p);
+await L.step3(p);
 await p.waitForTimeout(800);
 await c.close();
 const drafted = await db.user.findUnique({
@@ -57,7 +59,7 @@ for (const [label, u] of [
   ).replace(/\s+/g, ' ');
   const pick = (re) => (t.match(re) || ['(absent)'])[0];
   out.push(
-    `${label}: heading "${pick(/Saved application|Wizard progress \(estimate\)/i)}"; ${pick(/Saved step Step \d of 7 · \w+/)}; ${pick(/Furthest step reached:? Step \d of 7 · \w+/)}; ${pick(/Deletion warning (Not sent yet|Delivered [^R]+|Warning undelivered[^R]+)/)}; removal "${pick(/removed automatically [^.]+/)}"; estimate note ${/Estimate: this account started before/.test(t) ? 'shown' : 'not shown'}`
+    `${label}: heading "${pick(/Saved application|Wizard progress \(estimate\)/i)}"; ${pick(/Saved step Step \d of 7 · \w+/)}; ${pick(/Furthest step reached:? Step \d of 7 · \w+/)}; ${pick(/Deletion warning (Not sent yet|Delivered [^R]+|Warning undelivered[^R]+)/)}; removal "${pick(/removed automatically [^.]+/)}"; documents "${pick(/Documents (Photo ID|None).*$/i)}"; estimate note ${/Estimate: this account started before/.test(t) ? 'shown' : 'not shown'}`
   );
 }
 out.push(

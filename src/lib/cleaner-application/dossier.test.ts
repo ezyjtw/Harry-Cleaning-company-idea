@@ -75,6 +75,32 @@ describe('applicationDossier', () => {
   });
 });
 
+describe('applicationDossier documents (James-ruled 23 Oct)', () => {
+  it('every category with its draft state: uploaded, upload not finished, not uploaded', () => {
+    const d = applicationDossier(draft(), created, RULE, [
+      { documentType: 'photo_id', storageState: 'STORED' },
+      { documentType: 'selfie', storageState: 'PENDING' },
+      { documentType: 'right_to_work', storageState: 'PENDING' },
+      { documentType: 'right_to_work', storageState: 'STORED' },
+      { documentType: 'not_a_category', storageState: 'STORED' },
+    ]);
+    expect(d.documents).toEqual([
+      { category: 'photo_id', label: 'Photo ID', state: 'uploaded' },
+      { category: 'right_to_work', label: 'Right to work', state: 'uploaded' },
+      { category: 'dbs_certificate', label: 'DBS certificate', state: 'missing' },
+      { category: 'selfie', label: 'Selfie', state: 'uploading' },
+      { category: 'profile_photo', label: 'Profile photo', state: 'missing' },
+    ]);
+  });
+
+  it('a deleted object never counts as uploaded', () => {
+    const d = applicationDossier(draft(), created, RULE, [
+      { documentType: 'photo_id', storageState: 'DELETED' },
+    ]);
+    expect(d.documents[0]).toMatchObject({ category: 'photo_id', state: 'missing' });
+  });
+});
+
 describe('the dossier view (render)', () => {
   const base: IncompleteSignupDetail = {
     userId: 'u1',
@@ -122,5 +148,21 @@ describe('the dossier view (render)', () => {
     expect(out).toContain('(30-day sweep)');
     expect(out).not.toContain('Saved application');
     expect(out).not.toContain('data-testid="deletion-warning"');
+    expect(out).toContain('documents are uploaded at the final Review step');
+  });
+
+  it('with uploads: each category and its state, never "None"', () => {
+    const out = html({
+      ...base,
+      application: applicationDossier(draft(), created, RULE, [
+        { documentType: 'photo_id', storageState: 'STORED' },
+        { documentType: 'selfie', storageState: 'PENDING' },
+      ]),
+    });
+    expect(out).toContain('data-testid="draft-documents"');
+    expect(out).toMatch(/Photo ID<\/span><span[^>]*>✓ Uploaded/);
+    expect(out).toMatch(/Selfie<\/span><span[^>]*>Upload not finished/);
+    expect(out).toMatch(/Right to work<\/span><span[^>]*>Not uploaded/);
+    expect(out).not.toContain('documents are uploaded at the final Review step');
   });
 });

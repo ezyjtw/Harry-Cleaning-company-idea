@@ -26,9 +26,8 @@ from final submit to the next screen.
 4. **No handoff at all (D-ah item 5).** A submit whose handoff code is not
    minted: final submit committed, no handoff message, the page goes to
    /cleaner, the shell recognises the portal landing, native login with the
-   email prefilled. How to force the mint failure on a device is PARKED for
-   James (production cannot be made to fail without a write; candidates: a
-   preview-channel build pointed at a rig server).
+   email prefilled. Method (D-aj item 4): a preview-channel build pointed at
+   the rig server, with the rig's handoff mint forced to fail.
 5. **A second attempt starts afresh.** After walk 3, log out, Join again with
    a new applicant: the flow behaves as walk 1 (the state starts from IDLE).
 
@@ -44,8 +43,22 @@ from final submit to the next screen.
    prefilled; signing in lands on Home.
 4. **No handoff at all.** As Pro-4 walk 4 for signup (the page completes on
    the website account path; the shell recognises the portal landing; native
-   login with the email prefilled). Forcing method PARKED as above.
+   login with the email prefilled). Method as Pro-4 walk 4.
 5. **A second attempt starts afresh.** As Pro-4 walk 5.
+
+## Redemption timing and the measured timeout (D-aj item 3, both shells)
+
+Owed by name at each OTA gate, before publication:
+
+1. **Timing walk.** On each device and network condition used above (normal,
+   throttled), record the redemption request time from the signedUp message
+   to its answer, at least ten runs each.
+2. **Set the timeout from it.** The redemption request gets a timeout chosen
+   from the measured times (stated with the numbers it came from); no value
+   is set before the measurement.
+3. **Prove it.** A redemption that exceeds the timeout goes to FAILED and
+   native login with the email prefilled (walk 3's outcome), proven in the
+   state test and on the device with a throttled network.
 
 ## Pass condition
 

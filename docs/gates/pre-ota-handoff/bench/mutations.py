@@ -1,4 +1,5 @@
-# Pre-OTA handoff gate bench (bench doctrine; D-ai item 5 and RENA-103):
+# Pre-OTA handoff gate bench (bench doctrine; D-ai item 5, RENA-103 and the
+# 23 Oct documents ruling):
 # each guard removed must turn its test red. nav.ts mutations are applied to
 # BOTH shells identically, so the byte-identical core test cannot be what
 # catches them. Run with the rig env sourced (DATABASE_URL) for the A21 entry.
@@ -10,6 +11,7 @@ D = 'src/lib/cleaner-application/dossier.ts'
 NAVT = ['npx', 'vitest', 'run', 'src/lib/ci/shell-nav.test.ts']
 DOST = ['npx', 'vitest', 'run', 'src/lib/cleaner-application/dossier.test.ts']
 A21 = ['npx', 'vitest', 'run', 'src/lib/cleaner-application/application.integration.test.ts', '-t', 'A21']
+A22 = ['npx', 'vitest', 'run', 'src/lib/cleaner-application/application.integration.test.ts', '-t', 'A22']
 env = dict(os.environ, CLEANER_APPLICATION_INTEGRATION='1')
 
 redeeming = "      // A portal landing and a second signedUp are both ignored here.\n      return stay;"
@@ -32,6 +34,10 @@ M = [
   ('dossier: the saved step shown zero-based',
    [(D, "const toStep = (i: number) => Math.min(STEP_COUNT, Math.max(1, Math.floor(i) + 1));",
         "const toStep = (i: number) => Math.min(STEP_COUNT, Math.max(0, Math.floor(i)));")], [DOST, A21]),
+  ('documents: an unfinished upload shown as uploaded',
+   [(D, "(d) => d.storageState === 'STORED'", "(d) => d.storageState !== 'DELETED'")], [DOST, A22]),
+  ('documents: any record shown as uploaded, deleted objects included',
+   [(D, "(d) => d.storageState === 'STORED'", "() => true")], [DOST, A22]),
 ]
 out = []
 for name, edits, checks in M:
@@ -43,7 +49,7 @@ for name, edits, checks in M:
         res = []
         for c in checks:
             r = subprocess.run(c, cwd=R, env=env, capture_output=True, text=True, timeout=600)
-            res.append(f"{os.path.basename(c[3])}{' A21' if 'A21' in c else ''}: {'RED' if r.returncode != 0 else 'GREEN'}")
+            res.append(f"{os.path.basename(c[3])}{' ' + c[-1] if c[-2] == '-t' else ''}: {'RED' if r.returncode != 0 else 'GREEN'}")
         caught = all(x.endswith('RED') for x in res)
         out.append(f"{name}: {'RED (caught)' if caught else 'NOT CAUGHT'} [{'; '.join(res)}]")
         print(out[-1], flush=True)

@@ -1025,4 +1025,55 @@ describe.skipIf(!enabled)('cleaner application against Postgres (RENA-100, 101)'
     await incomplete.sweepIncompleteSignups(new Date(at + 60000));
     expect(await prisma.user.findUnique({ where: { id: u.id } })).toBeNull();
   });
+
+  it('A22. RENA-103: the dossier documents read the real draft documents (James-ruled 23 Oct)', async () => {
+    const { applicationDossier } = await import('./dossier');
+    const u = await applicant('CLEANER');
+    await svc.saveApplicationStep(u.id, {
+      version: 0,
+      completedStep: 0,
+      data: DATA,
+      dateOfBirth: DOB,
+    });
+    expect((await svc.uploadDraftDocument(u.id, { category: 'photo_id', fileData: PNG })).ok).toBe(
+      true
+    );
+    // An upload whose object never landed: a PENDING row of its own category.
+    await prisma.documentUpload.create({
+      data: {
+        userId: u.id,
+        documentType: 'selfie',
+        originalName: 'selfie.png',
+        storagePath: `rig/${u.id}/pending-selfie`,
+        mimeType: 'image/png',
+        fileSize: 1,
+        encryptionKeyId: 'rig-only',
+        checksum: 'rig-only',
+        reviewState: 'DRAFT',
+        storageState: 'PENDING',
+      },
+    });
+    // The page's own query.
+    const docs = await prisma.documentUpload.findMany({
+      where: { userId: u.id, reviewState: 'DRAFT', isDestroyed: false },
+      select: { documentType: true, storageState: true },
+    });
+    const d = await prisma.cleanerApplicationDraft.findUniqueOrThrow({ where: { userId: u.id } });
+    const shown = applicationDossier(
+      d,
+      u.createdAt,
+      {
+        sweepAgeDays: incomplete.SWEEP_AGE_DAYS,
+        warningWindowDays: incomplete.EXPIRY_WARNING_WINDOW_DAYS,
+      },
+      docs
+    );
+    expect(Object.fromEntries(shown.documents.map((x) => [x.category, x.state]))).toEqual({
+      photo_id: 'uploaded',
+      right_to_work: 'missing',
+      dbs_certificate: 'missing',
+      selfie: 'uploading',
+      profile_photo: 'missing',
+    });
+  });
 });

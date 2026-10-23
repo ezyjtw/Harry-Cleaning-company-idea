@@ -290,9 +290,28 @@ export default function IncompleteSignupClient({ signup }: { signup: IncompleteS
             <h3 className="text-xs font-semibold text-ink-3 uppercase tracking-wider mb-1">
               Documents
             </h3>
-            <p className="text-sm text-ink-2">
-              None — documents are uploaded at the final Review step, which was never reached.
-            </p>
+            {app ? (
+              <ul className="space-y-1.5 text-sm" data-testid="draft-documents">
+                {app.documents.map((d) => (
+                  <li key={d.category} className="flex justify-between gap-4">
+                    <span className="text-ink">{d.label}</span>
+                    {d.state === 'uploaded' ? (
+                      <span className="text-trust">✓ Uploaded</span>
+                    ) : d.state === 'uploading' ? (
+                      <span className="rounded bg-amber-50 px-1.5 py-0.5 text-xs text-amber-700">
+                        Upload not finished
+                      </span>
+                    ) : (
+                      <span className="text-ink-3">Not uploaded</span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-ink-2">
+                None — documents are uploaded at the final Review step, which was never reached.
+              </p>
+            )}
           </div>
         </div>
       </div>

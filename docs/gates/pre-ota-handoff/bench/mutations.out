@@ -6,3 +6,5 @@ shells: a new join or signup does not start from IDLE: RED (caught) [shell-nav.t
 dossier: removal date ignores the warning window: RED (caught) [dossier.test.ts: RED; application.integration.test.ts A21: RED]
 dossier: a date is promised before any warning was delivered: RED (caught) [dossier.test.ts: RED; application.integration.test.ts A21: RED]
 dossier: the saved step shown zero-based: RED (caught) [dossier.test.ts: RED; application.integration.test.ts A21: RED]
+documents: an unfinished upload shown as uploaded: RED (caught) [dossier.test.ts: RED; application.integration.test.ts A22: RED]
+documents: any record shown as uploaded, deleted objects included: RED (caught) [dossier.test.ts: RED; application.integration.test.ts A22: RED]
