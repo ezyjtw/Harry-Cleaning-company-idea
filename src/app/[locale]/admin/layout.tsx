@@ -5,6 +5,11 @@ import { getSessionUser } from '@/lib/auth/session';
 
 import AdminChrome from './AdminChrome';
 
+// RENA-051 (B6.3, James-ruled least-invasive): the locale layout no longer
+// forces every page dynamic; this signed-in or request-bound segment keeps
+// rendering per request, exactly as before.
+export const dynamic = 'force-dynamic';
+
 // R9 (HQ PWA): admin pages declare their OWN manifest (id + scope /admin,
 // start_url /admin/hq) — a per-page manifest link overrides the root
 // /manifest.json, and the distinct id makes Chrome offer "Install" as a

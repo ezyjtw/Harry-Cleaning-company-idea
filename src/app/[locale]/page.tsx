@@ -1,8 +1,12 @@
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 
-// C2: the reviews section reads live data — revalidate hourly so real reviews
-// appear as the pool grows without forcing a full-dynamic homepage.
-export const revalidate = 3600;
+// C2: the reviews section reads live data.
+// RENA-051 (B6.3, named for James's ruling): kept per request, as in
+// production today. Railway builds without the private network (and before
+// the deploy's migrations), so a build-time render of this database-reading
+// page would cache an empty fallback until it revalidated (benched: /cleaners
+// served its no-data build render on the first request after start).
+export const dynamic = 'force-dynamic';
 
 import JsonLd from '@/components/JsonLd';
 import { generateLocalBusinessSchema, generateServiceSchema } from '@/lib/seo/structured-data';

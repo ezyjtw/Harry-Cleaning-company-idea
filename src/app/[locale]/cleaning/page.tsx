@@ -3,6 +3,9 @@ import Link from 'next/link';
 
 import { SERVICE_AREAS } from '@/lib/areas';
 
+// RENA-051 (B6.3): static, regenerated hourly.
+export const revalidate = 3600;
+
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://www.renacleaning.co.uk';
 
 export const metadata: Metadata = {

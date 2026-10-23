@@ -1,6 +1,9 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 
+// RENA-051 (B6.3): static, regenerated hourly.
+export const revalidate = 3600;
+
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://www.renacleaning.co.uk';
 
 export const metadata: Metadata = {
@@ -187,14 +190,15 @@ export default function GuaranteesPage() {
               </svg>
             </div>
             <div>
-              <h2 className="font-newsreader text-3xl font-semibold text-ink">Insurance Coverage</h2>
+              <h2 className="font-newsreader text-3xl font-semibold text-ink">
+                Insurance Coverage
+              </h2>
               <div className="mt-4 space-y-4 font-jost font-light text-ink-2 leading-relaxed">
                 <p>
-                  Every clean is protected by two layers of cover. All cleaners on the Rena
-                  platform are required to hold their own valid public liability insurance,
-                  verified before they can take bookings and tracked for expiry. On top of that,
-                  Rena carries its own insurance cover, so you are never relying on a single
-                  policy.
+                  Every clean is protected by two layers of cover. All cleaners on the Rena platform
+                  are required to hold their own valid public liability insurance, verified before
+                  they can take bookings and tracked for expiry. On top of that, Rena carries its
+                  own insurance cover, so you are never relying on a single policy.
                 </p>
                 <div
                   className="bg-cream-2 p-6"
@@ -345,7 +349,9 @@ export default function GuaranteesPage() {
               </svg>
             </div>
             <div>
-              <h2 className="font-newsreader text-3xl font-semibold text-ink">Cancellation Policy</h2>
+              <h2 className="font-newsreader text-3xl font-semibold text-ink">
+                Cancellation Policy
+              </h2>
               <div className="mt-4 space-y-4 font-jost font-light text-ink-2 leading-relaxed">
                 <p>
                   We understand plans change. Our cancellation policy is designed to be fair to both
@@ -359,8 +365,8 @@ export default function GuaranteesPage() {
                 </p>
                 <p>
                   And if it goes wrong on our side: if your cleaner cancels, or we can&apos;t find
-                  you a cleaner at all, you&apos;re refunded in full — automatically, without
-                  having to ask.
+                  you a cleaner at all, you&apos;re refunded in full — automatically, without having
+                  to ask.
                 </p>
                 <div
                   className="overflow-hidden"

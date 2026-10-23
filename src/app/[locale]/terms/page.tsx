@@ -1,5 +1,8 @@
 import type { Metadata } from 'next';
 
+// RENA-051 (B6.3): static, regenerated hourly.
+export const revalidate = 3600;
+
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://www.renacleaning.co.uk';
 
 export const metadata: Metadata = {
@@ -32,7 +35,9 @@ export default function TermsPage() {
         </section>
 
         <section className="mt-8 border-b border-line pb-8">
-          <h2 className="font-newsreader text-2xl font-semibold text-ink">2. Description of Service</h2>
+          <h2 className="font-newsreader text-2xl font-semibold text-ink">
+            2. Description of Service
+          </h2>
           <p className="mt-4 font-jost font-normal text-ink-2 leading-relaxed">
             Rena is an online marketplace that connects customers with independent cleaning
             professionals. Rena is not a cleaning company and does not provide cleaning services
@@ -43,7 +48,9 @@ export default function TermsPage() {
         </section>
 
         <section className="mt-8 border-b border-line pb-8">
-          <h2 className="font-newsreader text-2xl font-semibold text-ink">3. Account Registration</h2>
+          <h2 className="font-newsreader text-2xl font-semibold text-ink">
+            3. Account Registration
+          </h2>
           <p className="mt-4 font-jost font-normal text-ink-2 leading-relaxed">
             To use certain features of the Platform, you must create an account. You agree to:
           </p>
@@ -61,7 +68,9 @@ export default function TermsPage() {
         </section>
 
         <section className="mt-8 border-b border-line pb-8">
-          <h2 className="font-newsreader text-2xl font-semibold text-ink">4. Bookings and Services</h2>
+          <h2 className="font-newsreader text-2xl font-semibold text-ink">
+            4. Bookings and Services
+          </h2>
           <h3 className="mt-6 font-newsreader text-lg font-semibold text-ink">4.1 For Customers</h3>
           <ul className="mt-4 list-disc pl-6 space-y-2 font-jost font-normal text-ink-2">
             <li>
@@ -120,7 +129,9 @@ export default function TermsPage() {
         </section>
 
         <section className="mt-8 border-b border-line pb-8">
-          <h2 className="font-newsreader text-2xl font-semibold text-ink">5. Pricing and Payment</h2>
+          <h2 className="font-newsreader text-2xl font-semibold text-ink">
+            5. Pricing and Payment
+          </h2>
           <ul className="mt-4 list-disc pl-6 space-y-2 font-jost font-normal text-ink-2">
             <li>
               Cleaners set their own rates which are listed on the platform. A 6% service fee is
@@ -184,7 +195,9 @@ export default function TermsPage() {
         </section>
 
         <section className="mt-8 border-b border-line pb-8">
-          <h2 className="font-newsreader text-2xl font-semibold text-ink">7. Reviews and Ratings</h2>
+          <h2 className="font-newsreader text-2xl font-semibold text-ink">
+            7. Reviews and Ratings
+          </h2>
           <p className="mt-4 font-jost font-normal text-ink-2 leading-relaxed">
             After a completed booking, customers may leave a review and rating for the cleaner.
             Reviews must be honest, accurate, and based on the actual service received. We reserve
@@ -222,7 +235,9 @@ export default function TermsPage() {
         </section>
 
         <section className="mt-8 border-b border-line pb-8">
-          <h2 className="font-newsreader text-2xl font-semibold text-ink">10. Intellectual Property</h2>
+          <h2 className="font-newsreader text-2xl font-semibold text-ink">
+            10. Intellectual Property
+          </h2>
           <p className="mt-4 font-jost font-normal text-ink-2 leading-relaxed">
             The Platform, including its design, logos, text, graphics, and software, is owned by
             Rena and protected by copyright, trademark, and other intellectual property laws. You
@@ -289,7 +304,9 @@ export default function TermsPage() {
         </section>
 
         <section className="mt-8">
-          <h2 className="font-newsreader text-2xl font-semibold text-ink">16. Contact Information</h2>
+          <h2 className="font-newsreader text-2xl font-semibold text-ink">
+            16. Contact Information
+          </h2>
           <p className="mt-4 font-jost font-normal text-ink-2 leading-relaxed">
             If you have questions about these Terms, please contact us:
           </p>
@@ -306,7 +323,9 @@ export default function TermsPage() {
                 legal@renacleaning.co.uk
               </a>
             </p>
-            <p className="mt-1">Registered office: 66 Paul Street, London EC2A 4NA, United Kingdom</p>
+            <p className="mt-1">
+              Registered office: 66 Paul Street, London EC2A 4NA, United Kingdom
+            </p>
           </div>
         </section>
       </div>
