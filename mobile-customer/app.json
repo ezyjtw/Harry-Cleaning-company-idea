@@ -59,7 +59,7 @@
       ]
     ],
     "extra": {
-      "baseUrl": "https://www.renacleaning.co.uk",
+      "baseUrl": "https://rena-web-staging-staging.up.railway.app",
       "proStoreUrl": "",
       "eas": {
         "projectId": "a1858734-d8e5-4cda-b56f-e8082eb7312d"
