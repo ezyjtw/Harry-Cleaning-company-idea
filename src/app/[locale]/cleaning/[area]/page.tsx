@@ -5,6 +5,7 @@ import { notFound } from 'next/navigation';
 import CleanerIdentity from '@/components/CleanerIdentity';
 import JsonLd from '@/components/JsonLd';
 import { getServiceArea, SERVICE_AREAS } from '@/lib/areas';
+import { generateAreaServiceSchema } from '@/lib/seo/structured-data';
 import { findCleanersNearPoint, findReviewsForCleaners } from '@/lib/services/area-search.service';
 import { lookupOutcode } from '@/lib/utils/postcode';
 
@@ -44,7 +45,12 @@ export default async function AreaPage({ params }: { params: { area: string } })
   // ship. (A failed lookup is not proof — the page renders its static content.)
   if (result && result.total === 0) notFound();
 
-  const reviews = result ? await findReviewsForCleaners(result.cleaners.map((c) => c.id), 3) : [];
+  const reviews = result
+    ? await findReviewsForCleaners(
+        result.cleaners.map((c) => c.id),
+        3
+      )
+    : [];
   const neighbors = area.neighbors
     .map((slug) => SERVICE_AREAS.find((a) => a.slug === slug))
     .filter((a): a is NonNullable<typeof a> => Boolean(a));
@@ -65,24 +71,7 @@ export default async function AreaPage({ params }: { params: { area: string } })
     },
   ];
 
-  const jsonLd = {
-    '@context': 'https://schema.org',
-    '@type': 'Service',
-    name: `Home cleaning in ${area.name}`,
-    provider: {
-      '@type': 'Organization',
-      name: 'Rena Cleaning Network',
-      address: {
-        '@type': 'PostalAddress',
-        streetAddress: '66 Paul Street',
-        addressLocality: 'London',
-        postalCode: 'EC2A 4NA',
-        addressCountry: 'GB',
-      },
-    },
-    areaServed: `${area.name}, ${area.outcodeLabel}`,
-    url: `${BASE_URL}/cleaning/${area.slug}`,
-  };
+  const jsonLd = generateAreaServiceSchema(area, centroid, BASE_URL);
 
   return (
     <div className="min-h-screen bg-page">
@@ -107,8 +96,8 @@ export default async function AreaPage({ params }: { params: { area: string } })
       {result && (
         <section className="mx-auto max-w-4xl px-4 py-12 sm:px-6">
           <h2 className="font-newsreader text-2xl font-semibold text-ink">
-            {result.total} cleaner{result.total === 1 ? '' : 's'} serve{result.total === 1 ? 's' : ''}{' '}
-            {area.name}
+            {result.total} cleaner{result.total === 1 ? '' : 's'} serve
+            {result.total === 1 ? 's' : ''} {area.name}
           </h2>
           {result.total <= 3 && (
             <p className="mt-2 font-jost font-light text-ink-2">

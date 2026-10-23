@@ -3,6 +3,17 @@
  * Generates schema.org compliant structured data.
  */
 
+import { SERVICE_AREAS, type ServiceArea } from '@/lib/areas';
+
+// RENA-057 (B6.5, James-ruled): the registered office, the one real address.
+const REGISTERED_OFFICE = {
+  '@type': 'PostalAddress',
+  streetAddress: '66 Paul Street',
+  addressLocality: 'London',
+  postalCode: 'EC2A 4NA',
+  addressCountry: 'GB',
+} as const;
+
 export function generateOrganizationSchema() {
   return {
     '@context': 'https://schema.org',
@@ -57,23 +68,20 @@ export function generateServiceSchema(service: {
   };
 }
 
+// RENA-057 (B6.5): no invented geo point; the registered office address and
+// the served areas by name and outward code.
 export function generateLocalBusinessSchema(area: string) {
   return {
     '@context': 'https://schema.org',
     '@type': 'LocalBusiness',
     name: `Rena Cleaning Network - ${area}`,
     description: `Professional cleaning services in ${area}. Book vetted cleaners with fair, all-inclusive pricing.`,
-    address: {
-      '@type': 'PostalAddress',
-      addressLocality: area,
-      addressRegion: 'London',
-      addressCountry: 'GB',
-    },
-    geo: {
-      '@type': 'GeoCoordinates',
-      latitude: 51.5074,
-      longitude: -0.1278,
-    },
+    address: REGISTERED_OFFICE,
+    areaServed: SERVICE_AREAS.map((a) => ({
+      '@type': 'Place',
+      name: a.name,
+      address: { '@type': 'PostalAddress', postalCode: a.outcode, addressCountry: 'GB' },
+    })),
     openingHoursSpecification: {
       '@type': 'OpeningHoursSpecification',
       dayOfWeek: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
@@ -81,6 +89,39 @@ export function generateLocalBusinessSchema(area: string) {
       closes: '20:00',
     },
     priceRange: '££',
+  };
+}
+
+// RENA-057 (B6.5): each area page's Service names its Place, with the
+// outward-code centroid the page already looked up; no geo when it failed.
+export function generateAreaServiceSchema(
+  area: Pick<ServiceArea, 'name' | 'outcodeLabel' | 'slug'>,
+  centroid: { latitude: number; longitude: number } | null,
+  baseUrl: string
+) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'Service',
+    name: `Home cleaning in ${area.name}`,
+    provider: {
+      '@type': 'Organization',
+      name: 'Rena Cleaning Network',
+      address: REGISTERED_OFFICE,
+    },
+    areaServed: {
+      '@type': 'Place',
+      name: `${area.name}, ${area.outcodeLabel}`,
+      ...(centroid
+        ? {
+            geo: {
+              '@type': 'GeoCoordinates',
+              latitude: centroid.latitude,
+              longitude: centroid.longitude,
+            },
+          }
+        : {}),
+    },
+    url: `${baseUrl}/cleaning/${area.slug}`,
   };
 }
 
@@ -96,33 +137,5 @@ export function generateFAQSchema(faqs: Array<{ question: string; answer: string
         text: faq.answer,
       },
     })),
-  };
-}
-
-export function generateBreadcrumbSchema(items: Array<{ name: string; url: string }>) {
-  return {
-    '@context': 'https://schema.org',
-    '@type': 'BreadcrumbList',
-    itemListElement: items.map((item, index) => ({
-      '@type': 'ListItem',
-      position: index + 1,
-      name: item.name,
-      item: item.url,
-    })),
-  };
-}
-
-export function generateReviewAggregateSchema(data: {
-  ratingValue: number;
-  reviewCount: number;
-  bestRating?: number;
-}) {
-  return {
-    '@context': 'https://schema.org',
-    '@type': 'AggregateRating',
-    ratingValue: data.ratingValue,
-    reviewCount: data.reviewCount,
-    bestRating: data.bestRating ?? 5,
-    worstRating: 1,
   };
 }
