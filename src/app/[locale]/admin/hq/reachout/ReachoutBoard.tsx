@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 
+import Dialog from '@/components/ui/Dialog';
 import { PROSPECT_STATUSES, type ProspectStatus } from '@/lib/hq/prospects';
 
 // R9 HQ — the Reachout pipeline board (client). Five status columns, add/edit
@@ -202,25 +203,37 @@ export default function ReachoutBoard() {
   );
 }
 
-function Overlay({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
+function Overlay({
+  children,
+  onClose,
+  label,
+}: {
+  children: React.ReactNode;
+  onClose: () => void;
+  label: string;
+}) {
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-[#16296b]/30 p-4 sm:items-center">
-      <div className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-[#E4E9F0] bg-white p-5 shadow-xl">
-        <div className="flex justify-end">
-          <button onClick={onClose} className="text-[#8A97AB] hover:text-[#16296b]">
-            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
-          </button>
-        </div>
-        {children}
+    <Dialog
+      open
+      onClose={onClose}
+      label={label}
+      overlayClassName="fixed inset-0 z-50 flex items-end justify-center bg-[#16296b]/30 p-4 sm:items-center"
+      className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-[#E4E9F0] bg-white p-5 shadow-xl"
+    >
+      <div className="flex justify-end">
+        <button onClick={onClose} className="text-[#8A97AB] hover:text-[#16296b]">
+          <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M6 18L18 6M6 6l12 12"
+            />
+          </svg>
+        </button>
       </div>
-    </div>
+      {children}
+    </Dialog>
   );
 }
 
@@ -246,7 +259,7 @@ function AddPanel({
   });
   const [err, setErr] = useState<string | null>(null);
   return (
-    <Overlay onClose={onClose}>
+    <Overlay onClose={onClose} label="New prospect">
       <p className="text-sm font-semibold text-[#16296b]">New prospect</p>
       <div className="mt-3 space-y-2.5">
         <input
@@ -323,7 +336,7 @@ function DetailPanel({
   const [next, setNext] = useState(prospect.nextActionAt ? prospect.nextActionAt.slice(0, 10) : '');
 
   return (
-    <Overlay onClose={onClose}>
+    <Overlay onClose={onClose} label={prospect.name}>
       <p className="text-base font-semibold text-[#16296b]">{prospect.name}</p>
       <p className="mt-0.5 text-xs font-light text-[#3D5170]">
         {prospect.email ?? 'no email'} · {prospect.phone ?? 'no phone'} ·{' '}

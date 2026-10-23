@@ -9,6 +9,7 @@ import { useRouter } from 'next/navigation';
 import { signOut } from 'next-auth/react';
 import { useEffect, useState } from 'react';
 
+import Dialog from '@/components/ui/Dialog';
 import { isCustomerShellUA } from '@/lib/shell';
 
 // ─── Compact voice helpers (the Pro grammar) ─────────────────────────────────
@@ -446,87 +447,78 @@ export function CustomerAccountMenu() {
         </svg>
       </button>
 
-      {open && (
-        <div
-          className="fixed inset-0 z-[60] flex items-end bg-ink/40"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Account"
-          onClick={() => !signingOut && setOpen(false)}
-        >
-          <div
-            className="mx-auto w-full max-w-lg rounded-t-2xl border-t border-line bg-surface px-5 pt-6"
-            style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 20px)' }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            {stage === 'menu' ? (
-              <>
-                <div className="flex items-center gap-3.5 border-b border-line pb-4">
-                  <CustomerAvatar photo={null} name={profile?.name || ''} size={48} />
-                  <div className="min-w-0">
-                    <p className="truncate font-jost text-[17px] font-semibold text-ink">
-                      {profile?.name || ' '}
-                    </p>
-                    {profile?.email && (
-                      <p className="truncate font-jost text-[12px] text-ink-3">{profile.email}</p>
-                    )}
-                  </div>
-                </div>
-
-                <div className="divide-y divide-line/60">
-                  <button type="button" className={rowCls} onClick={() => go('/account/settings')}>
-                    Account Settings
-                    {chevron}
-                  </button>
-                  <button
-                    type="button"
-                    className={rowCls}
-                    onClick={() => go('/account/notifications')}
-                  >
-                    Notifications
-                    {chevron}
-                  </button>
-                  <button type="button" className={rowCls} onClick={() => go('/contact')}>
-                    Contact Rena
-                    {chevron}
-                  </button>
-                  <button
-                    type="button"
-                    className={`${rowCls} text-danger`}
-                    data-testid="menu-sign-out"
-                    onClick={() => setStage('signout')}
-                  >
-                    Sign Out
-                  </button>
-                </div>
-              </>
-            ) : (
-              <>
-                <h2 className="font-jost text-xl font-semibold text-ink">Sign out of Rena?</h2>
-                <p className="mt-1.5 font-jost text-sm text-ink-2">
-                  You&apos;ll need your password to get back in.
+      <Dialog
+        open={open}
+        onClose={() => setOpen(false)}
+        dismissible={!signingOut}
+        variant="sheet"
+        label="Account"
+        overlayClassName="fixed inset-0 z-[60] flex items-end bg-ink/40"
+        className="mx-auto w-full max-w-lg rounded-t-2xl border-t border-line bg-surface px-5 pt-6"
+        style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 20px)' }}
+      >
+        {stage === 'menu' ? (
+          <>
+            <div className="flex items-center gap-3.5 border-b border-line pb-4">
+              <CustomerAvatar photo={null} name={profile?.name || ''} size={48} />
+              <div className="min-w-0">
+                <p className="truncate font-jost text-[17px] font-semibold text-ink">
+                  {profile?.name || ' '}
                 </p>
-                <button
-                  type="button"
-                  onClick={doSignOut}
-                  disabled={signingOut}
-                  className="mt-5 w-full rounded-[10px] bg-primary py-3 font-jost text-sm font-medium text-white active:opacity-90 disabled:opacity-60"
-                >
-                  {signingOut ? 'Signing out…' : 'Sign out'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setStage('menu')}
-                  disabled={signingOut}
-                  className="mt-1 w-full py-3 font-jost text-sm font-medium text-ink-2 active:opacity-70 disabled:opacity-60"
-                >
-                  Cancel
-                </button>
-              </>
-            )}
-          </div>
-        </div>
-      )}
+                {profile?.email && (
+                  <p className="truncate font-jost text-[12px] text-ink-3">{profile.email}</p>
+                )}
+              </div>
+            </div>
+
+            <div className="divide-y divide-line/60">
+              <button type="button" className={rowCls} onClick={() => go('/account/settings')}>
+                Account Settings
+                {chevron}
+              </button>
+              <button type="button" className={rowCls} onClick={() => go('/account/notifications')}>
+                Notifications
+                {chevron}
+              </button>
+              <button type="button" className={rowCls} onClick={() => go('/contact')}>
+                Contact Rena
+                {chevron}
+              </button>
+              <button
+                type="button"
+                className={`${rowCls} text-danger`}
+                data-testid="menu-sign-out"
+                onClick={() => setStage('signout')}
+              >
+                Sign Out
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <h2 className="font-jost text-xl font-semibold text-ink">Sign out of Rena?</h2>
+            <p className="mt-1.5 font-jost text-sm text-ink-2">
+              You&apos;ll need your password to get back in.
+            </p>
+            <button
+              type="button"
+              onClick={doSignOut}
+              disabled={signingOut}
+              className="mt-5 w-full rounded-[10px] bg-primary py-3 font-jost text-sm font-medium text-white active:opacity-90 disabled:opacity-60"
+            >
+              {signingOut ? 'Signing out…' : 'Sign out'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setStage('menu')}
+              disabled={signingOut}
+              className="mt-1 w-full py-3 font-jost text-sm font-medium text-ink-2 active:opacity-70 disabled:opacity-60"
+            >
+              Cancel
+            </button>
+          </>
+        )}
+      </Dialog>
     </>
   );
 }
