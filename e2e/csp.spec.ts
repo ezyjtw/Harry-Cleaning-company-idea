@@ -28,3 +28,33 @@ for (const path of PAGES) {
     expect(seen.filter((v) => v.disposition === 'enforce')).toEqual([]);
   });
 }
+
+// Step two: an authed-class page's own scripts carry the report-only nonce,
+// so the twin reports only what the nonce policy would really block.
+test('/login: every script carries the report-only nonce; no report-only violation', async ({
+  page,
+  request,
+}) => {
+  const res = await request.get('/login');
+  const ro = res.headers()['content-security-policy-report-only'] ?? '';
+  const nonce = /'nonce-([^']+)'/.exec(ro)?.[1];
+  expect(nonce).toBeTruthy();
+  const html = await res.text();
+  const scripts = html.match(/<script\b[^>]*>/g) ?? [];
+  const executable = scripts.filter((s) => !/type="application\/ld\+json"/.test(s));
+  expect(executable.length).toBeGreaterThan(0);
+  for (const s of executable) expect(s).toContain(`nonce="${nonce}"`);
+
+  const reported: string[] = [];
+  await page.exposeFunction('__cspReport', (v: string) => reported.push(v));
+  await page.addInitScript(() => {
+    document.addEventListener('securitypolicyviolation', (e) =>
+      (window as unknown as { __cspReport: (v: string) => void }).__cspReport(
+        `${e.disposition} ${e.violatedDirective} ${e.blockedURI}`
+      )
+    );
+  });
+  await page.goto('/login');
+  await page.waitForLoadState('networkidle');
+  expect(reported).toEqual([]);
+});

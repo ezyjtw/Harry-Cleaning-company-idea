@@ -3,11 +3,14 @@
 // served by a running build, incognito (no cookies, plain user agent).
 //   npx tsx scripts/public-route-hashes.ts --url http://localhost:3000 [--write out.json] [--compare base.json]
 // --compare exits 1 naming every route whose hash differs from the base file.
+// --modes <.next/prerender-manifest.json> (RENA-051) exits 1 naming every route
+// whose rendering mode differs from src/lib/ci/render-modes.ts.
 // Per the law's same-build protocol, compare two builds served on the same rig.
 import { createHash } from 'node:crypto';
 import { readFileSync, writeFileSync } from 'node:fs';
 
 import { PUBLIC_ROUTES, normaliseForHash } from '../src/lib/ci/public-routes';
+import { modeDifferences } from '../src/lib/ci/render-modes';
 
 function arg(name: string): string | undefined {
   const i = process.argv.indexOf(`--${name}`);
@@ -15,6 +18,16 @@ function arg(name: string): string | undefined {
 }
 
 async function main(): Promise<void> {
+  const modes = arg('modes');
+  if (modes) {
+    const diff = modeDifferences(JSON.parse(readFileSync(modes, 'utf8')));
+    if (diff.length) {
+      console.error(`Render modes: ${diff.length} difference(s):\n${diff.join('\n')}`);
+      process.exit(1);
+    }
+    console.log('Render modes: the prerender manifest matches the RENA-051 table.');
+    if (!arg('url')) return;
+  }
   const base = arg('url') ?? 'http://localhost:3000';
   const result: Record<string, { status: number; hash: string }> = {};
   for (const route of PUBLIC_ROUTES) {
