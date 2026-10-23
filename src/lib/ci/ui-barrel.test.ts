@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 // B6.8 (James-ruled 2026-10-07): the ui barrel and its orphaned exports are
-// deleted. What stays is imported directly; Modal becomes Dialog (B6.2).
+// deleted. What stays is imported directly; Modal became Dialog (B6.2).
 const UI = join(__dirname, '..', '..', 'components', 'ui');
 
 describe('the ui barrel stays gone', () => {
@@ -14,8 +14,8 @@ describe('the ui barrel stays gone', () => {
     for (const f of left)
       expect([
         'Dialog.tsx',
+        'dialog-a11y.ts',
         'FieldError.tsx',
-        'Modal.tsx',
         'PasswordInput.tsx',
         'PasswordRequirements.tsx',
         'SimpleMarkdown.tsx',

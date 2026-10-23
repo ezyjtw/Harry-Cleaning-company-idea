@@ -6,6 +6,7 @@ import { useState, useEffect } from 'react';
 import { AccountSection, Field } from '@/components/account/primitives';
 import AnalyticsChoice from '@/components/app/AnalyticsChoice';
 import { CustomerBackLink, useCustomerShell } from '@/components/app/customer';
+import Dialog from '@/components/ui/Dialog';
 import PasswordRequirements from '@/components/ui/PasswordRequirements';
 import { validatePasswordPolicy } from '@/lib/utils/password-policy';
 
@@ -57,6 +58,12 @@ export default function SettingsPage() {
   const [deletePassword, setDeletePassword] = useState('');
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
   const [deleteError, setDeleteError] = useState('');
+  const closeDeleteModal = () => {
+    setShowDeleteModal(false);
+    setDeleteConfirmText('');
+    setDeletePassword('');
+    setDeleteError('');
+  };
   const [exporting, setExporting] = useState(false);
   // D-g (RENA-007): sign out everywhere, this browser included.
   const [signingOutAll, setSigningOutAll] = useState(false);
@@ -615,66 +622,63 @@ export default function SettingsPage() {
 
       {/* Delete Confirmation Modal */}
       {showDeleteModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-md rounded-2xl border border-line bg-surface p-6 shadow-xl">
-            <h3
-              className={
-                inShell
-                  ? 'font-jost text-[17px] font-semibold text-danger'
-                  : 'font-newsreader text-xl font-semibold text-danger'
-              }
+        <Dialog
+          open
+          onClose={closeDeleteModal}
+          dismissible={!deleteSubmitting}
+          label="Delete account"
+          overlayClassName="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          className="w-full max-w-md rounded-2xl border border-line bg-surface p-6 shadow-xl"
+        >
+          <h3
+            className={
+              inShell
+                ? 'font-jost text-[17px] font-semibold text-danger'
+                : 'font-newsreader text-xl font-semibold text-danger'
+            }
+          >
+            Delete account
+          </h3>
+          <p className="mt-2 text-sm text-ink-2">
+            Your account will be <strong>deactivated immediately</strong> and you&rsquo;ll be signed
+            out everywhere. Your personal data will be erased within 30 days &mdash; except records
+            we&rsquo;re legally required to keep, such as booking and tax records. This cannot be
+            undone.
+          </p>
+          <p className="mt-3 text-sm text-ink-2">
+            Type <span className="font-mono font-bold text-danger">DELETE</span> to confirm:
+          </p>
+          <input
+            type="text"
+            value={deleteConfirmText}
+            onChange={(e) => setDeleteConfirmText(e.target.value)}
+            placeholder="Type DELETE"
+            className="mt-2 w-full rounded-[10px] border border-line bg-surface px-3 py-2 text-sm text-ink placeholder-ink-3 focus:border-danger focus:outline-none focus:ring-2 focus:ring-danger/20"
+          />
+          {/* H103: password re-entry — server-verified alongside the word. */}
+          <p className="mt-3 text-sm text-ink-2">Re-enter your password:</p>
+          <input
+            type="password"
+            value={deletePassword}
+            onChange={(e) => setDeletePassword(e.target.value)}
+            placeholder="Your password"
+            autoComplete="current-password"
+            className="mt-2 w-full rounded-[10px] border border-line bg-surface px-3 py-2 text-sm text-ink placeholder-ink-3 focus:border-danger focus:outline-none focus:ring-2 focus:ring-danger/20"
+          />
+          {deleteError && <p className="mt-2 text-sm text-danger">{deleteError}</p>}
+          <div className="mt-4 flex gap-3">
+            <button
+              onClick={handleDeleteAccount}
+              disabled={deleteConfirmText !== 'DELETE' || deleteSubmitting}
+              className="rounded-[10px] bg-danger px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Delete account
-            </h3>
-            <p className="mt-2 text-sm text-ink-2">
-              Your account will be <strong>deactivated immediately</strong> and you&rsquo;ll be
-              signed out everywhere. Your personal data will be erased within 30 days &mdash; except
-              records we&rsquo;re legally required to keep, such as booking and tax records. This
-              cannot be undone.
-            </p>
-            <p className="mt-3 text-sm text-ink-2">
-              Type <span className="font-mono font-bold text-danger">DELETE</span> to confirm:
-            </p>
-            <input
-              type="text"
-              value={deleteConfirmText}
-              onChange={(e) => setDeleteConfirmText(e.target.value)}
-              placeholder="Type DELETE"
-              className="mt-2 w-full rounded-[10px] border border-line bg-surface px-3 py-2 text-sm text-ink placeholder-ink-3 focus:border-danger focus:outline-none focus:ring-2 focus:ring-danger/20"
-            />
-            {/* H103: password re-entry — server-verified alongside the word. */}
-            <p className="mt-3 text-sm text-ink-2">Re-enter your password:</p>
-            <input
-              type="password"
-              value={deletePassword}
-              onChange={(e) => setDeletePassword(e.target.value)}
-              placeholder="Your password"
-              autoComplete="current-password"
-              className="mt-2 w-full rounded-[10px] border border-line bg-surface px-3 py-2 text-sm text-ink placeholder-ink-3 focus:border-danger focus:outline-none focus:ring-2 focus:ring-danger/20"
-            />
-            {deleteError && <p className="mt-2 text-sm text-danger">{deleteError}</p>}
-            <div className="mt-4 flex gap-3">
-              <button
-                onClick={handleDeleteAccount}
-                disabled={deleteConfirmText !== 'DELETE' || deleteSubmitting}
-                className="rounded-[10px] bg-danger px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {deleteSubmitting ? 'Submitting…' : 'Deactivate & request erasure'}
-              </button>
-              <button
-                onClick={() => {
-                  setShowDeleteModal(false);
-                  setDeleteConfirmText('');
-                  setDeletePassword('');
-                  setDeleteError('');
-                }}
-                className={BTN_OUTLINE}
-              >
-                Cancel
-              </button>
-            </div>
+              {deleteSubmitting ? 'Submitting…' : 'Deactivate & request erasure'}
+            </button>
+            <button onClick={closeDeleteModal} className={BTN_OUTLINE}>
+              Cancel
+            </button>
           </div>
-        </div>
+        </Dialog>
       )}
     </div>
   );

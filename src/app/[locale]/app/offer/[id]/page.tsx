@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import BackPill from '@/components/app/BackPill';
+import Dialog from '@/components/ui/Dialog';
 import { normalizeCleanerJob } from '@/lib/booking/cleaner-job-display';
 import { suppliesLabel } from '@/lib/booking/supplies';
 import { bedroomsLabel } from '@/lib/constants/services';
@@ -487,60 +488,61 @@ export default function OfferPage({ params }: { params: { id: string } }) {
       {/* B3: decline-reason bottom sheet — one tap declines with the reason
           (stored on Booking.declineReasons for cascade analytics). */}
       {showDeclineSheet && !accepted && (
-        <div
-          className="fixed inset-0 z-50 flex items-end bg-ink/40"
-          role="dialog"
-          aria-modal="true"
+        <Dialog
+          open
+          onClose={() => setShowDeclineSheet(false)}
+          variant="sheet"
+          label="Why not this one?"
+          overlayClassName="fixed inset-0 z-50 flex items-end bg-ink/40"
+          className="w-full rounded-t-2xl bg-surface p-5 pb-8"
         >
-          <div className="w-full rounded-t-2xl bg-surface p-5 pb-8">
-            <p className="font-jost text-lg font-semibold text-ink">Why not this one?</p>
-            <p className="mt-0.5 font-jost text-[13px] text-ink-3">
-              Optional — the customer never sees this. One tap declines either way.
-            </p>
-            <div className="mt-4 grid grid-cols-2 gap-2">
-              {(
-                [
-                  ['too_far', 'Too Far Away'],
-                  ['bad_time', "Time Doesn't Work"],
-                  ['pay_too_low', 'Pay Too Low for the Job'],
-                  ['other', "Just Can't This Time"],
-                ] as const
-              ).map(([value, label]) => (
-                <button
-                  key={value}
-                  type="button"
-                  disabled={!!processing}
-                  onClick={() => {
-                    setShowDeclineSheet(false);
-                    respond('decline', value);
-                  }}
-                  className="rounded-[12px] border border-line bg-surface px-4 py-3 font-jost text-sm font-medium text-ink shadow-sm active:bg-page disabled:opacity-50"
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-            <button
-              type="button"
-              data-testid="decline-skip"
-              disabled={!!processing}
-              onClick={() => {
-                setShowDeclineSheet(false);
-                respond('decline');
-              }}
-              className="mt-2 w-full rounded-[12px] border border-line bg-surface px-4 py-3 font-jost text-sm font-medium text-ink-2 active:bg-page disabled:opacity-50"
-            >
-              Decline Without Saying
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowDeclineSheet(false)}
-              className="mt-2 w-full rounded-[12px] px-4 py-3 font-jost text-sm font-medium text-ink-3"
-            >
-              Keep the Offer
-            </button>
+          <p className="font-jost text-lg font-semibold text-ink">Why not this one?</p>
+          <p className="mt-0.5 font-jost text-[13px] text-ink-3">
+            Optional — the customer never sees this. One tap declines either way.
+          </p>
+          <div className="mt-4 grid grid-cols-2 gap-2">
+            {(
+              [
+                ['too_far', 'Too Far Away'],
+                ['bad_time', "Time Doesn't Work"],
+                ['pay_too_low', 'Pay Too Low for the Job'],
+                ['other', "Just Can't This Time"],
+              ] as const
+            ).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                disabled={!!processing}
+                onClick={() => {
+                  setShowDeclineSheet(false);
+                  respond('decline', value);
+                }}
+                className="rounded-[12px] border border-line bg-surface px-4 py-3 font-jost text-sm font-medium text-ink shadow-sm active:bg-page disabled:opacity-50"
+              >
+                {label}
+              </button>
+            ))}
           </div>
-        </div>
+          <button
+            type="button"
+            data-testid="decline-skip"
+            disabled={!!processing}
+            onClick={() => {
+              setShowDeclineSheet(false);
+              respond('decline');
+            }}
+            className="mt-2 w-full rounded-[12px] border border-line bg-surface px-4 py-3 font-jost text-sm font-medium text-ink-2 active:bg-page disabled:opacity-50"
+          >
+            Decline Without Saying
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowDeclineSheet(false)}
+            className="mt-2 w-full rounded-[12px] px-4 py-3 font-jost text-sm font-medium text-ink-3"
+          >
+            Keep the Offer
+          </button>
+        </Dialog>
       )}
 
       {!accepted && (

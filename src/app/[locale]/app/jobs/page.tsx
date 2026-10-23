@@ -23,6 +23,7 @@ import {
   pay,
 } from '@/components/app/job-cards';
 import ArrangementRequests from '@/components/cleaner/ArrangementRequests';
+import Dialog from '@/components/ui/Dialog';
 import { normalizeCleanerJob } from '@/lib/booking/cleaner-job-display';
 
 type Filter = 'upcoming' | 'done';
@@ -355,124 +356,119 @@ export default function AppJobsPage() {
           the additive transferStatus/releaseDueAt fields ("Paid" once the
           transfer is RELEASED, "Releasing soon" before). */}
       {receipt && (
-        <div
-          className="fixed inset-0 z-50 flex items-end bg-ink/40"
-          role="dialog"
-          aria-modal="true"
-          onClick={() => setReceipt(null)}
+        <Dialog
+          open
+          onClose={() => setReceipt(null)}
+          variant="sheet"
+          label="Receipt"
+          overlayClassName="fixed inset-0 z-50 flex items-end bg-ink/40"
+          className="max-h-[85vh] w-full overflow-y-auto rounded-t-2xl bg-surface p-5 pb-8"
+          panelTestId="receipt-sheet"
         >
-          <div
-            className="max-h-[85vh] w-full overflow-y-auto rounded-t-2xl bg-surface p-5 pb-8"
-            onClick={(e) => e.stopPropagation()}
-            data-testid="receipt-sheet"
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="font-jost text-lg font-semibold text-ink">{receipt.clientName}</p>
-                <p className="mt-0.5 font-jost text-[13px] text-ink-3">
-                  {new Date(`${receipt.date}T00:00:00`).toLocaleDateString('en-GB', {
-                    weekday: 'long',
-                    day: 'numeric',
-                    month: 'long',
-                  })}{' '}
-                  · {receipt.time}
-                </p>
-              </div>
-              <button
-                type="button"
-                aria-label="Close receipt"
-                onClick={() => {
-                  haptic('light');
-                  setReceipt(null);
-                }}
-                className="rounded-full border border-line p-2 text-ink-2 active:bg-page"
-              >
-                <svg
-                  className="h-4 w-4"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  strokeWidth={2}
-                  stroke="currentColor"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            <div className="mt-4 divide-y divide-line/60 rounded-xl border border-line">
-              {(
-                [
-                  ['Service', receipt.serviceType.replace(/\b\w/g, (c) => c.toUpperCase())],
-                  ['Duration', `${receipt.duration}h`],
-                  ['Address', receipt.fullAddress || receipt.address],
-                  ['Status', receipt.status === 'reviewed' ? 'Completed · Reviewed' : 'Completed'],
-                ] as const
-              ).map(([k, v]) => (
-                <div key={k} className="flex items-start justify-between gap-4 px-4 py-2.5">
-                  <span className="shrink-0 font-jost text-[13px] text-ink-3">{k}</span>
-                  <span className="text-right font-jost text-[14px] text-ink">{v}</span>
-                </div>
-              ))}
-              {receipt.recurringFrequency && (
-                <div className="flex items-start justify-between gap-4 px-4 py-2.5">
-                  <span className="shrink-0 font-jost text-[13px] text-ink-3">Repeats</span>
-                  <span className="text-right font-jost text-[14px] text-primary">
-                    ↻ {receipt.recurringFrequency === 'WEEKLY' ? 'Weekly' : 'Fortnightly'}
-                  </span>
-                </div>
-              )}
-            </div>
-
-            <div className="mt-3 rounded-xl border border-line bg-page px-4 py-3">
-              {receipt.earningsBreakdown ? (
-                <>
-                  <div className="flex justify-between font-jost text-[13px] text-ink-2">
-                    <span>Your rate</span>
-                    <span>£{receipt.earningsBreakdown.rate.toFixed(2)}</span>
-                  </div>
-                  <div className="mt-1 flex justify-between font-jost text-[13px] text-ink-2">
-                    <span>Rena fee ({receipt.earningsBreakdown.feePct}%)</span>
-                    <span>−£{receipt.earningsBreakdown.fee.toFixed(2)}</span>
-                  </div>
-                  {receipt.earningsBreakdown.productsNet > 0 && (
-                    <div className="mt-1 flex justify-between font-jost text-[13px] text-ink-2">
-                      <span>Products</span>
-                      <span>+£{receipt.earningsBreakdown.productsNet.toFixed(2)}</span>
-                    </div>
-                  )}
-                  <div className="mt-2 flex justify-between border-t border-line pt-2 font-jost text-[15px] font-semibold">
-                    <span className="text-ink">You receive</span>
-                    <span className="text-teal">
-                      £{receipt.earningsBreakdown.receive.toFixed(2)}
-                    </span>
-                  </div>
-                </>
-              ) : (
-                <div className="flex justify-between font-jost text-[15px] font-semibold">
-                  <span className="text-ink">You receive</span>
-                  <span className="text-teal">£{pay(receipt).toFixed(2)}</span>
-                </div>
-              )}
-              <p
-                className="mt-2 font-jost text-[13px] font-medium text-ink-2"
-                data-testid="receipt-payment"
-              >
-                {/* James-amended: three states. A cleaner owed money that
-                    didn't move must never read "soon" — FAILED (or anything
-                    unrecognised) goes loud and links the contact door. */}
-                {receipt.transferStatus === 'RELEASED' ? (
-                  <span className="text-trust">Paid</span>
-                ) : receipt.transferStatus === 'PENDING' ? (
-                  'Releasing soon'
-                ) : (
-                  <Link href="/app/contact" className="font-medium text-danger underline">
-                    Payment delayed — contact Rena
-                  </Link>
-                )}
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="font-jost text-lg font-semibold text-ink">{receipt.clientName}</p>
+              <p className="mt-0.5 font-jost text-[13px] text-ink-3">
+                {new Date(`${receipt.date}T00:00:00`).toLocaleDateString('en-GB', {
+                  weekday: 'long',
+                  day: 'numeric',
+                  month: 'long',
+                })}{' '}
+                · {receipt.time}
               </p>
             </div>
+            <button
+              type="button"
+              aria-label="Close receipt"
+              onClick={() => {
+                haptic('light');
+                setReceipt(null);
+              }}
+              className="rounded-full border border-line p-2 text-ink-2 active:bg-page"
+            >
+              <svg
+                className="h-4 w-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth={2}
+                stroke="currentColor"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
           </div>
-        </div>
+
+          <div className="mt-4 divide-y divide-line/60 rounded-xl border border-line">
+            {(
+              [
+                ['Service', receipt.serviceType.replace(/\b\w/g, (c) => c.toUpperCase())],
+                ['Duration', `${receipt.duration}h`],
+                ['Address', receipt.fullAddress || receipt.address],
+                ['Status', receipt.status === 'reviewed' ? 'Completed · Reviewed' : 'Completed'],
+              ] as const
+            ).map(([k, v]) => (
+              <div key={k} className="flex items-start justify-between gap-4 px-4 py-2.5">
+                <span className="shrink-0 font-jost text-[13px] text-ink-3">{k}</span>
+                <span className="text-right font-jost text-[14px] text-ink">{v}</span>
+              </div>
+            ))}
+            {receipt.recurringFrequency && (
+              <div className="flex items-start justify-between gap-4 px-4 py-2.5">
+                <span className="shrink-0 font-jost text-[13px] text-ink-3">Repeats</span>
+                <span className="text-right font-jost text-[14px] text-primary">
+                  ↻ {receipt.recurringFrequency === 'WEEKLY' ? 'Weekly' : 'Fortnightly'}
+                </span>
+              </div>
+            )}
+          </div>
+
+          <div className="mt-3 rounded-xl border border-line bg-page px-4 py-3">
+            {receipt.earningsBreakdown ? (
+              <>
+                <div className="flex justify-between font-jost text-[13px] text-ink-2">
+                  <span>Your rate</span>
+                  <span>£{receipt.earningsBreakdown.rate.toFixed(2)}</span>
+                </div>
+                <div className="mt-1 flex justify-between font-jost text-[13px] text-ink-2">
+                  <span>Rena fee ({receipt.earningsBreakdown.feePct}%)</span>
+                  <span>−£{receipt.earningsBreakdown.fee.toFixed(2)}</span>
+                </div>
+                {receipt.earningsBreakdown.productsNet > 0 && (
+                  <div className="mt-1 flex justify-between font-jost text-[13px] text-ink-2">
+                    <span>Products</span>
+                    <span>+£{receipt.earningsBreakdown.productsNet.toFixed(2)}</span>
+                  </div>
+                )}
+                <div className="mt-2 flex justify-between border-t border-line pt-2 font-jost text-[15px] font-semibold">
+                  <span className="text-ink">You receive</span>
+                  <span className="text-teal">£{receipt.earningsBreakdown.receive.toFixed(2)}</span>
+                </div>
+              </>
+            ) : (
+              <div className="flex justify-between font-jost text-[15px] font-semibold">
+                <span className="text-ink">You receive</span>
+                <span className="text-teal">£{pay(receipt).toFixed(2)}</span>
+              </div>
+            )}
+            <p
+              className="mt-2 font-jost text-[13px] font-medium text-ink-2"
+              data-testid="receipt-payment"
+            >
+              {/* James-amended: three states. A cleaner owed money that
+                    didn't move must never read "soon" — FAILED (or anything
+                    unrecognised) goes loud and links the contact door. */}
+              {receipt.transferStatus === 'RELEASED' ? (
+                <span className="text-trust">Paid</span>
+              ) : receipt.transferStatus === 'PENDING' ? (
+                'Releasing soon'
+              ) : (
+                <Link href="/app/contact" className="font-medium text-danger underline">
+                  Payment delayed — contact Rena
+                </Link>
+              )}
+            </p>
+          </div>
+        </Dialog>
       )}
     </div>
   );

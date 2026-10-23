@@ -2,6 +2,8 @@
 
 import { useRef, useState, useEffect, useCallback } from 'react';
 
+import Dialog from '@/components/ui/Dialog';
+
 interface WebcamCaptureModalProps {
   onCapture: (dataUrl: string) => void;
   onClose: () => void;
@@ -107,105 +109,102 @@ export default function WebcamCaptureModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/60 p-4">
-      <div
-        className="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl"
-        style={{ border: '1px solid rgba(14,14,12,0.1)' }}
-      >
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="font-newsreader text-lg font-semibold text-ink">Take Photo</h3>
+    <Dialog
+      open
+      onClose={onClose}
+      label="Take photo"
+      overlayClassName="fixed inset-0 z-50 flex items-center justify-center bg-ink/60 p-4"
+      className="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl"
+      style={{ border: '1px solid rgba(14,14,12,0.1)' }}
+    >
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="font-newsreader text-lg font-semibold text-ink">Take Photo</h3>
+        <button
+          type="button"
+          onClick={() => {
+            stopStream();
+            onClose();
+          }}
+          className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-ink/5 transition"
+        >
+          <svg className="h-5 w-5 text-ink-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M6 18L18 6M6 6l12 12"
+            />
+          </svg>
+        </button>
+      </div>
+
+      {error ? (
+        <div
+          className="rounded-lg bg-amber-50 px-4 py-3 mb-4"
+          style={{ border: '1px solid rgba(217,119,6,0.15)' }}
+        >
+          <p className="font-jost text-sm text-amber-800">{error}</p>
+        </div>
+      ) : captured ? (
+        <div className="mb-4">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={captured} alt="Captured photo" className="w-full rounded-lg" />
+        </div>
+      ) : (
+        <div className="mb-4 overflow-hidden rounded-lg bg-ink/5">
+          <video
+            ref={videoRef}
+            autoPlay
+            playsInline
+            muted
+            className="w-full"
+            style={facingMode === 'user' ? { transform: 'scaleX(-1)' } : undefined}
+          />
+        </div>
+      )}
+
+      <canvas ref={canvasRef} className="hidden" />
+
+      <div className="flex gap-3">
+        {error ? (
           <button
             type="button"
             onClick={() => {
               stopStream();
               onClose();
             }}
-            className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-ink/5 transition"
+            className="flex-1 rounded-lg bg-ink py-2.5 font-jost text-sm font-light text-cream transition hover:bg-ink/90"
           >
-            <svg
-              className="h-5 w-5 text-ink-3"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
+            Close
           </button>
-        </div>
-
-        {error ? (
-          <div
-            className="rounded-lg bg-amber-50 px-4 py-3 mb-4"
-            style={{ border: '1px solid rgba(217,119,6,0.15)' }}
-          >
-            <p className="font-jost text-sm text-amber-800">{error}</p>
-          </div>
         ) : captured ? (
-          <div className="mb-4">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={captured} alt="Captured photo" className="w-full rounded-lg" />
-          </div>
+          <>
+            <button
+              type="button"
+              onClick={handleRetake}
+              className="flex-1 rounded-lg py-2.5 font-jost text-sm font-light text-ink transition hover:bg-ink/5"
+              style={{ border: '1px solid rgba(14,14,12,0.15)' }}
+            >
+              Retake
+            </button>
+            <button
+              type="button"
+              onClick={handleConfirm}
+              className="flex-1 rounded-lg bg-ink py-2.5 font-jost text-sm font-light text-cream transition hover:bg-ink/90"
+            >
+              Use Photo
+            </button>
+          </>
         ) : (
-          <div className="mb-4 overflow-hidden rounded-lg bg-ink/5">
-            <video
-              ref={videoRef}
-              autoPlay
-              playsInline
-              muted
-              className="w-full"
-              style={facingMode === 'user' ? { transform: 'scaleX(-1)' } : undefined}
-            />
-          </div>
+          <button
+            type="button"
+            onClick={handleCapture}
+            className="flex-1 rounded-lg bg-ink py-2.5 font-jost text-sm font-light text-cream transition hover:bg-ink/90"
+          >
+            Capture
+          </button>
         )}
-
-        <canvas ref={canvasRef} className="hidden" />
-
-        <div className="flex gap-3">
-          {error ? (
-            <button
-              type="button"
-              onClick={() => {
-                stopStream();
-                onClose();
-              }}
-              className="flex-1 rounded-lg bg-ink py-2.5 font-jost text-sm font-light text-cream transition hover:bg-ink/90"
-            >
-              Close
-            </button>
-          ) : captured ? (
-            <>
-              <button
-                type="button"
-                onClick={handleRetake}
-                className="flex-1 rounded-lg py-2.5 font-jost text-sm font-light text-ink transition hover:bg-ink/5"
-                style={{ border: '1px solid rgba(14,14,12,0.15)' }}
-              >
-                Retake
-              </button>
-              <button
-                type="button"
-                onClick={handleConfirm}
-                className="flex-1 rounded-lg bg-ink py-2.5 font-jost text-sm font-light text-cream transition hover:bg-ink/90"
-              >
-                Use Photo
-              </button>
-            </>
-          ) : (
-            <button
-              type="button"
-              onClick={handleCapture}
-              className="flex-1 rounded-lg bg-ink py-2.5 font-jost text-sm font-light text-cream transition hover:bg-ink/90"
-            >
-              Capture
-            </button>
-          )}
-        </div>
       </div>
-    </div>
+    </Dialog>
   );
 }

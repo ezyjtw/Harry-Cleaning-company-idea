@@ -19,6 +19,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import AccountMenu from '@/components/app/AccountMenu';
 import InboxBell from '@/components/app/InboxBell';
 import { haptic } from '@/components/app/job-cards';
+import Dialog from '@/components/ui/Dialog';
 
 interface TimeSlot {
   start: string;
@@ -209,33 +210,38 @@ function Sheet({
   children: React.ReactNode;
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-end bg-ink/40" role="dialog" aria-modal="true">
-      <div className="max-h-[88vh] w-full overflow-y-auto rounded-t-2xl bg-surface p-5 pb-8">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="font-jost text-lg font-semibold text-ink">{title}</p>
-            {subtitle && <p className="mt-0.5 font-jost text-[13px] text-ink-3">{subtitle}</p>}
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close"
-            className="rounded-full border border-line p-2 text-ink-3 active:bg-page"
-          >
-            <svg
-              className="h-4 w-4"
-              fill="none"
-              viewBox="0 0 24 24"
-              strokeWidth={2}
-              stroke="currentColor"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
+    <Dialog
+      open
+      onClose={onClose}
+      variant="sheet"
+      label={title}
+      overlayClassName="fixed inset-0 z-50 flex items-end bg-ink/40"
+      className="max-h-[88vh] w-full overflow-y-auto rounded-t-2xl bg-surface p-5 pb-8"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="font-jost text-lg font-semibold text-ink">{title}</p>
+          {subtitle && <p className="mt-0.5 font-jost text-[13px] text-ink-3">{subtitle}</p>}
         </div>
-        {children}
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close"
+          className="rounded-full border border-line p-2 text-ink-3 active:bg-page"
+        >
+          <svg
+            className="h-4 w-4"
+            fill="none"
+            viewBox="0 0 24 24"
+            strokeWidth={2}
+            stroke="currentColor"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
       </div>
-    </div>
+      {children}
+    </Dialog>
   );
 }
 
