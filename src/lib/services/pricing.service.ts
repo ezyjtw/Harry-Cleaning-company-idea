@@ -577,11 +577,6 @@ export class PricingService {
     }
   }
 
-  private async getConfig(): Promise<Record<string, number>> {
-    const configs = await prisma.platformConfig.findMany();
-    return Object.fromEntries(configs.map((c) => [c.key, parseFloat(c.value)]));
-  }
-
   async validateCleanerRate(rate: number): Promise<{ valid: boolean; message?: string }> {
     if (rate < MIN_HOURLY_RATE) {
       return { valid: false, message: `Minimum rate is £${MIN_HOURLY_RATE}/hr` };

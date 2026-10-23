@@ -46,34 +46,35 @@ const SERVICE_TYPES = [
   },
 ];
 
-// Fixed-price rows for the two FIXED services. Every FIXED service needs a row
-// for all 6 PropertySize values or the booking flow returns empty pricing.
+// Fixed-price rows for the two FIXED services: the calendar hold per property
+// size (LB-6). Every FIXED service needs a row for all 6 PropertySize values.
+// B6 (D-ad): the dead customer price column is gone; the price is the cleaner's own.
 const FIXED_PRICES: Record<
   string,
-  Array<{ propertySize: PropertySize; estimatedHours: number; customerPrice: number }>
+  Array<{ propertySize: PropertySize; estimatedHours: number }>
 > = {
   eot: [
-    { propertySize: 'STUDIO', estimatedHours: 4, customerPrice: 175 },
-    { propertySize: 'ONE_BED', estimatedHours: 5, customerPrice: 220 },
-    { propertySize: 'TWO_BED', estimatedHours: 6, customerPrice: 280 },
+    { propertySize: 'STUDIO', estimatedHours: 4 },
+    { propertySize: 'ONE_BED', estimatedHours: 5 },
+    { propertySize: 'TWO_BED', estimatedHours: 6 },
     // LB-6 gate (James-adjusted): these are the REAL calendar holds now, so the
     // larger sizes came down to fit real working days (3-bed 8→7, 4-bed 10→9,
     // 5+ 13→11). "Team cleans" is the ledgered honest answer to jobs that
     // still exceed a single cleaner's day.
-    { propertySize: 'THREE_BED', estimatedHours: 7, customerPrice: 350 },
-    { propertySize: 'FOUR_BED', estimatedHours: 9, customerPrice: 430 },
-    { propertySize: 'FIVE_PLUS', estimatedHours: 11, customerPrice: 550 },
+    { propertySize: 'THREE_BED', estimatedHours: 7 },
+    { propertySize: 'FOUR_BED', estimatedHours: 9 },
+    { propertySize: 'FIVE_PLUS', estimatedHours: 11 },
   ],
   airbnb: [
     // F24.4b (James-ruled): 2h is the honest middle for a full changeover —
     // 1.5h was the aggressive end, and under-blocking is the failure mode
     // already paid for once (LB-6).
-    { propertySize: 'STUDIO', estimatedHours: 2, customerPrice: 55 },
-    { propertySize: 'ONE_BED', estimatedHours: 2, customerPrice: 75 },
-    { propertySize: 'TWO_BED', estimatedHours: 2.5, customerPrice: 95 },
-    { propertySize: 'THREE_BED', estimatedHours: 3.5, customerPrice: 120 },
-    { propertySize: 'FOUR_BED', estimatedHours: 4.5, customerPrice: 155 },
-    { propertySize: 'FIVE_PLUS', estimatedHours: 5, customerPrice: 155 },
+    { propertySize: 'STUDIO', estimatedHours: 2 },
+    { propertySize: 'ONE_BED', estimatedHours: 2 },
+    { propertySize: 'TWO_BED', estimatedHours: 2.5 },
+    { propertySize: 'THREE_BED', estimatedHours: 3.5 },
+    { propertySize: 'FOUR_BED', estimatedHours: 4.5 },
+    { propertySize: 'FIVE_PLUS', estimatedHours: 5 },
   ],
 };
 
@@ -93,21 +94,10 @@ const ADDONS: Record<string, Array<{ name: string; price: number }>> = {
 // B4 (RENA-075): cleaner_fee_pct and customer_fee_pct are gone; the rates are
 // code (src/lib/pricing/rates.ts) and the money_ledger migration deleted the
 // rows. N8 (James-ruled): every row below is create-if-missing, so an admin's
-// edit is never reset by a deploy.
+// edit is never reset by a deploy. B6 (D-ad): the four multiplier keys were
+// inert (cleaner-set rates, no multipliers) and are gone; the
+// pricing_dead_furniture migration deleted their rows.
 const PLATFORM_CONFIG = [
-  {
-    key: 'same_day_multiplier',
-    value: '1.30',
-    description: 'Urgency multiplier for same-day bookings',
-  },
-  { key: 'one_off_multiplier', value: '1.10', description: 'One-off booking surge' },
-  { key: 'fortnightly_multiplier', value: '1.05', description: 'Fortnightly vs weekly premium' },
-  {
-    key: 'deep_multiplier',
-    value: '1.45',
-    description:
-      'Deep clean labour intensity premium — also applied to derive cleaner deep rate for EOT/Airbnb',
-  },
   {
     key: 'min_cleaner_rate',
     value: '14.00',
@@ -161,12 +151,11 @@ async function main() {
             propertySize: fp.propertySize,
           },
         },
-        update: { estimatedHours: fp.estimatedHours, customerPrice: fp.customerPrice },
+        update: { estimatedHours: fp.estimatedHours },
         create: {
           serviceTypeId: serviceType.id,
           propertySize: fp.propertySize,
           estimatedHours: fp.estimatedHours,
-          customerPrice: fp.customerPrice,
         },
       });
       fixedPriceCount++;

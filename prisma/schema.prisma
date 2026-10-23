@@ -1491,8 +1491,7 @@ model FixedServicePrice {
   serviceTypeId  String
   serviceType    ServiceType  @relation(fields: [serviceTypeId], references: [id])
   propertySize   PropertySize // STUDIO | ONE_BED | TWO_BED | THREE_BED | FOUR_BED | FIVE_PLUS
-  estimatedHours Float
-  customerPrice  Float // what customer pays (incl. platform fee)
+  estimatedHours Float // the calendar hold (LB-6); the price is the cleaner's own
   createdAt      DateTime     @default(now())
 
   @@unique([serviceTypeId, propertySize])

@@ -32,14 +32,10 @@ interface ServiceAddon {
   price: number;
 }
 
+// What /api/pricing/services serves (B6, D-ad); the widget reads addons.
 interface ServiceTypeData {
-  id: string;
   slug: string;
-  name: string;
-  pricingModel: 'HOURLY' | 'FIXED';
-  baseMultiplier: number;
-  minimumHours: number | null;
-  fixedPrices: { propertySize: string; customerPrice: number; estimatedHours: number }[];
+  fixedPrices: { propertySize: string; estimatedHours: number }[];
   addons: ServiceAddon[];
 }
 
