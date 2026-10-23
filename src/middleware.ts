@@ -5,14 +5,7 @@ import createIntlMiddleware from 'next-intl/middleware';
 
 import { routing } from '@/i18n/routing';
 import { clientIpOrUnknown } from '@/lib/http/client-ip';
-import {
-  CSP_REPORT_GROUP,
-  CSP_REPORT_PATH,
-  enforcedPolicy,
-  isPublicStaticPath,
-  newNonce,
-  reportOnlyPolicy,
-} from '@/lib/http/csp';
+import { isPublicStaticPath, newNonce, reportOnlyPolicy } from '@/lib/http/csp';
 import { canonicalOrigin, csrfVerdict } from '@/lib/http/csrf';
 
 // ─── Client IP resolution ───────────────────────────────────────────────────
@@ -316,14 +309,10 @@ export async function middleware(request: NextRequest) {
     'Permissions-Policy',
     'camera=(), microphone=(), geolocation=(self), interest-cohort=()'
   );
-  // RENA-005 (B6.1): fonts are self-hosted (next/font/local plus Etna's
-  // same-origin @font-face), so the policy allows no font host. The policy
-  // itself lives in src/lib/http/csp.ts.
-  response.headers.set(
-    'Content-Security-Policy',
-    enforcedPolicy(process.env.NODE_ENV === 'production')
-  );
-  response.headers.set('Reporting-Endpoints', `${CSP_REPORT_GROUP}="${CSP_REPORT_PATH}"`);
+  // RENA-005 (B6.1): the enforced Content-Security-Policy and its
+  // Reporting-Endpoints header come from next.config.js (src/lib/http/
+  // csp-policy.js says why); fonts are self-hosted, so no font host is
+  // allowed. Authed pages add the report-only nonce twin here.
   if (!isPublicStaticPath(pathnameWithoutLocale)) {
     const nonce = newNonce();
     const reportOnly = reportOnlyPolicy(nonce);

@@ -3,6 +3,9 @@
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const createNextIntlPlugin = require('next-intl/plugin');
 
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const csp = require('./src/lib/http/csp-policy.js');
+
 const withNextIntl = createNextIntlPlugin('./src/i18n/request.ts');
 
 // NEXTAUTH_URL must match the canonical domain users actually visit.
@@ -35,6 +38,15 @@ const nextConfig = {
         source: '/(.*)',
         headers: [
           // X-Frame-Options is set once, by the middleware (B6.1, RENA-005).
+          // RENA-005 (B6.1): the enforced policy, step one (csp-policy.js).
+          {
+            key: 'Content-Security-Policy',
+            value: csp.enforcedPolicy(process.env.NODE_ENV === 'production'),
+          },
+          {
+            key: 'Reporting-Endpoints',
+            value: `${csp.CSP_REPORT_GROUP}="${csp.CSP_REPORT_PATH}"`,
+          },
           { key: 'X-Content-Type-Options', value: 'nosniff' },
           { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
           { key: 'X-DNS-Prefetch-Control', value: 'on' },

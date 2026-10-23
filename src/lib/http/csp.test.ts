@@ -20,7 +20,6 @@ vi.hoisted(() => {
   process.env.NEXTAUTH_SECRET = 'test-secret';
 });
 
-
 const get = (path: string) =>
   middleware(new NextRequest(`https://www.renacleaning.co.uk${path}`, { method: 'GET' }));
 
@@ -50,12 +49,31 @@ describe('CSP headers per route class (middleware)', () => {
     vi.mocked(getToken).mockResolvedValue(null);
   });
 
-  it('a public static page: enforced policy, reporting endpoint, no report-only twin, no nonce', async () => {
+  it('the enforced policy and its reporting endpoint are next.config headers on every path', async () => {
+    const config = (await import('../../../next.config.js')).default as {
+      headers: () => Promise<
+        Array<{ source: string; headers: Array<{ key: string; value: string }> }>
+      >;
+    };
+    const all = (await config.headers()).find((h) => h.source === '/(.*)');
+    const get = (k: string) => all?.headers.find((h) => h.key === k)?.value;
+    expect(get('Content-Security-Policy')).toBe(
+      enforcedPolicy(process.env.NODE_ENV === 'production')
+    );
+    expect(get('Reporting-Endpoints')).toBe('csp-endpoint="/api/csp-report"');
+    expect(get('X-Frame-Options')).toBeUndefined();
+  });
+
+  it('the middleware never sets the enforced policy (Next would copy it onto the render request and hide the nonce)', async () => {
+    vi.mocked(getToken).mockResolvedValue({ role: 'CUSTOMER' } as never);
+    for (const path of ['/', '/account', '/login'])
+      expect((await get(path)).headers.get('content-security-policy')).toBeNull();
+  });
+
+  it('a public static page: no report-only twin, no nonce', async () => {
     for (const path of ['/', '/pricing', '/cleaning/chingford', '/cleaning/walthamstow']) {
       expect(isPublicStaticPath(path)).toBe(true);
       const res = await get(path);
-      expect(res.headers.get('content-security-policy')).toBe(enforcedPolicy(false));
-      expect(res.headers.get('reporting-endpoints')).toBe('csp-endpoint="/api/csp-report"');
       expect(res.headers.get('content-security-policy-report-only')).toBeNull();
       expect(res.headers.get('x-middleware-request-x-nonce')).toBeNull();
       expect(res.headers.get('x-frame-options')).toBe('DENY');
@@ -86,12 +104,12 @@ describe('CSP headers per route class (middleware)', () => {
     expect(res.headers.get('content-security-policy-report-only')).not.toBeNull();
   });
 
-  it('an API response and a redirect carry no page policy', async () => {
+  it('an API response and a redirect carry no report-only twin', async () => {
     const api = await get('/api/pricing/services');
-    expect(api.headers.get('content-security-policy')).toBeNull();
+    expect(api.headers.get('content-security-policy-report-only')).toBeNull();
     const redirect = await get('/account');
     expect(redirect.status).toBe(307);
-    expect(redirect.headers.get('content-security-policy')).toBeNull();
+    expect(redirect.headers.get('content-security-policy-report-only')).toBeNull();
   });
 });
 
