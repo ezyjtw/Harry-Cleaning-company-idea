@@ -18,7 +18,10 @@ import { isAnyShellUA } from '@/lib/shell';
 // — browser visitors' HTML is byte-identical — and the effect fires only
 // inside the shell, where the injected chrome CSS already hides it anyway.
 export default function ContactFab() {
-  const pathname = usePathname();
+  // B6.3: a static prerender sees the internal locale path (/en/contact) where
+  // the browser sees /contact; compare locale-free so both render alike (the
+  // same idiom as CustomerShellChrome).
+  const pathname = (usePathname() ?? '').replace(/^\/en(?=\/|$)/, '') || '/';
   const [inShell, setInShell] = useState(false);
   useEffect(() => {
     if (isAnyShellUA()) setInShell(true);
@@ -29,7 +32,7 @@ export default function ContactFab() {
   // the bottom edge; the FAB stood over its right end, where Book sits. It
   // stands down below md there (the bar is md:hidden); every other route
   // renders exactly as before.
-  const underBookBar = /^\/cleaners\/[^/]+$/.test(pathname ?? '');
+  const underBookBar = /^\/cleaners\/[^/]+$/.test(pathname);
 
   return (
     <Link
