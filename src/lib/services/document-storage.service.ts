@@ -170,6 +170,8 @@ export class DocumentStorageService {
 
     if (!doc || doc.isDestroyed || doc.storageState !== 'STORED') return null;
 
+    // RENA-067: a destroyed row has no key reference; nothing is decryptable.
+    if (!doc.encryptionKeyId) return null;
     const encrypted = await getObject(doc.storagePath);
     const decrypted = decryptDocument(encrypted, doc.encryptionKeyId);
 
@@ -202,15 +204,19 @@ export class DocumentStorageService {
   }
 
   /**
-   * Destroys a document by deleting it from R2 and marking the DB record.
+   * Destroys a document: deletes the object from R2 and marks the row.
    *
-   * R2 is object storage — overwriting with random bytes writes to new storage
-   * regions while old ciphertext may persist until internal reclamation. The
-   * overwrite provides no real security guarantee. Instead we rely on crypto-
-   * shredding: the per-document encryption key is derived from the master key
-   * plus encryptionKeyId. Once this row is marked destroyed and the object
-   * deleted, the ciphertext is unrecoverable even if storage media is not
-   * immediately wiped.
+   * RENA-067 (D-m, James-ruled): this is envelope-style encryption under ONE
+   * master key (the per-document key is derived from the master key plus the
+   * row's key reference) followed by object deletion. It is NOT cryptographic
+   * erasure: while the master key exists, any ciphertext that outlives the
+   * delete stays decryptable by anyone holding both. What this method
+   * guarantees is the object delete plus the nulling of the key reference in
+   * the same update that marks the row destroyed, so the derived key is no
+   * longer computable from the row. True shredding (a random data-encryption
+   * key per document, wrapped by the master key and destroyed with the row) is
+   * the later phase recorded in the register. R2 overwrites are not attempted:
+   * object storage writes new regions and offers no wipe guarantee.
    */
   static async destroyDocument(
     documentId: string,
@@ -240,6 +246,9 @@ export class DocumentStorageService {
         isDestroyed: true,
         destroyedAt: new Date(),
         destroyedReason: reason,
+        // RENA-067: the key reference goes in the same update, so a destroyed
+        // row can never be decrypted again even if the object delete is retried.
+        encryptionKeyId: null,
         ...(objectGone ? { storageState: 'DELETED' as const } : {}),
       },
     });

@@ -28,6 +28,42 @@ interface RecordConsentParams {
   version?: string;
 }
 
+// B7.4 (RENA-064, D-k): the portability export is "a portable copy of your
+// account data", never "everything we hold". What it contains is documented
+// here, emitted in the file itself and shown on every download surface; the
+// full right of access is the subject access request (docs/ops/sar.md).
+export const EXPORT_CATEGORIES: Readonly<Record<string, string>> = {
+  personalInfo: 'your name, email, phone and when the account was created',
+  addresses: 'your saved addresses',
+  bookings: 'bookings you made: reference, service, date, status, price and the review you left',
+  reviewsGiven: 'reviews you have written',
+  cleanerProfile:
+    'your cleaner profile (cleaners only): bio, rates, area, verification states, rating and job count',
+  jobsAsCleaner: 'jobs assigned to you (cleaners only): date, service, area, hours, pay and status',
+  consents: 'your consent decisions and their dates',
+  notificationPreferences: 'your notification settings',
+};
+
+// Not portable data, or another person's: said so in the file and on the page.
+export const EXPORT_NOT_INCLUDED: readonly string[] = [
+  'messages',
+  'disputes and complaints',
+  'reports and blocks',
+  'device and push tokens',
+  'audit records',
+  'analytics events',
+  'imported reviews',
+  'identity document files and their verification numbers',
+];
+
+export function exportNotice(): string {
+  return `This is a portable copy of your account data (GDPR Article 20). It contains: ${Object.keys(
+    EXPORT_CATEGORIES
+  ).join(
+    ', '
+  )}. For a full copy of everything we hold, make a subject access request: see privacy policy section 6.`;
+}
+
 export class GdprService {
   /**
    * Record a consent decision (grant or revoke)
@@ -544,6 +580,33 @@ export class GdprService {
 
     if (!user) throw new Error('User not found');
 
+    // B7.4: consent decisions (no IP, no user agent) and notification settings.
+    const [consentRows, prefs] = await Promise.all([
+      prisma.gdprConsent.findMany({
+        where: { OR: [{ userId }, { email: user.email }] },
+        orderBy: { createdAt: 'asc' },
+        select: {
+          consentType: true,
+          granted: true,
+          version: true,
+          createdAt: true,
+          revokedAt: true,
+        },
+      }),
+      prisma.notificationPreference.findUnique({
+        where: { userId },
+        select: {
+          reminders: true,
+          newMessage: true,
+          push: true,
+          sms: true,
+          marketing: true,
+          marketingConsentAt: true,
+          unsubscribedAt: true,
+        },
+      }),
+    ]);
+
     // Log the export
     await prisma.dataRetentionLog.create({
       data: {
@@ -562,8 +625,11 @@ export class GdprService {
       metadata: { action: 'DATA_EXPORTED' },
     });
 
-    // Return structured data export
+    // Return structured data export. The key set is pinned to EXPORT_CATEGORIES
+    // by src/lib/services/gdpr-export.test.ts.
     return {
+      categories: EXPORT_CATEGORIES,
+      notIncluded: EXPORT_NOT_INCLUDED,
       personalInfo: {
         name: user.name,
         email: user.email,
@@ -585,6 +651,13 @@ export class GdprService {
         totalPrice: b.totalPrice,
         review: b.review ? { rating: b.review.rating, text: b.review.text } : null,
       })),
+      // B7.4: fetched before and dropped on the floor; now emitted.
+      reviewsGiven: user.reviewsGiven.map((r) => ({
+        bookingId: r.bookingId,
+        rating: r.rating,
+        text: r.text,
+        createdAt: r.createdAt,
+      })),
       cleanerProfile: user.cleanerProfile
         ? {
             bio: user.cleanerProfile.bio,
@@ -597,12 +670,12 @@ export class GdprService {
             verified: user.cleanerProfile.verified,
             verificationStatus: user.cleanerProfile.verificationStatus,
             backgroundCheckPassed: user.cleanerProfile.backgroundCheckPassed,
-            dbsCertNumber: user.cleanerProfile.dbsCertNumber,
+            // B7.4 (approved deviation 5): the DBS certificate number and the
+            // right to work document identifiers are verification records,
+            // not portable data; the verification states stay.
             dbsCertVerified: user.cleanerProfile.dbsCertVerified,
             dbsCertIssueDate: user.cleanerProfile.dbsCertIssueDate,
             rightToWorkStatus: user.cleanerProfile.rightToWorkStatus,
-            rightToWorkDocType: user.cleanerProfile.rightToWorkDocType,
-            rightToWorkExpiresAt: user.cleanerProfile.rightToWorkExpiresAt,
             identityVerifiedAt: user.cleanerProfile.identityVerifiedAt,
             rating: user.cleanerProfile.rating,
             completedJobs: user.cleanerProfile.completedJobs,
@@ -636,8 +709,136 @@ export class GdprService {
             }),
           }
         : {}),
+      consents: consentRows,
+      notificationPreferences: prefs,
       exportedAt: new Date().toISOString(),
     };
+  }
+
+  // ─── Subject access requests (B7.4, D-k; James: DataRetentionLog holds the
+  // record, no new table). One row per stage, keyed by an admin-chosen
+  // reference that must carry no personal data; the deadline is one month
+  // from receipt, extendable once by two months (UK GDPR Article 12(3)).
+  static readonly SAR_REFERENCE = /^[A-Za-z0-9][A-Za-z0-9-]{2,39}$/;
+  static readonly SAR_ENTITY = 'SubjectAccessRequest';
+
+  static sarDeadline(receivedAt: Date, extended: boolean): Date {
+    const d = new Date(receivedAt);
+    d.setUTCMonth(d.getUTCMonth() + (extended ? 3 : 1));
+    return d;
+  }
+
+  static async recordSubjectAccessRequest(params: {
+    stage: 'received' | 'extended' | 'fulfilled';
+    reference: string;
+    adminId: string;
+    receivedAt?: Date;
+  }) {
+    const reference = params.reference.trim();
+    if (!GdprService.SAR_REFERENCE.test(reference) || reference.includes('@')) {
+      throw new Error('SAR reference must be 3 to 40 letters, digits or hyphens, never an email');
+    }
+    const existing = await prisma.dataRetentionLog.findMany({
+      where: { entityType: GdprService.SAR_ENTITY, entityId: reference },
+      orderBy: { createdAt: 'asc' },
+    });
+    const received = existing.find((r) => r.action === 'SAR_RECEIVED');
+    if (params.stage === 'received') {
+      if (received) throw new Error('That reference is already logged');
+      const receivedAt = params.receivedAt ?? new Date();
+      const deadline = GdprService.sarDeadline(receivedAt, false);
+      return prisma.dataRetentionLog.create({
+        data: {
+          entityType: GdprService.SAR_ENTITY,
+          entityId: reference,
+          action: 'SAR_RECEIVED',
+          reason: 'user_request',
+          performedBy: params.adminId,
+          metadata: { receivedAt: receivedAt.toISOString(), deadline: deadline.toISOString() },
+        },
+      });
+    }
+    if (!received) throw new Error('Log the request as received first');
+    const meta = received.metadata as { receivedAt: string };
+    if (params.stage === 'extended') {
+      if (existing.some((r) => r.action === 'SAR_EXTENDED')) {
+        throw new Error('A request may be extended once');
+      }
+      const deadline = GdprService.sarDeadline(new Date(meta.receivedAt), true);
+      return prisma.dataRetentionLog.create({
+        data: {
+          entityType: GdprService.SAR_ENTITY,
+          entityId: reference,
+          action: 'SAR_EXTENDED',
+          reason: 'user_request',
+          performedBy: params.adminId,
+          metadata: { deadline: deadline.toISOString() },
+        },
+      });
+    }
+    if (existing.some((r) => r.action === 'SAR_FULFILLED')) {
+      throw new Error('That request is already fulfilled');
+    }
+    return prisma.dataRetentionLog.create({
+      data: {
+        entityType: GdprService.SAR_ENTITY,
+        entityId: reference,
+        action: 'SAR_FULFILLED',
+        reason: 'user_request',
+        performedBy: params.adminId,
+        metadata: { fulfilledAt: new Date().toISOString() },
+      },
+    });
+  }
+
+  /** One line per reference: status and the deadline that applies now. */
+  static async listSubjectAccessRequests(now: Date = new Date()) {
+    const rows = await prisma.dataRetentionLog.findMany({
+      where: { entityType: GdprService.SAR_ENTITY },
+      orderBy: { createdAt: 'asc' },
+    });
+    return GdprService.summariseSubjectAccessRequests(rows, now);
+  }
+
+  static summariseSubjectAccessRequests(
+    rows: Array<{ entityId: string; action: string; metadata: unknown; createdAt: Date }>,
+    now: Date
+  ) {
+    const byRef = new Map<
+      string,
+      {
+        reference: string;
+        receivedAt: string;
+        deadline: string;
+        status: string;
+        extended: boolean;
+        overdue: boolean;
+      }
+    >();
+    for (const r of rows) {
+      const meta = (r.metadata ?? {}) as { receivedAt?: string; deadline?: string };
+      const cur = byRef.get(r.entityId);
+      if (r.action === 'SAR_RECEIVED') {
+        byRef.set(r.entityId, {
+          reference: r.entityId,
+          receivedAt: meta.receivedAt ?? r.createdAt.toISOString(),
+          deadline: meta.deadline ?? '',
+          status: 'OPEN',
+          extended: false,
+          overdue: false,
+        });
+      } else if (cur && r.action === 'SAR_EXTENDED') {
+        cur.extended = true;
+        if (meta.deadline) cur.deadline = meta.deadline;
+      } else if (cur && r.action === 'SAR_FULFILLED') {
+        cur.status = 'FULFILLED';
+      }
+    }
+    const out = Array.from(byRef.values());
+    for (const s of out) {
+      s.overdue = s.status === 'OPEN' && !!s.deadline && new Date(s.deadline) < now;
+    }
+    return out.sort((a, b) => a.receivedAt.localeCompare(b.receivedAt));
   }
 
   /**
@@ -658,17 +859,31 @@ export class GdprService {
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - retentionDays);
 
-    // Anonymise old analytics events (keep aggregated data, remove PII)
+    // RENA-076 (B7.9, D-n): anonymise every event past the horizon that still
+    // carries a person. The old WHERE keyed on ipAddress alone, so a row with
+    // a null IP and a userId kept its userId forever. Approved deviation 8:
+    // referrer is nulled and page is trimmed to its path too (query strings
+    // and fragments can carry tokens and search terms). Rows already bare
+    // are not touched, so a re-run selects nothing (idempotent).
     const updated = await prisma.analyticsEvent.updateMany({
       where: {
         createdAt: { lt: cutoffDate },
-        ipAddress: { not: null },
+        OR: [{ ipAddress: { not: null } }, { userId: { not: null } }, { referrer: { not: null } }],
       },
       data: {
         ipAddress: null,
         userId: null,
+        referrer: null,
       },
     });
+    // page keeps only its path: set-based in SQL, since Prisma cannot express
+    // a per-row transform in updateMany.
+    const trimmed = await prisma.$executeRaw`
+      UPDATE "AnalyticsEvent"
+      SET "page" = split_part(split_part("page", '?', 1), '#', 1)
+      WHERE "createdAt" < ${cutoffDate}
+        AND "page" IS NOT NULL
+        AND ("page" LIKE '%?%' OR "page" LIKE '%#%')`;
 
     // Log the cleanup
     await prisma.dataRetentionLog.create({
@@ -680,13 +895,14 @@ export class GdprService {
         performedBy: 'SYSTEM',
         metadata: {
           recordsAnonymised: updated.count,
+          pagesTrimmed: trimmed,
           retentionDays,
           cutoffDate: cutoffDate.toISOString(),
         },
       },
     });
 
-    return { anonymisedCount: updated.count };
+    return { anonymisedCount: updated.count, pagesTrimmed: trimmed };
   }
 
   /**
@@ -724,9 +940,10 @@ export class GdprService {
       });
 
       // Also destroy the encrypted file from DocumentUpload. Route through
-      // DocumentStorageService.destroyDocument so the ciphertext is actually
-      // deleted from R2 (crypto-shred) — the previous inline update only flipped
-      // the isDestroyed flag and left the object in the bucket indefinitely.
+      // DocumentStorageService.destroyDocument so the object is actually
+      // deleted from R2 and the key reference nulled (RENA-067: object
+      // deletion under one master key, not cryptographic erasure); the
+      // previous inline update only flipped isDestroyed and left the object.
       const docs = await prisma.documentUpload.findMany({
         where: {
           profileId: profile.id,

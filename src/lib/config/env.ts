@@ -77,6 +77,15 @@ const ENV_SCHEMA: EnvVarConfig[] = [
     description:
       'Sentry DSN for the BROWSER (usually the same value as SENTRY_DSN). Must be set at build/deploy time to be inlined into the client bundle.',
   },
+  {
+    // B7.2 (RENA-062, RENA-081; James-ruled deviation 2): the scheduler tick
+    // is the one caller of the lease and refuses without this secret, so a
+    // production boot without it would run no job at all. Required in
+    // production; the rig and tests may run without it.
+    name: 'CRON_SECRET',
+    required: process.env.NODE_ENV === 'production',
+    description: 'Shared secret the Railway scheduler presents to /api/cron/run-jobs',
+  },
   { name: 'REDIS_URL', required: false, description: 'Redis connection string for caching' },
   {
     // R9 (Phase 1 ratified; registry line landed late — owed from the HQ gate).

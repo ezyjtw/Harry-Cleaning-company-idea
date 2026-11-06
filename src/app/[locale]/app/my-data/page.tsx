@@ -243,9 +243,13 @@ export default function MyDataRoom() {
         <>
           <section className="rounded-2xl border border-line bg-surface px-4 py-4">
             <p className="font-jost text-[13px] leading-relaxed text-ink-2">
-              This is everything we hold about you, prepared{' '}
+              This is a portable copy of your account data, prepared{' '}
               {data.exportedAt ? `on ${show(data.exportedAt)}` : 'just now'}, as the GDPR right to
-              data portability requires. Save it with the share sheet, or copy it as text.
+              data portability requires. It contains your details, addresses, bookings, reviews,
+              your cleaner profile and jobs, your consents and your notification settings. It does
+              not contain messages, disputes, reports or identity document files; for a full copy of
+              everything we hold, make a subject access request (privacy policy, section 6). Save it
+              with the share sheet, or copy it as text.
             </p>
             <div className="mt-4 space-y-1.5">
               {canShareFile && (

@@ -1,0 +1,114 @@
+{
+  "/": {
+    "status": 200,
+    "hash": "581691115e95ab45"
+  },
+  "/about": {
+    "status": 200,
+    "hash": "a44425645daa307e"
+  },
+  "/account-deletion": {
+    "status": 200,
+    "hash": "8fc4866ac758aa35"
+  },
+  "/cleaners": {
+    "status": 200,
+    "hash": "eed38891773552cf"
+  },
+  "/cleaning": {
+    "status": 200,
+    "hash": "31286015aedb0dc6"
+  },
+  "/cleaning/chingford": {
+    "status": 200,
+    "hash": "ba21e8c450b5b03b"
+  },
+  "/contact": {
+    "status": 200,
+    "hash": "f1541ee57f2a396d"
+  },
+  "/faq": {
+    "status": 200,
+    "hash": "3a526750aca4fddd"
+  },
+  "/forgot-password": {
+    "status": 200,
+    "hash": "bc12a340845d4025"
+  },
+  "/guarantees": {
+    "status": 200,
+    "hash": "8521a519d9ab3335"
+  },
+  "/how-it-works": {
+    "status": 200,
+    "hash": "d7f5f7904132c876"
+  },
+  "/job-check": {
+    "status": 200,
+    "hash": "08504944246699fc"
+  },
+  "/join": {
+    "status": 200,
+    "hash": "f82e57c32c49f198"
+  },
+  "/login": {
+    "status": 200,
+    "hash": "c2d83a67eaed7fd0"
+  },
+  "/offline": {
+    "status": 200,
+    "hash": "5cd6af1c3f525dd8"
+  },
+  "/pricing": {
+    "status": 200,
+    "hash": "c86fc796959fc634"
+  },
+  "/privacy": {
+    "status": 200,
+    "hash": "2fefb3ec98dc1633"
+  },
+  "/regular-clean": {
+    "status": 200,
+    "hash": "478ad190b3567495"
+  },
+  "/services": {
+    "status": 200,
+    "hash": "825cd907ed111cab"
+  },
+  "/services/regular": {
+    "status": 200,
+    "hash": "5e20fde60e1530a5"
+  },
+  "/services/deep": {
+    "status": 200,
+    "hash": "068ea67f3b4e8635"
+  },
+  "/services/end-of-tenancy": {
+    "status": 200,
+    "hash": "04cb2d88d9246d4d"
+  },
+  "/services/airbnb": {
+    "status": 200,
+    "hash": "3df651a1c65f7577"
+  },
+  "/signup": {
+    "status": 200,
+    "hash": "0f975688929f1ca5"
+  },
+  "/terms": {
+    "status": 200,
+    "hash": "3eb3a93cdc6a2990"
+  },
+  "/unsubscribe": {
+    "status": 200,
+    "hash": "4798ecb29c81dd0d"
+  },
+  "/get-app/pro": {
+    "status": 200,
+    "hash": "f0d7de2c852983d3"
+  },
+  "/get-app/customer": {
+    "status": 200,
+    "hash": "40664d1838d9cb21"
+  }
+}

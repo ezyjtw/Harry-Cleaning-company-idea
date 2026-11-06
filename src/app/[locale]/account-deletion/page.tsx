@@ -68,10 +68,10 @@ export default function AccountDeletionPage() {
           <p className="mt-4 font-jost font-normal text-ink-2 leading-relaxed">
             Email{' '}
             <a
-              href="mailto:support@renacleaning.co.uk"
+              href="mailto:legal@renacleaning.co.uk"
               className="text-primary underline underline-offset-2"
             >
-              support@renacleaning.co.uk
+              legal@renacleaning.co.uk
             </a>{' '}
             from the email address on your account and ask for it to be deleted. We action email
             requests within 30 days.
@@ -122,10 +122,10 @@ export default function AccountDeletionPage() {
           </Link>
           , or reach us at{' '}
           <a
-            href="mailto:support@renacleaning.co.uk"
+            href="mailto:legal@renacleaning.co.uk"
             className="text-primary underline underline-offset-2"
           >
-            support@renacleaning.co.uk
+            legal@renacleaning.co.uk
           </a>
           .
         </p>
