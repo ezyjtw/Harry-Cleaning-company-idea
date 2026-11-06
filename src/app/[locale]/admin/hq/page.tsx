@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db/prisma';
 import { API_PROVIDERS, AMBER_PCT_CONFIG_KEY, AMBER_PCT_DEFAULT } from '@/lib/hq/api-providers';
 import { BOOKING_FUNNEL } from '@/lib/hq/funnel-stages';
 import { COMPETITOR_BRANDS, placesConfigured } from '@/lib/hq/places.service';
+import { GdprService } from '@/lib/services/gdpr.service';
 
 import { DoorCard, StatusDot } from './HqKit';
 
@@ -38,6 +39,7 @@ async function getGlances() {
     declineRows,
     openContentReports,
     openMessageReports,
+    deletionQueue,
   ] = await Promise.all([
     prisma.apiCallLog.groupBy({
       by: ['provider'],
@@ -70,6 +72,7 @@ async function getGlances() {
     }),
     prisma.contentReport.count({ where: { status: 'OPEN' } }),
     prisma.messageReport.count({ where: { status: 'OPEN' } }),
+    GdprService.deletionQueueGlance(),
   ]);
 
   // R9c glance: decline events in the window + the loudest reason.
@@ -119,6 +122,9 @@ async function getGlances() {
     declines30d,
     topDeclineReason,
     openReports: openContentReports + openMessageReports,
+    // B7.5 (RENA-065): the deletion queue, oldest age in days.
+    deletionsOpen: deletionQueue.open,
+    deletionsOldestDays: deletionQueue.oldestAgeDays,
   };
 }
 
@@ -143,6 +149,19 @@ export default async function HqCommandScreen() {
               {g.ambersLit > 0
                 ? `${g.ambersLit} provider${g.ambersLit === 1 ? '' : 's'} past ${g.amberPct}% amber`
                 : `calls today · all under ${g.amberPct}% amber`}
+            </span>
+          </DoorCard>
+
+          <DoorCard href="/admin/compliance" title="Compliance" glance={g.deletionsOpen}>
+            <span className="inline-flex items-center gap-2">
+              <StatusDot
+                tone={
+                  g.deletionsOldestDays !== null && g.deletionsOldestDays >= 30 ? 'amber' : 'ok'
+                }
+              />
+              {g.deletionsOpen === 0
+                ? 'deletion requests: none open'
+                : `deletion request${g.deletionsOpen === 1 ? '' : 's'} open · oldest ${g.deletionsOldestDays} day${g.deletionsOldestDays === 1 ? '' : 's'}`}
             </span>
           </DoorCard>
 

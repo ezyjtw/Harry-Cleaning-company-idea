@@ -63,6 +63,23 @@ describe('POST /api/cron/run-jobs lease (RENA-014)', () => {
     expect(body.releases.processed).toBe(0);
   });
 
+  it('B7.3: a summary whose compliance block carries failed jobs is released as a failed run, still answering 200', async () => {
+    const now = new Date();
+    claim.mockResolvedValueOnce({ claimed: true, now, lockedUntil: now, lastStartedAt: now });
+    const summary = {
+      timestamp: now.toISOString(),
+      compliance: { processed: 3, failed: ['check_dpa_agreement_renewals'] },
+    };
+    run.mockResolvedValueOnce(summary);
+    const res = await POST(post());
+    expect(res.status).toBe(200);
+    expect(release).toHaveBeenCalledTimes(1);
+    const arg = release.mock.calls[0][0] as { summary: unknown; error?: Error };
+    expect(arg.summary).toEqual(summary);
+    expect(arg.error).toBeInstanceOf(Error);
+    expect(arg.error?.message).toContain('check_dpa_agreement_renewals');
+  });
+
   it('answers 200 skipped and never runs when the lease is held', async () => {
     const now = new Date();
     claim.mockResolvedValueOnce({

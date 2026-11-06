@@ -1,5 +1,11 @@
 import { sweepSessionRows } from '@/lib/auth/device-session';
 import { prisma } from '@/lib/db/prisma';
+import { log } from '@/lib/log';
+import {
+  RETENTION_JOBS,
+  type RetentionRunOptions,
+  type RetentionRunResult,
+} from '@/lib/retention/jobs';
 import { deleteObject } from '@/lib/storage/r2-client';
 
 import { AuditService } from './audit.service';
@@ -73,9 +79,14 @@ export class ComplianceSchedulerService {
     results.push(await this.destroyExpiredInsuranceDocuments());
     results.push(await this.destroyResolvedDisputeEvidence());
     results.push(await this.destroyDecidedImportedReviewEvidence());
+    // B7.5: stalled deletion runs back to APPROVED before the sweep retries them.
+    results.push(await this.recoverStalledDeletions());
     results.push(await this.processApprovedDeletionRequests());
+    results.push(await this.alertDeletionBacklog());
     results.push(await this.cleanupBackgroundJobs());
     results.push(await this.sweepSessionRows());
+    // B7.3: the retention matrix, audit delete last.
+    for (const r of RETENTION_JOBS) results.push(await this.runRetentionRow(r.job, r.run));
 
     await AuditService.log({
       action: 'COMPLIANCE_JOB_RUN',
@@ -89,6 +100,95 @@ export class ComplianceSchedulerService {
     });
 
     return results;
+  }
+
+  // ─── B7.3 retention matrix ──────────────────────────────────────────────
+
+  static async runRetentionRow(
+    job: string,
+    run: (opts?: RetentionRunOptions) => Promise<RetentionRunResult>
+  ): Promise<ComplianceJobResult> {
+    try {
+      const result = await run();
+      // A dry run is a successful execution (counts only), never a failure.
+      return {
+        job,
+        success: true,
+        details: {
+          mode: result.mode,
+          eligible: result.eligible,
+          held: result.held,
+          batches: result.batches,
+          affected: result.affected,
+        },
+        executedAt: new Date(),
+      };
+    } catch (error) {
+      log.error('retention', 'job_failed', { job }, error);
+      return {
+        job,
+        success: false,
+        details: { error: error instanceof Error ? error.message : 'Unknown error' },
+        executedAt: new Date(),
+      };
+    }
+  }
+
+  // ─── B7.5 deletion SLA ──────────────────────────────────────────────────
+
+  static async recoverStalledDeletions(): Promise<ComplianceJobResult> {
+    try {
+      const r = await GdprService.recoverStalledDeletions();
+      return {
+        job: 'recover_stalled_deletions',
+        success: true,
+        details: r,
+        executedAt: new Date(),
+      };
+    } catch (error) {
+      return {
+        job: 'recover_stalled_deletions',
+        success: false,
+        details: { error: error instanceof Error ? error.message : 'Unknown error' },
+        executedAt: new Date(),
+      };
+    }
+  }
+
+  /** One mail per daily run when any open request is 21 days or older: counts, oldest age and ids only. */
+  static async alertDeletionBacklog(): Promise<ComplianceJobResult> {
+    try {
+      const backlog = await GdprService.deletionBacklog();
+      let sent = false;
+      if (backlog.total > 0) {
+        const { sendAdminDeletionBacklog } = await import('./email.service');
+        sent = await sendAdminDeletionBacklog(backlog);
+        log.error('gdpr', 'deletion_backlog', {
+          total: backlog.total,
+          overdue: backlog.overdue,
+          oldestAgeDays: backlog.oldestAgeDays,
+          alertSent: sent,
+        });
+      }
+      return {
+        job: 'alert_deletion_backlog',
+        success: true,
+        details: {
+          total: backlog.total,
+          overdue: backlog.overdue,
+          oldestAgeDays: backlog.oldestAgeDays,
+          sent,
+        },
+        executedAt: new Date(),
+      };
+    } catch (error) {
+      return {
+        job: 'alert_deletion_backlog',
+        success: false,
+        details: { error: error instanceof Error ? error.message : 'Unknown error' },
+        executedAt: new Date(),
+      };
+    }
   }
 
   /**

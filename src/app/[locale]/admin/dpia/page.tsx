@@ -103,7 +103,7 @@ const dpiaItems = [
       'Messages encrypted in transit',
       'Retained for 2 years then anonymised',
       'Only accessible to conversation participants and admin for disputes',
-      'Included in data export and deletion requests',
+      'Anonymised on a deletion request; not part of the portable export (a subject access request covers them)',
     ],
   },
 ];

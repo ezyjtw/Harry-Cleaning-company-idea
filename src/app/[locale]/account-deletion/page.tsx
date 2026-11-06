@@ -81,8 +81,10 @@ export default function AccountDeletionPage() {
         <section className="mt-8 border-b border-line pb-8">
           <h2 className="font-newsreader text-2xl font-semibold text-ink">What is deleted</h2>
           <p className="mt-4 font-jost font-normal text-ink-2 leading-relaxed">
-            All identity-bearing data is deleted: your profile and photo, contact details, saved
-            addresses, messages, and saved preferences. After deletion your account cannot be
+            All identity-bearing data is removed: your name, contact details and photo are minimised
+            on the account record, your profile text and saved addresses are removed, your marketing
+            consents are withdrawn, and messages you sent are anonymised (the words are removed, the
+            conversation record stays for the other person). After deletion your account cannot be
             recovered.
           </p>
         </section>

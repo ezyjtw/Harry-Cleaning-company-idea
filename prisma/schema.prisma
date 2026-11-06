@@ -256,6 +256,10 @@ model User {
   accountStatus     AccountStatus @default(ACTIVE)
   isDeleted         Boolean       @default(false)
   deletedAt         DateTime?
+  // B7.3 (RENA-063): set when the six year retention tombstone has run, so the
+  // job is idempotent and the state visible. Null while the account is live or
+  // inside its retention window.
+  retentionTombstonedAt DateTime?
   lastLoginAt       DateTime?
   emailVerifiedAt   DateTime?
   failedLoginCount  Int           @default(0)
@@ -1723,12 +1727,15 @@ model DataDeletionRequest {
   id          String    @id @default(cuid())
   userId      String
   email       String
-  status      String    @default("PENDING") // PENDING, IN_PROGRESS, COMPLETED, REJECTED
+  status      String    @default("PENDING") // PENDING, APPROVED, IN_PROGRESS, COMPLETED, REJECTED
   reason      String?   @db.Text
   requestedAt DateTime  @default(now())
   completedAt DateTime?
   processedBy String? // admin userId
   notes       String?   @db.Text
+  // B7.5 (RENA-065): the IN_PROGRESS age anchor for the stalled-run recovery
+  // (a claim stamps it; a row still IN_PROGRESS 24 hours later is recovered).
+  updatedAt   DateTime  @default(now()) @updatedAt
 
   @@index([userId])
   @@index([status])

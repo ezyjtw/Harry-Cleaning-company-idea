@@ -197,6 +197,18 @@ jobs:
         env:
           GDPR_RETENTION_INTEGRATION: '1'
 
+      - name: Retention matrix against Postgres (B7.3, RENA-063)
+        run: npx vitest run src/lib/retention/retention.integration.test.ts
+        env:
+          RETENTION_INTEGRATION: '1'
+
+      - name: Deletion executor failure injection and SLA against Postgres (B7.5, RENA-065)
+        run: npx vitest run src/lib/services/deletion.integration.test.ts
+        env:
+          DELETION_INTEGRATION: '1'
+          NEXTAUTH_SECRET: ci-only-secret-for-deletion-integration
+          DOCUMENT_ENCRYPTION_KEY: ci-only-document-encryption-key-for-integration-0123
+
       - name: Build
         run: npm run build
 

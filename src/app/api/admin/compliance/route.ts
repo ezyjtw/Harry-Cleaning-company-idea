@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 
 import { getAdminSession } from '@/lib/auth/session';
 import { prisma } from '@/lib/db/prisma';
+import { log } from '@/lib/log';
 import { AuditService } from '@/lib/services/audit.service';
 import { ComplianceSchedulerService } from '@/lib/services/compliance-scheduler.service';
 import { GdprService } from '@/lib/services/gdpr.service';
@@ -138,6 +139,9 @@ export async function POST(request: NextRequest) {
     }
 
     if (action === 'run_all_jobs') {
+      // B7.3: the admin run bypasses the day and attempt markers on purpose
+      // (a deliberate, logged manual run); the scheduler's own gate is untouched.
+      log.info('compliance', 'admin_run_all_jobs_bypasses_day_marker', { adminId });
       const results = await ComplianceSchedulerService.runAllJobs();
       return NextResponse.json({ message: 'Compliance jobs completed', results });
     }

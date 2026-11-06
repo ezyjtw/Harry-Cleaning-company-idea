@@ -168,43 +168,60 @@ export default function PrivacyPage() {
             to provide you with services. Specific retention periods are as follows:
           </p>
           <ul className="mt-4 list-disc pl-6 space-y-2 font-jost font-normal text-ink-2">
+            {/* B7.3 (RENA-063): the first seven lines are the retention matrix
+                (src/lib/retention/matrix.ts) and are checked against it by
+                src/lib/retention/matrix.test.ts; "up to" because every job runs
+                daily in batches and a held record waits. */}
             <li>
-              <strong className="font-normal text-ink">Account data:</strong> Retained while your
-              account is active and for 6 years after account closure (to comply with HMRC
-              requirements and for legal claims).
+              <strong className="font-normal text-ink">Account data:</strong> retained while your
+              account is active and for up to 6 years after closure, then minimised (name, contact
+              details, addresses and profile text removed; the record itself remains so bookings and
+              payments keep their anchor). A record is held longer while a dispute, complaint or
+              payment on it is still open, or a booking on it is less than 6 years old.
             </li>
             <li>
               <strong className="font-normal text-ink">Booking and payment records:</strong>{' '}
-              Retained for 6 years after the booking date for tax and legal compliance.
+              retained for up to 6 years after the booking date for tax and legal compliance, then
+              anonymised (names, contact details, address lines and notes removed; amounts, dates
+              and statuses kept).
             </li>
             <li>
-              <strong className="font-normal text-ink">Right to work documents:</strong> Retained
+              <strong className="font-normal text-ink">Messages:</strong> retained for up to 2 years
+              after the last message in the conversation, then anonymised.
+            </li>
+            <li>
+              <strong className="font-normal text-ink">Audit logs:</strong> retained for up to 7
+              years for regulatory compliance and fraud prevention.
+            </li>
+            <li>
+              <strong className="font-normal text-ink">In-app notifications:</strong> retained for
+              up to 2 years, then deleted.
+            </li>
+            <li>
+              <strong className="font-normal text-ink">Consent records:</strong> the decision and
+              its date are kept for up to 7 years as evidence; the IP address and browser details
+              recorded with it are removed after 2 years.
+            </li>
+            <li>
+              <strong className="font-normal text-ink">Analytics data:</strong> IP addresses, user
+              identifiers and referrers are anonymised after 2 years and page addresses reduced to
+              their path. Aggregated, non-identifiable analytics data may be retained indefinitely.
+            </li>
+            <li>
+              <strong className="font-normal text-ink">Right to work documents:</strong> retained
               for the duration of the cleaner&apos;s engagement plus 2 years after, in line with
               Home Office guidance.
             </li>
             <li>
-              <strong className="font-normal text-ink">DBS certificates:</strong> Used only for
+              <strong className="font-normal text-ink">DBS certificates:</strong> used only for
               verification purposes. The certificate itself is securely destroyed within 6 months of
               verification. We retain only the date of issue, certificate number, and verification
               outcome, not the certificate content.
             </li>
             <li>
               <strong className="font-normal text-ink">Identity documents (Photo ID):</strong>{' '}
-              Retained for the duration of the cleaner&apos;s active account. Securely deleted
+              retained for the duration of the cleaner&apos;s active account. Securely deleted
               within 30 days of account closure or upon a valid deletion request.
-            </li>
-            <li>
-              <strong className="font-normal text-ink">Messages and communications:</strong>{' '}
-              Retained for 2 years after the last message, then anonymised.
-            </li>
-            <li>
-              <strong className="font-normal text-ink">Analytics data:</strong> IP addresses and
-              user identifiers are anonymised after 2 years. Aggregated, non-identifiable analytics
-              data may be retained indefinitely.
-            </li>
-            <li>
-              <strong className="font-normal text-ink">Audit logs:</strong> Retained for 7 years for
-              regulatory compliance and fraud prevention.
             </li>
           </ul>
           <p className="mt-4 font-jost font-normal text-ink-2 leading-relaxed">

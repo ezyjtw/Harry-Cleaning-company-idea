@@ -114,26 +114,37 @@ export async function claimSchedulerLease(caller: string | null): Promise<LeaseC
 }
 
 export async function releaseSchedulerLease(
-  outcome: { summary: object } | { error: unknown }
+  outcome: { summary: object; error?: unknown } | { error: unknown }
 ): Promise<void> {
   const finishedAt = new Date();
   await prisma.schedulerLease.update({
     where: { id: SCHEDULER_LEASE_ID },
     data:
-      'summary' in outcome
+      // B7.3: a summary carrying an error (a compliance job failed on the
+      // day's attempt) is a failed run: the summary is kept for the room and
+      // lastFailedAt moves, so the heartbeat turns failing once the last clean
+      // run is older than the stale window.
+      'summary' in outcome && outcome.error !== undefined
         ? {
             lockedUntil: finishedAt,
-            lastSucceededAt: finishedAt,
-            // The scheduler summary is plain data (strings and counts); the
-            // round trip strips anything a JSON column cannot hold.
-            lastSummary: JSON.parse(JSON.stringify(outcome.summary)) as Prisma.InputJsonValue,
-            lastError: null,
-          }
-        : {
-            lockedUntil: finishedAt,
             lastFailedAt: finishedAt,
+            lastSummary: JSON.parse(JSON.stringify(outcome.summary)) as Prisma.InputJsonValue,
             lastError: errorSummary(outcome.error),
-          },
+          }
+        : 'summary' in outcome
+          ? {
+              lockedUntil: finishedAt,
+              lastSucceededAt: finishedAt,
+              // The scheduler summary is plain data (strings and counts); the
+              // round trip strips anything a JSON column cannot hold.
+              lastSummary: JSON.parse(JSON.stringify(outcome.summary)) as Prisma.InputJsonValue,
+              lastError: null,
+            }
+          : {
+              lockedUntil: finishedAt,
+              lastFailedAt: finishedAt,
+              lastError: errorSummary(outcome.error),
+            },
   });
 }
 
