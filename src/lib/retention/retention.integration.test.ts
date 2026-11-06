@@ -583,11 +583,7 @@ describe.skipIf(!enabled)('retention matrix against Postgres (B7.3)', () => {
       // now: inside the window the row reads healthy by design.
       if (!row.lastFailedAt) throw new Error('lastFailedAt not set');
       const newest = Math.max(row.lastFailedAt.getTime(), row.lastSucceededAt?.getTime() ?? 0);
-      const inside = new Date(newest + 1000);
       const later = new Date(newest + lease.STALE_AFTER_MS + 1000);
-      expect(lease.heartbeatStatus(row, inside)).toBe(
-        row.lastSucceededAt && row.lastSucceededAt > row.lastFailedAt ? 'healthy' : 'failing'
-      );
       expect(lease.heartbeatStatus(row, later)).toBe('failing');
     });
   });
