@@ -388,7 +388,7 @@ describe.skipIf(!enabled)('booking lifecycle concurrency against Postgres (B3)',
       }
     }
     expect(outcomes.accepted + outcomes.advanced).toBe(REPS);
-    // eslint-disable-next-line no-console
+
     console.log(`[B3 matrix 5] accepted ${outcomes.accepted}, advanced ${outcomes.advanced}`);
   }, 300_000);
 
@@ -440,7 +440,7 @@ describe.skipIf(!enabled)('booking lifecycle concurrency against Postgres (B3)',
         outcomes.paidLost++;
       }
     }
-    // eslint-disable-next-line no-console
+
     console.log(
       `[B3 matrix 6] paid kept the slot ${outcomes.paidKept}, lost it ${outcomes.paidLost}`
     );
@@ -500,7 +500,7 @@ describe.skipIf(!enabled)('booking lifecycle concurrency against Postgres (B3)',
       }
       expect(await prisma.refundRecord.count({ where: { bookingId: x } })).toBe(0);
     }
-    // eslint-disable-next-line no-console
+
     console.log(`[B3 matrix 7a] en route ${outcomes.enRoute}, cancelled ${outcomes.cancelled}`);
   }, 600_000);
 
@@ -595,7 +595,7 @@ describe.skipIf(!enabled)('booking lifecycle concurrency against Postgres (B3)',
       });
       expect(offers).toBe(1);
     }
-    // eslint-disable-next-line no-console
+
     console.log(
       `[B3 matrix 9] decline recorded ${outcomes9.declined}, refused as stale ${outcomes9.refused}`
     );

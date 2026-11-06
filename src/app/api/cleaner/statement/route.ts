@@ -2,6 +2,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
 import { getCleanerSession } from '@/lib/auth/session';
+import { log } from '@/lib/log';
 import { renderStatementPdf } from '@/lib/pdf/statement-pdf';
 import { checkRateLimit } from '@/lib/rate-limit';
 import {
@@ -88,8 +89,7 @@ export async function GET(request: NextRequest) {
     });
   } catch (err) {
     // Log the real exception — a silent catch hid the pdfkit .afm ENOENT in prod.
-    // eslint-disable-next-line no-console
-    console.error('[statement] PDF generation failed:', err);
+    log.error('statement', 'pdf_generation_failed', {}, err);
     return NextResponse.json({ error: 'Could not generate the statement.' }, { status: 500 });
   }
 

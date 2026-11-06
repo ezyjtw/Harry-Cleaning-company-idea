@@ -4,6 +4,7 @@ import type { NextRequest } from 'next/server';
 import { getCleanerSession } from '@/lib/auth/session';
 import prisma from '@/lib/db/prisma';
 import { resolveClientIp } from '@/lib/http/client-ip';
+import { log } from '@/lib/log';
 import { DocumentStorageService } from '@/lib/services/document-storage.service';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB base64
@@ -92,8 +93,7 @@ export async function POST(request: NextRequest) {
       { status: 201 }
     );
   } catch (error) {
-    // eslint-disable-next-line no-console
-    console.error('[CleanerDocuments] POST error:', error);
+    log.error('cleaner_documents', 'post_error', {}, error);
     return NextResponse.json({ error: 'Failed to upload document' }, { status: 500 });
   }
 }

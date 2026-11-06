@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 
 import { getSessionUser } from '@/lib/auth/session';
 import prisma from '@/lib/db/prisma';
+import { log } from '@/lib/log';
 import { EnhancedNotificationService } from '@/lib/services/enhanced-notification.service';
 
 type RouteContext = { params: Promise<{ id: string }> };
@@ -73,8 +74,7 @@ export async function POST(_request: Request, context: RouteContext) {
   // F17: skip the nudge when the review already exists (REVIEWED path).
   if (booking.status !== 'REVIEWED') {
     await EnhancedNotificationService.sendReviewRequest(bookingId).catch((e) => {
-      // eslint-disable-next-line no-console
-      console.error(`[ReviewRequest] Failed for booking ${bookingId}:`, e);
+      log.error('review_request', 'failed_for_booking', { bookingId }, e);
     });
   }
 

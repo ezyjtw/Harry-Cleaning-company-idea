@@ -71,8 +71,7 @@ export async function processPaymentSuccess(
   // booking to paid. Gated on stripePaymentIntentId being present to avoid
   // stranding a legitimate payment if the id wasn't persisted yet.
   if (booking.stripePaymentIntentId && pi.id !== booking.stripePaymentIntentId) {
-    // eslint-disable-next-line no-console
-    console.error('[payment-success] PI/booking mismatch', {
+    log.error('payment_success', 'pi_booking_mismatch', {
       bookingId,
       piId: pi.id,
       expectedPiId: booking.stripePaymentIntentId,
@@ -80,8 +79,7 @@ export async function processPaymentSuccess(
     return 'IGNORED_PI_MISMATCH';
   }
   if (pi.currency && pi.currency.toLowerCase() !== 'gbp') {
-    // eslint-disable-next-line no-console
-    console.error('[payment-success] unexpected currency', { bookingId, currency: pi.currency });
+    log.error('payment_success', 'unexpected_currency', { bookingId, currency: pi.currency });
     return 'IGNORED_CURRENCY';
   }
   // B4 (RENA-017): a shortfall keeps the customer's confirmation (the paid
@@ -176,8 +174,7 @@ export async function processPaymentSuccess(
       })
       .catch(() => {});
 
-    // eslint-disable-next-line no-console
-    console.log(`[RecurringCharge] occurrence ${bookingId} paid → ACCEPTED (${dateStr})`);
+    log.info('recurring_charge', 'occurrence_paid_accepted', { bookingId });
     return 'PROCESSED';
   }
 
@@ -453,10 +450,7 @@ async function handleLateOccurrencePayment(
     return 'SKIPPED_ALREADY';
   }
 
-  // eslint-disable-next-line no-console
-  console.log(
-    `[RecurringCharge] LATE PAYMENT on ${isOneOffCase ? `${row.status} one-off` : 'cancelled occurrence'} ${bookingId} — auto-refunding`
-  );
+  log.info('recurring_charge', 'late_payment_on_one_off', { bookingId });
 
   // Record the truth first — the charge DID succeed — so the refund service's
   // payment guards see reality; then refund in full through the existing path.
@@ -479,10 +473,7 @@ async function handleLateOccurrencePayment(
   );
   if (refund.status !== 'REFUNDED' && refund.status !== 'PARTIALLY_REFUNDED') {
     // Money is sitting against a cancelled clean — the loudest line we have.
-    // eslint-disable-next-line no-console
-    console.error(
-      `[RecurringCharge] LATE PAYMENT refund FAILED for ${bookingId} (${refund.reason ?? refund.status}) — customer money held against a cancelled clean, INVESTIGATE`
-    );
+    log.error('recurring_charge', 'late_payment_refund_failed_for', { bookingId });
     return 'SKIPPED_ALREADY';
   }
 
@@ -545,10 +536,7 @@ export async function sweepStrandedPayments(): Promise<{ scanned: number; proces
       if (pi.status !== 'succeeded') continue; // not actually paid — reaper's problem
 
       // LOUD: this only happens when the webhook path failed. Surface it.
-      // eslint-disable-next-line no-console
-      console.error(
-        `[PAYMENT-SWEEP] Stranded PAID booking ${c.id} (pi ${c.piId}) — webhook did not complete; processing via sweep. INVESTIGATE the webhook failure.`
-      );
+      log.error('payment_sweep', 'stranded_paid_booking_pi_webhook', { cId: c.id, piId: c.piId });
 
       const chargeId =
         typeof pi.latest_charge === 'string' ? pi.latest_charge : pi.latest_charge?.id;
@@ -564,8 +552,7 @@ export async function sweepStrandedPayments(): Promise<{ scanned: number; proces
       });
       if (outcome === 'PROCESSED') processed++;
     } catch (err) {
-      // eslint-disable-next-line no-console
-      console.error(`[PAYMENT-SWEEP] failed for booking ${c.id}:`, err);
+      log.error('payment_sweep', 'failed_for_booking', { cId: c.id }, err);
     }
   }
 

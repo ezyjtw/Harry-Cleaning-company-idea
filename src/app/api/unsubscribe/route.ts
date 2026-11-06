@@ -2,6 +2,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
 import prisma from '@/lib/db/prisma';
+import { log } from '@/lib/log';
 import { GdprService } from '@/lib/services/gdpr.service';
 import { updatePreferences } from '@/lib/services/notification-preferences.service';
 import { verifyUnsubscribeToken } from '@/lib/utils/unsubscribe-token';
@@ -41,11 +42,7 @@ async function unsubscribe(token: string | null): Promise<NextResponse> {
       consentType: 'marketing',
       granted: false,
     }).catch((err) => {
-      // eslint-disable-next-line no-console
-      console.error(
-        `[Unsubscribe] FAILED to record marketing-consent withdrawal audit for user=${userId}:`,
-        err
-      );
+      log.error('unsubscribe', 'failed_to_record_marketing_consent', { userId }, err);
     });
   }
 

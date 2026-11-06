@@ -81,8 +81,7 @@ export function computeCascadeWindows(
   const slotStart = parseSlotStart(bookingDate, startTime);
 
   if (!slotStart) {
-    // eslint-disable-next-line no-console
-    console.warn('[Cascade] Cannot parse slotStart — falling back to COMBINED_OFFER 12h');
+    log.warn('cascade', 'cannot_parse_slot_start_falling', {});
     return {
       initialPhase: 'COMBINED_OFFER',
       cascadeExpiresAt: new Date(now.getTime() + 12 * HOUR_MS),
@@ -158,8 +157,7 @@ async function advanceFromPrimary(bookingId: string, booking: BookingCascadeData
 
   const backupExpiresAt = booking.cascadeBackupExpiresAt;
   if (!backupExpiresAt) {
-    // eslint-disable-next-line no-console
-    console.error('[Cascade] No backupExpiresAt for PRIMARY_OFFER booking', bookingId);
+    log.error('cascade', 'no_backup_expires_at_for', { bookingId });
     return;
   }
 
@@ -2420,14 +2418,12 @@ export async function processExpiredCascadeWindows(): Promise<{ processed: numbe
         if (advanced) processed++;
       }
     } catch (error) {
-      // eslint-disable-next-line no-console
-      console.error(`[Cascade] Error processing booking ${booking.id}:`, error);
+      log.error('cascade', 'error_processing_booking', { bookingId: booking.id }, error);
     }
   }
 
   if (expired.length === SCHEDULER_BATCH_LIMIT) {
-    // eslint-disable-next-line no-console
-    console.warn(`[Cascade] Hit batch limit (${SCHEDULER_BATCH_LIMIT}) — more bookings next tick`);
+    log.warn('cascade', 'hit_batch_limit_more_bookings', {});
   }
 
   // ── Backstop: RENA_FIND_ADMIN_REVIEW bookings whose slot has passed ──
@@ -2469,8 +2465,12 @@ export async function processExpiredCascadeWindows(): Promise<{ processed: numbe
         processed++;
       }
     } catch (error) {
-      // eslint-disable-next-line no-console
-      console.error(`[Cascade] Error processing admin-review backstop ${booking.id}:`, error);
+      log.error(
+        'cascade',
+        'error_processing_admin_review_backstop',
+        { bookingId: booking.id },
+        error
+      );
     }
   }
 

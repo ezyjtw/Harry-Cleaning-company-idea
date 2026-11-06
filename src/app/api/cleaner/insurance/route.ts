@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 
 import { getCleanerSession } from '@/lib/auth/session';
 import prisma from '@/lib/db/prisma';
+import { log } from '@/lib/log';
 import { DocumentStorageService } from '@/lib/services/document-storage.service';
 import { decodeBase64File, DOCUMENT_MIMES } from '@/lib/utils/file-validation';
 import { parseFutureDate } from '@/lib/validation/inputs';
@@ -67,8 +68,7 @@ export async function GET() {
         : null,
     });
   } catch (error) {
-    // eslint-disable-next-line no-console
-    console.error('[Insurance] GET error:', error);
+    log.error('insurance', 'get_error', {}, error);
     return NextResponse.json({ error: 'Failed to fetch insurance status' }, { status: 500 });
   }
 }
@@ -175,8 +175,7 @@ export async function POST(request: NextRequest) {
       { status: 201 }
     );
   } catch (error) {
-    // eslint-disable-next-line no-console
-    console.error('[Insurance] POST error:', error);
+    log.error('insurance', 'post_error', {}, error);
     return NextResponse.json({ error: 'Failed to upload insurance document' }, { status: 500 });
   }
 }

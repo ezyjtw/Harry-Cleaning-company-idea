@@ -116,10 +116,7 @@ export async function mintOccurrences(
           durationHours: Number(agreement.duration),
         }));
       if (clash) {
-        // eslint-disable-next-line no-console
-        console.error(
-          `[Recurring] mint SKIPPED for agreement ${agreement.id} on ${key} — slot conflict with booking ${clash} (booked before the window reached this date)`
-        );
+        log.error('recurring', 'mint_skipped_for_agreement_on', { agreementId: agreement.id, key });
         return false;
       }
       await tx.booking.create({
@@ -159,8 +156,7 @@ export async function mintOccurrences(
     minted++;
   }
   if (minted > 0) {
-    // eslint-disable-next-line no-console
-    console.log(`[Recurring] minted ${minted} occurrence(s) for agreement ${agreement.id}`);
+    log.info('recurring', 'minted_occurrence_s_for_agreement', { agreementId: agreement.id });
   }
   return { minted };
 }
@@ -239,10 +235,11 @@ export async function endAgreement(
       try {
         await stripe.paymentIntents.cancel(occ.stripePaymentIntentId);
       } catch (err) {
-        // eslint-disable-next-line no-console
-        console.error(
-          `[Recurring] FENCE: could not cancel surviving intent ${occ.stripePaymentIntentId} on voided occurrence ${occ.id} — belt will refund any stray capture`,
-          err instanceof Error ? err.message : err
+        log.error(
+          'recurring',
+          'fence_could_not_cancel_surviving',
+          { stripePaymentIntentId: occ.stripePaymentIntentId, occId: occ.id },
+          err
         );
       }
     }
@@ -268,9 +265,9 @@ export async function endAgreement(
       })
       .catch(() => {});
   }
-  // eslint-disable-next-line no-console
-  console.log(
-    `[Recurring] agreement ${agreementId} ended by ${endedBy}; ${voided.count} scheduled occurrence(s) voided`
-  );
+  log.info('recurring', 'agreement_ended_by_scheduled_occurrence', {
+    agreementId,
+    count: voided.count,
+  });
   return { ended: true, voided: voided.count };
 }

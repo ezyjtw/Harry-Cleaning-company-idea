@@ -267,10 +267,7 @@ export async function POST(request: NextRequest) {
     const uploadResults = await Promise.allSettled(uploadPromises);
     const failedUploads = uploadResults.filter((r) => r.status === 'rejected');
     if (failedUploads.length > 0) {
-      // eslint-disable-next-line no-console
-      console.warn(
-        `[CleanerOnboarding] ${failedUploads.length} document(s) failed to upload for user ${result.user.id}`
-      );
+      log.warn('cleaner_onboarding', 'document_s_failed_to_upload', { userId: result.user.id });
     }
 
     // B: generate the new cleaner's travel-time isochrone (fire-and-forget;
@@ -319,8 +316,7 @@ export async function POST(request: NextRequest) {
       { status: 201 }
     );
   } catch (error) {
-    // eslint-disable-next-line no-console
-    console.error('[CleanerOnboarding] Error:', error);
+    log.error('cleaner_onboarding', 'error', {}, error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Failed to submit application' },
       { status: 500 }

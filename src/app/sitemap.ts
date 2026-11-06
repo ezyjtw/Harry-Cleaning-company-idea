@@ -62,7 +62,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     const live = shipped.filter((a): a is NonNullable<typeof a> => a !== null);
     areaPages = [
       ...(live.length > 0
-        ? [{ url: `${BASE_URL}/cleaning`, lastModified: now, changeFrequency: 'weekly' as const, priority: 0.8 }]
+        ? [
+            {
+              url: `${BASE_URL}/cleaning`,
+              lastModified: now,
+              changeFrequency: 'weekly' as const,
+              priority: 0.8,
+            },
+          ]
         : []),
       ...live.map((area) => ({
         url: `${BASE_URL}/cleaning/${area.slug}`,

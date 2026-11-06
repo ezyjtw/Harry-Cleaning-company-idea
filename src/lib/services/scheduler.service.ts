@@ -127,10 +127,7 @@ async function processPaymentRecoveryEmails(): Promise<HandlerResult> {
     if (claimed.count === 0) continue;
     const { sendPaymentRecovery } = await import('./email.service');
     const sent = await sendPaymentRecovery(b.id).catch(() => false);
-    // eslint-disable-next-line no-console
-    console.log(
-      `[recovery] pre-reap email for unpaid booking ${b.id} — ${sent ? 'sent' : 'NOT sent'}`
-    );
+    log.info('recovery', 'pre_reap_email_for_unpaid', { bId: b.id, ok: sent });
     processed++;
   }
   return { processed };
@@ -175,8 +172,7 @@ async function processTopupCardReminders(): Promise<HandlerResult> {
     if (claimed.count === 0) continue;
     const { sendTopupCardReminder } = await import('./email.service');
     const sent = await sendTopupCardReminder(b.id).catch(() => false);
-    // eslint-disable-next-line no-console
-    console.log(`[topup-reminder] card-needed nudge for ${b.id} — ${sent ? 'sent' : 'NOT sent'}`);
+    log.info('topup_reminder', 'card_needed_nudge_for', { bId: b.id, ok: sent });
     processed++;
   }
   return { processed };
@@ -272,18 +268,19 @@ export async function processDueReleases(): Promise<HandlerResult> {
       if (result.status === 'RELEASED' || result.status === 'ALREADY_RELEASED') {
         processed++;
       } else {
-        // eslint-disable-next-line no-console
-        console.warn(`[Release] Booking ${booking.id}: ${result.status} — ${result.reason}`);
+        log.warn('release', 'booking', {
+          bookingId: booking.id,
+          status: result.status,
+          reason: result.reason,
+        });
       }
     } catch (error) {
-      // eslint-disable-next-line no-console
-      console.error(`[Release] Error processing booking ${booking.id}:`, error);
+      log.error('release', 'error_processing_booking', { bookingId: booking.id }, error);
     }
   }
 
   if (due.length === RELEASE_BATCH_LIMIT) {
-    // eslint-disable-next-line no-console
-    console.warn(`[Release] Hit batch limit (${RELEASE_BATCH_LIMIT}) — more bookings next tick`);
+    log.warn('release', 'hit_batch_limit_more_bookings', {});
   }
 
   return { processed };
@@ -452,8 +449,7 @@ async function processStrandedPayments(): Promise<HandlerResult> {
     const result = await sweepStrandedPayments();
     return { processed: result.processed };
   } catch (err) {
-    // eslint-disable-next-line no-console
-    console.error('[PAYMENT-SWEEP] sweep failed:', err);
+    log.error('payment_sweep', 'sweep_failed', {}, err);
     return { processed: 0 };
   }
 }
@@ -465,8 +461,7 @@ async function processRescueTimeouts(): Promise<HandlerResult> {
     const r = await sweepRescueTimeouts();
     return { processed: r.refunded };
   } catch (err) {
-    // eslint-disable-next-line no-console
-    console.error('[RESCUE-SWEEP] sweep failed:', err);
+    log.error('rescue_sweep', 'sweep_failed', {}, err);
     return { processed: 0 };
   }
 }
@@ -496,13 +491,11 @@ async function processCompletedAtBackfill(): Promise<HandlerResult> {
         where: { id: b.id, completedAt: null },
         data: { completedAt: stamp },
       });
-      // eslint-disable-next-line no-console
-      console.log(`[CompletedAtBackfill] ${b.id} stamped ${stamp.toISOString()}`);
+      log.info('completed_at_backfill', 'stamped', { bId: b.id });
     }
     return { processed: rows.length };
   } catch (err) {
-    // eslint-disable-next-line no-console
-    console.error('[CompletedAtBackfill] sweep failed:', err);
+    log.error('completed_at_backfill', 'sweep_failed', {}, err);
     return { processed: 0 };
   }
 }
@@ -580,8 +573,7 @@ async function processCatchmentHeal(): Promise<HandlerResult> {
     }
     return { processed };
   } catch (err) {
-    // eslint-disable-next-line no-console
-    console.error('[CatchmentHeal] sweep failed:', err);
+    log.error('catchment_heal', 'sweep_failed', {}, err);
     return { processed: 0 };
   }
 }
@@ -593,8 +585,7 @@ async function processStuckJobs(): Promise<HandlerResult> {
     const { sweepStuckJobs } = await import('./stuck-jobs.service');
     return await sweepStuckJobs();
   } catch (err) {
-    // eslint-disable-next-line no-console
-    console.error('[StuckJobs] sweep failed:', err);
+    log.error('stuck_jobs', 'sweep_failed', {}, err);
     return { processed: 0 };
   }
 }
@@ -607,8 +598,7 @@ async function processRecurringWindows(): Promise<HandlerResult> {
     const { extendAgreementWindows } = await import('./recurring.service');
     return await extendAgreementWindows();
   } catch (err) {
-    // eslint-disable-next-line no-console
-    console.error('[Recurring] window extension failed:', err);
+    log.error('recurring', 'window_extension_failed', {}, err);
     return { processed: 0 };
   }
 }
@@ -621,8 +611,7 @@ async function processRecurringCharges(): Promise<HandlerResult> {
     const { processRecurringCharges: run } = await import('./recurring-charge.service');
     return await run();
   } catch (err) {
-    // eslint-disable-next-line no-console
-    console.error('[RecurringCharge] charge sweep failed:', err);
+    log.error('recurring_charge', 'charge_sweep_failed', {}, err);
     return { processed: 0 };
   }
 }
@@ -632,8 +621,7 @@ async function processRecurringCancels(): Promise<HandlerResult> {
     const { cancelUnpaidOccurrences } = await import('./recurring-charge.service');
     return await cancelUnpaidOccurrences();
   } catch (err) {
-    // eslint-disable-next-line no-console
-    console.error('[RecurringCharge] cancel sweep failed:', err);
+    log.error('recurring_charge', 'cancel_sweep_failed', {}, err);
     return { processed: 0 };
   }
 }
@@ -646,8 +634,7 @@ async function processArrangementTimeouts(): Promise<HandlerResult> {
     const { expirePendingArrangements } = await import('./arrangement.service');
     return await expirePendingArrangements();
   } catch (err) {
-    // eslint-disable-next-line no-console
-    console.error('[Arrangement] expiry sweep failed:', err);
+    log.error('arrangement', 'expiry_sweep_failed', {}, err);
     return { processed: 0 };
   }
 }
@@ -660,8 +647,7 @@ async function processIncompleteSignups(): Promise<HandlerResult> {
     const { sweepIncompleteSignups } = await import('./incomplete-signup.service');
     return await sweepIncompleteSignups();
   } catch (err) {
-    // eslint-disable-next-line no-console
-    console.error('[IncompleteSweep] sweep failed:', err);
+    log.error('incomplete_sweep', 'sweep_failed', {}, err);
     return { processed: 0 };
   }
 }
@@ -707,8 +693,7 @@ async function processRescheduleOfferExpiry(): Promise<HandlerResult> {
     const { expireRescheduleOffers } = await import('./reschedule-offer.service');
     return await expireRescheduleOffers();
   } catch (err) {
-    // eslint-disable-next-line no-console
-    console.error('[Reschedule] expiry sweep failed:', err);
+    log.error('reschedule', 'expiry_sweep_failed', {}, err);
     return { processed: 0 };
   }
 }
@@ -741,15 +726,10 @@ async function processPlacesRefreshWeekly(): Promise<HandlerResult> {
     const r = await refreshCompetitorIntel();
     // Loud-both-ways (James-ordered): every weekly refresh self-reports in
     // the Railway log, so silence becomes meaningful.
-    // eslint-disable-next-line no-console
-    console.log(
-      `[PlacesRefresh] week ${thisWeek}: ${r.areasSwept ?? 0} areas swept, ` +
-        `${r.placesTouched ?? 0} places, ${r.apiCalls ?? 0} calls`
-    );
+    log.info('places_refresh', 'week_areas_swept_places_calls', {});
     return { processed: r.placesTouched ?? 0 };
   } catch (err) {
-    // eslint-disable-next-line no-console
-    console.error('[PlacesRefresh] weekly refresh failed:', err);
+    log.error('places_refresh', 'weekly_refresh_failed', {}, err);
     return { processed: 0 };
   }
 }

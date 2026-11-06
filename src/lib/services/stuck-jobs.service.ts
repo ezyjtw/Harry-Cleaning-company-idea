@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/db/prisma';
+import { log } from '@/lib/log';
 import { AuditService } from '@/lib/services/audit.service';
 import {
   sendForceCompleteNotice,
@@ -86,10 +87,7 @@ export async function sweepStuckJobs(): Promise<{ processed: number }> {
       continue; // unique race with an overlapping tick — theirs won
     }
     processed++;
-    // eslint-disable-next-line no-console
-    console.log(
-      `[StuckJobs] Flagged booking ${b.id} — scheduled end ${end.toISOString()}, no completion`
-    );
+    log.info('stuck_jobs', 'flagged_booking_scheduled_end_no', { bId: b.id });
   }
 
   // 3. Nudge #1 for flagged cases that haven't had it (claim-first).
@@ -148,14 +146,10 @@ async function nudgeCleaner(bookingId: string, escalated: boolean): Promise<void
     data: { bookingId },
     category: 'ESSENTIAL',
   }).catch((e) => {
-    // eslint-disable-next-line no-console
-    console.error(`[StuckJobs] Nudge bell/push failed for ${bookingId}:`, e);
+    log.error('stuck_jobs', 'nudge_bell_push_failed_for', { bookingId }, e);
   });
   const sent = await sendStuckJobNudge(bookingId, escalated).catch(() => false);
-  // eslint-disable-next-line no-console
-  console.log(
-    `[StuckJobs] Nudge${escalated ? ' (escalated)' : ''} for ${bookingId} — email ${sent ? 'sent' : 'NOT sent'}`
-  );
+  log.info('stuck_jobs', 'nudge_for_email', { bookingId, ok: sent });
 }
 
 /** Admin action: send the tokened "did this clean happen?" question. */
@@ -211,8 +205,7 @@ export async function recordCustomerAnswer(
     entityId: c.bookingId,
     metadata: { answer },
   }).catch(() => {});
-  // eslint-disable-next-line no-console
-  console.log(`[StuckJobs] Customer answered ${answer} for booking ${c.bookingId}`);
+  log.info('stuck_jobs', 'customer_answered_for_booking', { bookingId: c.bookingId });
   return { ok: true };
 }
 
@@ -297,13 +290,11 @@ export async function forceComplete(
   }).catch(() => {});
 
   await sendForceCompleteNotice(c.bookingId, confirmedByCustomer).catch((e) => {
-    // eslint-disable-next-line no-console
-    console.error(`[StuckJobs] Force-complete notice failed for ${c.bookingId}:`, e);
+    log.error('stuck_jobs', 'force_complete_notice_failed_for', { bookingId: c.bookingId }, e);
   });
   // Standard completion side-effect — the review request (guest skips log themselves).
   await EnhancedNotificationService.sendReviewRequest(c.bookingId).catch((e) => {
-    // eslint-disable-next-line no-console
-    console.error(`[ReviewRequest] Failed for booking ${c.bookingId}:`, e);
+    log.error('review_request', 'failed_for_booking', { bookingId: c.bookingId }, e);
   });
 
   return { ok: true, released: confirmedByCustomer ? 'immediate' : '24h' };
@@ -375,10 +366,10 @@ export async function cancelRefund(
     // not "action failed". The reason is Stripe's own message (or our guard's),
     // and it's also logged loudly in refund.service and persisted on the
     // FAILED RefundRecord.
-    // eslint-disable-next-line no-console
-    console.error(
-      `[StuckJobs] Cancel-refund failed for ${c.bookingId}: ${result.status} — ${result.reason ?? 'no reason given'}`
-    );
+    log.error('stuck_jobs', 'cancel_refund_failed_for', {
+      bookingId: c.bookingId,
+      status: result.status,
+    });
     return {
       ok: false,
       error: `Refund refused — ${result.reason ?? result.status}. The case stays open; if this booking was already refunded previously, use "Close without refund".`,
@@ -409,8 +400,7 @@ export async function cancelRefund(
   }).catch(() => {});
 
   await sendRefundConfirmationForBooking(c.bookingId, remainder, true).catch((e) => {
-    // eslint-disable-next-line no-console
-    console.error(`[StuckJobs] Refund confirmation email failed for ${c.bookingId}:`, e);
+    log.error('stuck_jobs', 'refund_confirmation_email_failed_for', { bookingId: c.bookingId }, e);
   });
 
   return { ok: true, refunded: remainder };
@@ -471,9 +461,6 @@ export async function resolveNoRefund(
     entityId: c.bookingId,
     metadata: { attested: 'refund already issued previously' },
   }).catch(() => {});
-  // eslint-disable-next-line no-console
-  console.log(
-    `[StuckJobs] Case for ${c.bookingId} closed without refund (admin ${adminId} attested prior refund)`
-  );
+  log.info('stuck_jobs', 'case_for_closed_without_refund', { bookingId: c.bookingId, adminId });
   return { ok: true };
 }

@@ -24,9 +24,7 @@ export default function PasswordRequirements({ password }: { password: string })
                 <circle cx="10" cy="10" r="3" />
               </svg>
             )}
-            <span
-              className={`font-jost text-[11px] ${passed ? 'text-teal' : 'text-ink-3/60'}`}
-            >
+            <span className={`font-jost text-[11px] ${passed ? 'text-teal' : 'text-ink-3/60'}`}>
               {rule.label}
             </span>
           </li>

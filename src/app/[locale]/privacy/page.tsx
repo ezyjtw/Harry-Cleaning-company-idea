@@ -148,8 +148,14 @@ export default function PrivacyPage() {
               information is shared with our vetted background check partners.
             </li>
             <li>
-              <strong className="font-normal text-ink">Service Providers:</strong> We may use
-              third-party services for hosting, analytics, email delivery, and customer support.
+              <strong className="font-normal text-ink">Service Providers:</strong> We use these
+              processors, each under a data processing agreement and only for the purpose named
+              (B7.8; the list is checked against the code that uses them): payments and payouts,
+              Stripe; hosting and our database, Railway; network edge and encrypted document
+              storage, Cloudflare; email, Resend; SMS, Twilio; app push notifications, Expo; error
+              reporting when enabled, Sentry; the website chat assistant, Groq; travel time and
+              coverage calculation, OpenRouteService; area information for our operations, Google
+              Places; accounting, Xero.
             </li>
             <li>
               <strong className="font-normal text-ink">Legal Requirements:</strong> We may disclose
@@ -276,6 +282,18 @@ export default function PrivacyPage() {
               <strong className="font-normal text-ink">Withdraw Consent:</strong> Where processing
               is based on consent, withdraw your consent at any time.
             </li>
+            <li>
+              <strong className="font-normal text-ink">Complain:</strong> You have the right to
+              complain to the Information Commissioner&apos;s Office (
+              <a
+                href="https://ico.org.uk"
+                className="text-primary underline hover:text-primary-hover"
+                rel="noopener noreferrer"
+              >
+                ico.org.uk
+              </a>
+              ). We would welcome the chance to address your concern first.
+            </li>
           </ul>
           <p className="mt-4 font-jost font-normal text-ink-2 leading-relaxed">
             To delete your account, see our{' '}
@@ -367,9 +385,9 @@ export default function PrivacyPage() {
             9. International Transfers
           </h2>
           <p className="mt-4 font-jost font-normal text-ink-2 leading-relaxed">
-            Your data is primarily stored and processed in the United Kingdom. Where we use
-            third-party services that process data outside the UK, we ensure appropriate safeguards
-            are in place, such as Standard Contractual Clauses or adequacy decisions.
+            Our primary application database is hosted in the Netherlands. We also use service
+            providers that may process personal data in the UK, EEA and other countries; where
+            required, appropriate international-transfer safeguards are used.
           </p>
         </section>
 

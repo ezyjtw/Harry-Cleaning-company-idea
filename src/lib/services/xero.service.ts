@@ -3,6 +3,7 @@ import type { XeroClient } from 'xero-node';
 
 import { countedCall } from '@/lib/api-metering';
 import { prisma } from '@/lib/db/prisma';
+import { log } from '@/lib/log';
 import { makeXeroClient, xeroConfigured } from '@/lib/xero/client';
 import { decryptToken, encryptToken, generateKeyId } from '@/lib/xero/token-crypto';
 
@@ -258,8 +259,7 @@ export async function getAuthedClient(): Promise<{ client: XeroClient; tenantId:
               keyId,
             },
           });
-          // eslint-disable-next-line no-console
-          console.log(`[xero-refresh] rotated, expires ${expiry.toISOString()}`);
+          log.info('xero_refresh', 'rotated_expires', {});
           return newSet;
         },
         // The lock is held across Xero's token endpoint round-trip — a
@@ -269,8 +269,7 @@ export async function getAuthedClient(): Promise<{ client: XeroClient; tenantId:
       );
       client.setTokenSet(tokenForClient);
     } catch (err) {
-      // eslint-disable-next-line no-console
-      console.error(`[xero-refresh] FAILED: ${err instanceof Error ? err.message : String(err)}`);
+      log.error('xero_refresh', 'failed', {});
       throw err;
     }
   } else {

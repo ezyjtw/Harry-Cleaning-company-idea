@@ -87,8 +87,7 @@ export async function POST(request: NextRequest) {
       userAgent: request.headers.get('user-agent') ?? undefined,
     }).catch((err) => {
       // PECR evidence — must not vanish silently.
-      // eslint-disable-next-line no-console
-      console.error('[LEAD] GdprConsent write failed:', err);
+      log.error('lead', 'gdpr_consent_write_failed', {}, err);
     });
 
     if (existingUser) {
@@ -97,8 +96,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    // eslint-disable-next-line no-console
-    console.error('Leads API error:', error);
+    log.error('leads', 'leads_api_error', {}, error);
 
     if (error instanceof SyntaxError) {
       return NextResponse.json({ error: 'Invalid request.' }, { status: 400 });

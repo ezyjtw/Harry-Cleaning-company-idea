@@ -2,6 +2,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
 import { getSessionUser } from '@/lib/auth/session';
+import { log } from '@/lib/log';
 import { getClientIp } from '@/lib/rate-limit';
 import { GdprService } from '@/lib/services/gdpr.service';
 import {
@@ -74,9 +75,10 @@ export async function PUT(request: NextRequest) {
       // Audit logging must never break the preference save (best-effort) — but a
       // failed MARKETING-consent write is the one audit we must not lose silently
       // (PECR evidence). Log loudly so it's recoverable from logs.
-      // eslint-disable-next-line no-console
-      console.error(
-        `[NotificationPreferences] FAILED to record marketing consent audit for user=${user.id} granted=${patch.marketing}:`,
+      log.error(
+        'notification_preferences',
+        'failed_to_record_marketing_consent',
+        { userId: user.id },
         err
       );
     });

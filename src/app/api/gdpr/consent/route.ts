@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 
 import { getSessionUser } from '@/lib/auth/session';
 import { resolveClientIp } from '@/lib/http/client-ip';
+import { log } from '@/lib/log';
 import { GdprService } from '@/lib/services/gdpr.service';
 import type { ConsentType } from '@/lib/services/gdpr.service';
 
@@ -75,8 +76,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true, recorded: results.length });
   } catch (error) {
-    // eslint-disable-next-line no-console
-    console.error('[GDPR] Consent recording error:', error);
+    log.error('gdpr', 'consent_recording_error', {}, error);
     return NextResponse.json({ error: 'Failed to record consent' }, { status: 500 });
   }
 }
@@ -115,8 +115,7 @@ export async function GET(request: NextRequest) {
     const status = await GdprService.getConsentStatus({ userId, email });
     return NextResponse.json({ status });
   } catch (error) {
-    // eslint-disable-next-line no-console
-    console.error('[GDPR] Consent status error:', error);
+    log.error('gdpr', 'consent_status_error', {}, error);
     return NextResponse.json({ error: 'Failed to get consent status' }, { status: 500 });
   }
 }

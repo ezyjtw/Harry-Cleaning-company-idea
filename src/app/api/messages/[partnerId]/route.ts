@@ -1,13 +1,11 @@
 import { NextResponse } from 'next/server';
-import { getMessages, markAsRead } from '@/lib/services/message.service';
+
 import { getSessionUser } from '@/lib/auth/session';
+import { getMessages, markAsRead } from '@/lib/services/message.service';
 import { handleApiError } from '@/lib/utils/errors';
 
 // GET /api/messages/[partnerId] - Get messages with a specific partner
-export async function GET(
-  _request: Request,
-  { params }: { params: { partnerId: string } }
-) {
+export async function GET(_request: Request, { params }: { params: { partnerId: string } }) {
   try {
     const user = await getSessionUser();
     if (!user) {

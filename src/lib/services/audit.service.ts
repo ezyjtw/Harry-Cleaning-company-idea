@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/db/prisma';
+import { log } from '@/lib/log';
 
 export type AuditAction =
   | 'USER_LOGIN'
@@ -175,8 +176,7 @@ export class AuditService {
       });
     } catch (error) {
       // Audit logging should never break the main flow
-      // eslint-disable-next-line no-console
-      console.error('[AuditService] Failed to create audit log:', error);
+      log.error('audit_service', 'failed_to_create_audit_log', {}, error);
       return null;
     }
   }

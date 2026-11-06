@@ -91,10 +91,7 @@ function xeroPushAllowedInMode(): boolean {
   const live = stripeIsLive();
   const override = process.env.XERO_ALLOW_TEST_PUSH === 'true';
   if (override && live) {
-    // eslint-disable-next-line no-console
-    console.error(
-      '[xero-push] REFUSED: XERO_ALLOW_TEST_PUSH must NEVER be set with a live Stripe key — remove it from this environment.'
-    );
+    logger.error('xero_push', 'refused_xero_allow_test_push', {});
     return false;
   }
   return live || override;
@@ -149,14 +146,12 @@ export async function processXeroPush(payload: XeroPushPayload): Promise<void> {
   if (!mapping) return;
   // The Stripe-balance bank is required to post — every transaction/transfer uses it.
   if (!mapping.bankAccountCode) {
-    // eslint-disable-next-line no-console
-    console.warn(`[xero-push] Stripe-balance bank unmapped — skipping ${event} for ${bookingId}`);
+    logger.warn('xero_push', 'stripe_balance_bank_unmapped_skipping', { event, bookingId });
     return;
   }
   // STRIPE_PAYOUT transfers INTO the settlement bank — it must be mapped too.
   if (event === 'STRIPE_PAYOUT' && !mapping.settlementBankAccountCode) {
-    // eslint-disable-next-line no-console
-    console.warn(`[xero-push] settlement bank unmapped — skipping payout ${bookingId}`);
+    logger.warn('xero_push', 'settlement_bank_unmapped_skipping_payout', { bookingId });
     return;
   }
 
@@ -277,8 +272,7 @@ export async function processXeroPush(payload: XeroPushPayload): Promise<void> {
     });
     // F2b (James-ruled): success is LOUD. The drain's silence-on-success made a
     // healthy pipeline look dead mid-rehearsal — this line is the books' heartbeat.
-    // eslint-disable-next-line no-console
-    console.log(`[xero-push] ${event} COMPLETED for booking ${bookingId} → ${ids || 'no-id'}`);
+    logger.info('xero_push', 'completed_for_booking', { event, bookingId });
   } catch (err) {
     // Capture the ACTIONABLE detail: a Xero rejection puts the validation
     // reason (bad account code, scope/auth, archived account, tax type) in the

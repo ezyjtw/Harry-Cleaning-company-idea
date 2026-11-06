@@ -21,6 +21,7 @@
 
 import { assignCleaner } from '@/lib/booking/assign';
 import { prisma } from '@/lib/db/prisma';
+import { log } from '@/lib/log';
 import stripe from '@/lib/stripe';
 import {
   NONEXISTENT_TIME_MESSAGE,
@@ -90,10 +91,7 @@ export async function cantMakeOccurrence(params: {
       suppressEmail: params.suppressEmail,
     });
     if (!r.ok) return { ok: false, status: 409, error: r.reason };
-    // eslint-disable-next-line no-console
-    console.log(
-      `[OccurrenceRescue] PAID occurrence ${bookingId} → rescue three-way (agreement untouched)`
-    );
+    log.info('occurrence_rescue', 'paid_occurrence_rescue_three_way', { bookingId });
     return { ok: true, status: 200, variant: 'paid' };
   }
 
@@ -124,10 +122,7 @@ export async function cantMakeOccurrence(params: {
       error: 'This occurrence was just resolved — check its status',
     };
   }
-  // eslint-disable-next-line no-console
-  console.log(
-    `[OccurrenceRescue] UNPAID occurrence ${bookingId} → customer choice (reschedule/skip, nothing charged; agreement untouched)`
-  );
+  log.info('occurrence_rescue', 'unpaid_occurrence_customer_choice_reschedule', { bookingId });
 
   if (!params.suppressEmail) {
     const { sendOccurrenceCantMake } = await import('@/lib/services/email.service');
@@ -246,10 +241,9 @@ export async function holidayCantMake(params: {
     }).catch(() => {});
   }
 
-  // eslint-disable-next-line no-console
-  console.log(
-    `[OccurrenceRescue] HOLIDAY ${params.startDate}..${params.endDate}: ${flagged} occurrence(s) flagged across ${byCustomer.size} customer(s) for cleaner ${params.cleanerId}`
-  );
+  log.info('occurrence_rescue', 'holiday_occurrence_s_flagged_across', {
+    cleanerId: params.cleanerId,
+  });
   return { ok: true, status: 200, flagged, customers: byCustomer.size };
 }
 
@@ -275,10 +269,7 @@ export async function blockHolidayDates(params: {
     new Date(`${params.endDate}T00:00:00.000Z`),
     'Away (holiday)'
   );
-  // eslint-disable-next-line no-console
-  console.log(
-    `[OccurrenceRescue] HOLIDAY auto-block: ${blocked} date(s) blocked ${params.startDate}..${params.endDate}`
-  );
+  log.info('occurrence_rescue', 'holiday_auto_block_date_s', {});
   return { blocked };
 }
 
@@ -387,10 +378,10 @@ export async function rescheduleUnpaidOccurrence(params: {
       },
     })
     .catch(() => {});
-  // eslint-disable-next-line no-console
-  console.log(
-    `[OccurrenceRescue] occurrence ${params.bookingId} rescheduled to ${params.date} ${params.startTime} — back in SCHEDULED (charges at its new T-48h)`
-  );
+  log.info('occurrence_rescue', 'occurrence_rescheduled_to_back_in', {
+    bookingId: params.bookingId,
+    date: params.date,
+  });
   return { ok: true, status: 200, variant: 'unpaid' };
 }
 
@@ -453,10 +444,10 @@ export async function skipOccurrence(params: {
           // Retrieve failed too — piStatus stays null and we fail safe below.
         }
         if (piStatus !== 'canceled') {
-          // eslint-disable-next-line no-console
-          console.error(
-            `[OccurrenceRescue] FENCE: could not confirm intent kill for ${params.bookingId} (intent ${booking.stripePaymentIntentId}, status: ${piStatus ?? 'unknown'}) — skip aborted`
-          );
+          log.error('occurrence_rescue', 'fence_could_not_confirm_intent', {
+            bookingId: params.bookingId,
+            stripePaymentIntentId: booking.stripePaymentIntentId,
+          });
           return {
             ok: false,
             status: 409,
@@ -499,8 +490,9 @@ export async function skipOccurrence(params: {
         },
       })
       .catch(() => {});
-    // eslint-disable-next-line no-console
-    console.log(`[OccurrenceRescue] occurrence ${params.bookingId} skipped (unpaid, free)`);
+    log.info('occurrence_rescue', 'occurrence_skipped_unpaid_free', {
+      bookingId: params.bookingId,
+    });
     return { ok: true, status: 200, variant: 'unpaid', refunded: false };
   }
 
@@ -519,9 +511,6 @@ export async function skipOccurrence(params: {
   if (!result.ok) {
     return { ok: false, status: result.status, error: result.error ?? 'Could not skip' };
   }
-  // eslint-disable-next-line no-console
-  console.log(
-    `[OccurrenceRescue] PAID occurrence ${params.bookingId} skipped — ${beforeCutoff ? 'full refund' : 'charge stands (inside 24h)'}`
-  );
+  log.info('occurrence_rescue', 'paid_occurrence_skipped', { bookingId: params.bookingId });
   return { ok: true, status: 200, variant: 'paid', refunded: beforeCutoff };
 }

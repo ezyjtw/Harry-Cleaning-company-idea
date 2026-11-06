@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 
 import { getCleanerSession } from '@/lib/auth/session';
+import { log } from '@/lib/log';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 import { AuditService } from '@/lib/services/audit.service';
 import { putObject } from '@/lib/storage/r2-client';
@@ -76,8 +77,7 @@ export async function POST(request: Request) {
   } catch (error) {
     // H23: this catch used to be silent — James's live 500 left NOTHING in the
     // runtime logs and cost the diagnosis an hour of edge-log archaeology.
-    // eslint-disable-next-line no-console
-    console.error('[ImportedReviewEvidence] Upload failed:', error);
+    log.error('imported_review_evidence', 'upload_failed', {}, error);
     return NextResponse.json({ error: 'Internal server error.' }, { status: 500 });
   }
 }

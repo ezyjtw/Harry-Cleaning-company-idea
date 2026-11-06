@@ -2,6 +2,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
 import { getAdminSession } from '@/lib/auth/session';
+import { log } from '@/lib/log';
 import { checkRateLimit } from '@/lib/rate-limit';
 import {
   askCustomer,
@@ -53,8 +54,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     }
     return NextResponse.json(result);
   } catch (error) {
-    // eslint-disable-next-line no-console
-    console.error('[AdminStuckJobs] Action failed:', error);
+    log.error('admin_stuck_jobs', 'action_failed', {}, error);
     return NextResponse.json({ error: 'Internal server error.' }, { status: 500 });
   }
 }

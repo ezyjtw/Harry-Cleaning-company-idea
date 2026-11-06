@@ -104,15 +104,16 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         try {
           const oldPi = await stripe.paymentIntents.retrieve(booking.stripePaymentIntentId);
           if (oldPi.status === 'succeeded') {
-            // eslint-disable-next-line no-console
-            console.log(
-              `[RecurringCharge] pay-now FENCE: old intent ${oldPi.id} for ${booking.id} already SUCCEEDED — aborting pay-now, routing the payment through`
-            );
+            log.info('recurring_charge', 'pay_now_fence_old_intent', {
+              oldpiId: oldPi.id,
+              bookingId: booking.id,
+            });
             await stripe.paymentIntents.cancel(pi.id).catch((newCancelErr) => {
-              // eslint-disable-next-line no-console
-              console.error(
-                `[RecurringCharge] pay-now FENCE: could not cancel unconfirmed replacement ${pi.id} for ${booking.id} — harmless (never confirmed), logged for the record:`,
-                newCancelErr instanceof Error ? newCancelErr.message : newCancelErr
+              log.error(
+                'recurring_charge',
+                'pay_now_fence_could_not',
+                { piId: pi.id, bookingId: booking.id },
+                newCancelErr
               );
             });
             const oldChargeId =
@@ -131,9 +132,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
                 chargeId: oldChargeId,
               },
             }).catch((procErr) => {
-              // eslint-disable-next-line no-console
-              console.error(
-                `[RecurringCharge] pay-now FENCE: processPaymentSuccess failed for ${booking.id} — the webhook/sweep completes it:`,
+              log.error(
+                'recurring_charge',
+                'pay_now_fence_process_payment',
+                { bookingId: booking.id },
                 procErr
               );
             });
@@ -142,11 +144,15 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         } catch {
           // Retrieve failed — the unchanged fail-soft leg below handles it.
         }
-        // eslint-disable-next-line no-console
-        console.error(
-          `[RecurringCharge] pay-now old-PI cancel FAILED for booking ${booking.id} ` +
-            `(old PI ${booking.stripePaymentIntentId}, new PI ${pi.id}) — continuing:`,
-          cancelErr instanceof Error ? cancelErr.message : cancelErr
+        log.error(
+          'recurring_charge',
+          'pay_now_old_pi_cancel',
+          {
+            bookingId: booking.id,
+            stripePaymentIntentId: booking.stripePaymentIntentId,
+            piId: pi.id,
+          },
+          cancelErr
         );
       }
     }
@@ -176,10 +182,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         });
         customerSessionClientSecret = session.client_secret;
       } catch (err) {
-        // eslint-disable-next-line no-console
-        console.error(
-          `[stripe] CustomerSession mint failed: ${err instanceof Error ? err.message : err}`
-        );
+        log.error('stripe', 'customer_session_mint_failed', {}, err);
       }
     }
 

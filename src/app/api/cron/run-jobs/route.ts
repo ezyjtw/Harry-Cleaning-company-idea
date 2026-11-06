@@ -1,6 +1,7 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
+import { log } from '@/lib/log';
 import {
   callerLabel,
   claimSchedulerLease,
@@ -34,14 +35,14 @@ export async function POST(request: NextRequest) {
   // external triggers never doubles the money sweeps.
   const lease = await claimSchedulerLease(callerLabel(request.headers.get('user-agent')));
   if (!lease.claimed) {
-    // eslint-disable-next-line no-console
-    console.log(
-      '[Scheduler] skipped: lease held',
-      JSON.stringify({
+    log.summary(
+      'Scheduler',
+      {
         reason: lease.reason,
         lockedUntil: lease.lockedUntil,
         lastStartedAt: lease.lastStartedAt,
-      })
+      },
+      'skipped: lease held'
     );
     return NextResponse.json({
       skipped: 'lease held',
@@ -54,8 +55,7 @@ export async function POST(request: NextRequest) {
   try {
     const summary = await runScheduledJobs();
 
-    // eslint-disable-next-line no-console
-    console.log('[Scheduler]', JSON.stringify(summary));
+    log.summary('Scheduler', summary);
 
     // B7.3 gate fix: a compliance job that failed on the day's last attempt
     // is a failed run for the heartbeat, every tick until a clean run.
@@ -70,8 +70,7 @@ export async function POST(request: NextRequest) {
     }
     return NextResponse.json(summary);
   } catch (error) {
-    // eslint-disable-next-line no-console
-    console.error('[Scheduler] Fatal error:', error);
+    log.error('scheduler', 'fatal_error', {}, error);
     const message = error instanceof Error ? error.message : 'Scheduler failed';
     await releaseSchedulerLease({ error }).catch(() => {});
     return NextResponse.json({ error: message }, { status: 500 });

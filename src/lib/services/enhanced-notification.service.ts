@@ -2,6 +2,7 @@ import type { NotificationType, Prisma } from '@prisma/client';
 
 import { serviceLabelFromSlug } from '@/lib/constants/services';
 import { prisma } from '@/lib/db/prisma';
+import { log } from '@/lib/log';
 import { BookingReminderService } from '@/lib/services/booking-reminder.service';
 import {
   categoryForType,
@@ -320,10 +321,7 @@ export class EnhancedNotificationService {
     // reviews are a parked ruling), so no request is sent — but say so.
     if (!booking) return;
     if (!booking.clientId) {
-      // eslint-disable-next-line no-console
-      console.log(
-        `[ReviewRequest] Skipped for guest booking ${bookingId} — review requests need an account (guest reviews: parked ruling)`
-      );
+      log.info('review_request', 'skipped_for_guest_booking_review', { bookingId });
       return;
     }
 
@@ -344,10 +342,7 @@ export class EnhancedNotificationService {
           scheduledAt,
         },
       });
-      // eslint-disable-next-line no-console
-      console.log(
-        `[ReviewRequest] Quiet hours — deferred for booking ${bookingId} to ${scheduledAt.toISOString()}`
-      );
+      log.info('review_request', 'quiet_hours_deferred_for_booking', { bookingId });
       return;
     }
 
@@ -459,8 +454,7 @@ export class EnhancedNotificationService {
         },
       });
     } catch {
-      // eslint-disable-next-line no-console
-      console.error('[Notification] Failed to queue push notification');
+      log.error('notification', 'failed_to_queue_push_notification', {});
     }
   }
 
@@ -491,8 +485,7 @@ export class EnhancedNotificationService {
         },
       });
     } catch {
-      // eslint-disable-next-line no-console
-      console.error('[Notification] Failed to queue Expo push');
+      log.error('notification', 'failed_to_queue_expo_push', {});
     }
   }
 
@@ -523,8 +516,7 @@ export class EnhancedNotificationService {
         },
       });
     } catch {
-      // eslint-disable-next-line no-console
-      console.error('[Notification] Failed to queue email notification');
+      log.error('notification', 'failed_to_queue_email_notification', {});
     }
   }
 
@@ -552,8 +544,7 @@ export class EnhancedNotificationService {
         },
       });
     } catch {
-      // eslint-disable-next-line no-console
-      console.error('[Notification] Failed to queue SMS notification');
+      log.error('notification', 'failed_to_queue_sms_notification', {});
     }
   }
 }

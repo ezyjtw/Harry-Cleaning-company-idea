@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 
 import { getCleanerSession } from '@/lib/auth/session';
 import prisma from '@/lib/db/prisma';
+import { log } from '@/lib/log';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 import { AuditService } from '@/lib/services/audit.service';
 import { sanitizeInput } from '@/lib/utils/validation';
@@ -108,8 +109,7 @@ export async function POST(request: Request) {
     );
   } catch (error) {
     // H23: no more silent 500s on this family of routes.
-    // eslint-disable-next-line no-console
-    console.error('[ImportedReviews] Request failed:', error);
+    log.error('imported_reviews', 'request_failed', {}, error);
     return NextResponse.json({ error: 'Internal server error.' }, { status: 500 });
   }
 }
@@ -146,8 +146,7 @@ export async function GET(_request: Request) {
     });
   } catch (error) {
     // H23: no more silent 500s on this family of routes.
-    // eslint-disable-next-line no-console
-    console.error('[ImportedReviews] Request failed:', error);
+    log.error('imported_reviews', 'request_failed', {}, error);
     return NextResponse.json({ error: 'Internal server error.' }, { status: 500 });
   }
 }

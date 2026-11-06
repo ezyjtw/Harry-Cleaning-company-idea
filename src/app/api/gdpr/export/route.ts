@@ -2,6 +2,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
 import { getSessionUser } from '@/lib/auth/session';
+import { log } from '@/lib/log';
 import { GdprService, exportNotice } from '@/lib/services/gdpr.service';
 
 // ─── GET /api/gdpr/export?userId=xxx ─── Export user data ──
@@ -32,8 +33,7 @@ export async function GET(request: NextRequest) {
       notice: exportNotice(),
     });
   } catch (error) {
-    // eslint-disable-next-line no-console
-    console.error('[GDPR] Data export error:', error);
+    log.error('gdpr', 'data_export_error', {}, error);
     return NextResponse.json({ error: 'Failed to export user data' }, { status: 500 });
   }
 }

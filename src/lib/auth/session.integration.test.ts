@@ -83,7 +83,7 @@ describe.skipIf(!enabled)('session laws against Postgres (RENA-003, 007, 074)', 
     const elapsed = Date.now() - started;
     expect(result?.id).toBe(userA.id);
     expect(result?.sessionJti).toBe(jti);
-    // eslint-disable-next-line no-console
+
     console.log(`[measure] verifyBearerToken tracked path: ${elapsed} ms`);
     expect(elapsed).toBeLessThan(500);
   });

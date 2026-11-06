@@ -88,8 +88,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    // eslint-disable-next-line no-console
-    console.error('[AdminCompliance] Error:', error);
+    log.error('admin_compliance', 'error', {}, error);
     return NextResponse.json({ error: 'Failed to fetch compliance data' }, { status: 500 });
   }
 }
@@ -330,8 +329,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
   } catch (error) {
-    // eslint-disable-next-line no-console
-    console.error('[AdminCompliance] Error:', error);
+    log.error('admin_compliance', 'error', {}, error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Failed to process compliance action' },
       { status: 500 }

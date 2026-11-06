@@ -355,21 +355,16 @@ export async function sendReviewRequest(
         usualSlot: o.usualSlot ?? null,
         ctaUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'https://renacleaning.network'}/regular-clean/${o.cleanerId}?from=${booking.id}`,
       };
-      // eslint-disable-next-line no-console
-      console.log(`[RegularOffer] review email carries the offer section for ${booking.id}`);
+      log.info('regular_offer', 'review_email_carries_the_offer', { bookingId: booking.id });
     } else {
       // F18 loudness (no silent send-leg): a suppressed offer section must
       // name its reason — "no-open-slots" here is how we learned real
       // cleaners never had recurringEligible flagged.
-      // eslint-disable-next-line no-console
-      console.log(
-        `[RegularOffer] review email section suppressed for ${booking.id} — ${o.reason ?? 'ineligible'}`
-      );
+      log.info('regular_offer', 'review_email_section_suppressed_for', { bookingId: booking.id });
     }
   } catch (e) {
     offer = undefined;
-    // eslint-disable-next-line no-console
-    console.error(`[RegularOffer] offer resolution failed for ${booking.id}:`, e);
+    log.error('regular_offer', 'offer_resolution_failed_for', { bookingId: booking.id }, e);
   }
   const { subject, html } = buildReviewRequest(booking, user, offer);
   return sendEmail(user.email, subject, html, { userId: userId ?? null, category: 'REMINDER' });
@@ -389,8 +384,10 @@ export async function sendGuestCompletionOffer(bookingId: string): Promise<boole
   const { getRegularCleanOffer } = await import('@/lib/services/regular-offer.service');
   const offer = await getRegularCleanOffer(bookingId);
   if (!offer.eligible || !offer.cleanerId) {
-    // eslint-disable-next-line no-console
-    console.log(`[RegularOffer] Guest completion email skipped for ${bookingId} — ${offer.reason}`);
+    log.info('regular_offer', 'guest_completion_email_skipped_for', {
+      bookingId,
+      reason: offer.reason,
+    });
     return false;
   }
   const { buildGuestCompletionOffer } = await import('./email-templates');
@@ -483,10 +480,9 @@ export async function sendDisputeResolutionEmails(opts: {
     },
   });
   if (!b) {
-    // eslint-disable-next-line no-console
-    console.error(
-      `[DisputeEmail] booking ${opts.bookingId} not found — resolution emails NOT sent`
-    );
+    log.error('dispute_email', 'booking_not_found_resolution_emails', {
+      bookingId: opts.bookingId,
+    });
     return;
   }
 
@@ -497,10 +493,7 @@ export async function sendDisputeResolutionEmails(opts: {
   const customerEmail = b.client?.email ?? b.guestEmail;
   const customerName = b.client?.name ?? b.guestName ?? 'there';
   if (!customerEmail) {
-    // eslint-disable-next-line no-console
-    console.error(
-      `[DisputeEmail] booking ${opts.bookingId} has NO customer email (client null, guestEmail null) — customer NOT emailed`
-    );
+    log.error('dispute_email', 'booking_has_no_customer_email', { bookingId: opts.bookingId });
   }
   if (customerEmail) {
     const { subject, html } = buildDisputeResolvedEmail({
@@ -975,15 +968,13 @@ export async function sendBackupOfferEmails(bookingId: string, backupIds: string
   // early-return made "not called" and "called with zero recipients"
   // indistinguishable in the logs — exactly what stalled the F13 trace.
   if (backupIds.length === 0) {
-    // eslint-disable-next-line no-console
-    console.log(`[Cascade] backup-offer emails attempted for ${bookingId}: 0 of 0 (no backups)`);
+    log.info('cascade', 'backup_offer_emails_attempted_for', { bookingId });
     return;
   }
   const { prisma } = await import('@/lib/db/prisma');
   const b = await prisma.booking.findUnique({ where: { id: bookingId } });
   if (!b) {
-    // eslint-disable-next-line no-console
-    console.error(`[Cascade] backup-offer emails SKIPPED for ${bookingId}: booking not found`);
+    log.error('cascade', 'backup_offer_emails_skipped_for', { bookingId });
     return;
   }
   const { normalizeToPricingSlug, propertySizeEnumToSlug } =

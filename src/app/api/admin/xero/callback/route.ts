@@ -2,6 +2,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
 import { getAdminSession } from '@/lib/auth/session';
+import { log } from '@/lib/log';
 import { saveConnection } from '@/lib/services/xero.service';
 import { makeXeroClient, xeroConfigured } from '@/lib/xero/client';
 
@@ -62,8 +63,7 @@ export async function GET(request: NextRequest) {
       admin.id
     );
   } catch (err) {
-    // eslint-disable-next-line no-console
-    console.error('[xero] callback failed:', err);
+    log.error('xero', 'callback_failed', {}, err);
     return redirectTo('error=connect_failed');
   }
 
