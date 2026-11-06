@@ -46,6 +46,12 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ requests });
     }
 
+    // B7.4 (RENA-064): subject access requests, reference and clock only.
+    if (section === 'sar') {
+      const requests = await GdprService.listSubjectAccessRequests();
+      return NextResponse.json({ requests });
+    }
+
     // Overview: aggregate compliance metrics
     const [pendingVerifications, expiringRtw, activeDpas, pendingDeletions, openBreaches, icoReg] =
       await Promise.all([
@@ -101,6 +107,35 @@ export async function POST(request: NextRequest) {
     const { action } = body;
     // Use the verified admin ID, not the untrusted body adminId
     const adminId = admin.id;
+
+    // B7.4 (RENA-064, D-k): the SAR record. The reference is admin-chosen and
+    // validated to carry no email; the service refuses out-of-order stages.
+    if (action === 'sar_received' || action === 'sar_extended' || action === 'sar_fulfilled') {
+      if (typeof body.reference !== 'string') {
+        return NextResponse.json({ error: 'reference is required' }, { status: 400 });
+      }
+      const receivedAt =
+        action === 'sar_received' && typeof body.receivedAt === 'string'
+          ? new Date(body.receivedAt)
+          : undefined;
+      if (receivedAt && Number.isNaN(receivedAt.getTime())) {
+        return NextResponse.json({ error: 'receivedAt is not a date' }, { status: 400 });
+      }
+      try {
+        await GdprService.recordSubjectAccessRequest({
+          stage: action.replace('sar_', '') as 'received' | 'extended' | 'fulfilled',
+          reference: body.reference,
+          adminId,
+          receivedAt,
+        });
+      } catch (err) {
+        return NextResponse.json(
+          { error: err instanceof Error ? err.message : 'Could not record the request' },
+          { status: 400 }
+        );
+      }
+      return NextResponse.json({ message: 'Recorded.' });
+    }
 
     if (action === 'run_all_jobs') {
       const results = await ComplianceSchedulerService.runAllJobs();

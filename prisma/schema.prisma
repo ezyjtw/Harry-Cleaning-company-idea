@@ -1746,7 +1746,7 @@ model DocumentUpload {
   storagePath     String // encrypted file path in storage
   mimeType        String
   fileSize        Int // bytes
-  encryptionKeyId String // reference to encryption key used
+  encryptionKeyId String? // key reference; nulled on destroy (RENA-067) so the derived key is no longer computable
   checksum        String // SHA-256 hash of original file for integrity verification
   isVerified      Boolean              @default(false)
   verifiedBy      String? // admin userId

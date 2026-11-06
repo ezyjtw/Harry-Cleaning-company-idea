@@ -16,6 +16,8 @@ env:
   DATABASE_URL: 'postgresql://postgres:postgres@localhost:5432/rena_ci'
   NEXTAUTH_URL: 'http://localhost:3000'
   NEXTAUTH_SECRET: 'ci-test-secret-ci-test-secret-ci'
+  # B7.2: required at boot in production (the e2e job runs `next start`).
+  CRON_SECRET: 'ci-dummy-cron-secret'
   NEXT_PUBLIC_APP_URL: 'http://localhost:3000'
   NEXT_PUBLIC_APP_NAME: 'Rena Cleaning Network'
   STRIPE_SECRET_KEY: 'sk_test_dummy_for_build_only'
@@ -189,6 +191,11 @@ jobs:
         env:
           MONEY_LEDGER_INTEGRATION: '1'
           NEXTAUTH_SECRET: ci-only-secret-for-money-integration
+
+      - name: Analytics retention cleanup against Postgres (B7.9, RENA-076)
+        run: npx vitest run src/lib/services/gdpr-retention.integration.test.ts
+        env:
+          GDPR_RETENTION_INTEGRATION: '1'
 
       - name: Build
         run: npm run build

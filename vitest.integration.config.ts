@@ -17,6 +17,7 @@ export const INTEGRATION_FLAGS = [
   'CLEANER_APPLICATION_INTEGRATION',
   'BOOKING_LIFECYCLE_INTEGRATION',
   'MONEY_LEDGER_INTEGRATION',
+  'GDPR_RETENTION_INTEGRATION',
 ] as const;
 
 // Spread, not mergeConfig: mergeConfig concatenates include lists, which

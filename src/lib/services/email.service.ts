@@ -24,7 +24,6 @@ import {
   buildNewMessageEmail,
   buildGuestBookingConfirmation,
   buildGuestBookingReminder,
-  buildAbandonmentEmail,
   buildVerificationDecision,
   buildTopupApprovalRequest,
   buildTopupCardReminder,
@@ -42,26 +41,6 @@ import {
   type NotificationCategory,
 } from '@/lib/services/notification-preferences.service';
 import { bookingStartOrDayStartUtc } from '@/lib/time/booking-time';
-import { generateUnsubscribeToken } from '@/lib/utils/unsubscribe-token';
-
-// A11c: build the PECR unsubscribe URL + List-Unsubscribe headers for a marketing
-// email to a known user. The header URL is the one-click POST endpoint (RFC 8058);
-// the page URL is the friendly confirmation page shown in the wrapper footer.
-function marketingUnsubscribe(
-  userId: string,
-  appUrl: string
-): { pageUrl: string; headers: Record<string, string> } {
-  const token = generateUnsubscribeToken(userId);
-  const pageUrl = `${appUrl}/unsubscribe?token=${encodeURIComponent(token)}`;
-  const oneClickUrl = `${appUrl}/api/unsubscribe?token=${encodeURIComponent(token)}`;
-  return {
-    pageUrl,
-    headers: {
-      'List-Unsubscribe': `<${oneClickUrl}>`,
-      'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
-    },
-  };
-}
 
 // ─── Resend Client ──────────────────────────────────────────
 
@@ -662,33 +641,6 @@ export async function sendGuestBookingReminder(
 ): Promise<boolean> {
   const { subject, html } = buildGuestBookingReminder(booking, guestName, guestToken, dayWord);
   return sendEmail(email, subject, html);
-}
-
-// ─── Abandonment Email ──────────────────────────────────────
-
-export async function sendAbandonmentEmail(
-  email: string,
-  data: { cleanerName?: string; postcode?: string; personalizedMessage: string; userId?: string }
-): Promise<boolean> {
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-
-  // A11c (PECR): a real, working unsubscribe. Marketing only ever sends with a
-  // userId (the gate suppresses consent-less sends), so we can always mint a
-  // signed token. Footer link → friendly page; List-Unsubscribe header → one-click.
-  const { pageUrl, headers } = data.userId
-    ? marketingUnsubscribe(data.userId, appUrl)
-    : { pageUrl: undefined, headers: undefined };
-
-  const { subject, html } = buildAbandonmentEmail(data, pageUrl);
-
-  // MARKETING (PECR): opt-in only. Suppressed unless the recipient has an explicit,
-  // un-revoked marketing consent on record. Guest leads (no userId) have no consent
-  // ⇒ suppressed by default.
-  return sendEmail(email, subject, html, {
-    userId: data.userId ?? null,
-    category: 'MARKETING',
-    headers,
-  });
 }
 
 // ─── Verification Decision Email ───────────────────────────

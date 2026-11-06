@@ -1145,22 +1145,6 @@ export function buildGuestBookingReminder(
   return { subject, html: renderEmail({ contentHtml, footerNote }) };
 }
 
-export function buildAbandonmentEmail(
-  data: { cleanerName?: string; postcode?: string; personalizedMessage: string },
-  unsubscribeUrl?: string
-): EmailContent {
-  const base = appUrl();
-  const subject = data.cleanerName
-    ? `Still looking for a cleaner? ${data.cleanerName} is available`
-    : 'Complete your booking with Rena';
-  const bookLink = `${base}/cleaners${data.postcode ? `?postcode=${data.postcode}` : ''}`;
-  const contentHtml = p(data.personalizedMessage) + button(bookLink, 'Complete Your Booking');
-  const footerNote = unsubscribeUrl
-    ? `You're receiving this because you opted in to offers from Rena. ${footerLink(unsubscribeUrl, 'Unsubscribe')} at any time.`
-    : undefined;
-  return { subject, html: renderEmail({ contentHtml, footerNote }) };
-}
-
 export function buildVerificationDecision(data: {
   cleanerName: string;
   approved: boolean;

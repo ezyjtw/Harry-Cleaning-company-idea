@@ -274,7 +274,7 @@ export default function SettingsPage() {
     }
   };
 
-  // F8: one-click copy of everything we hold (GDPR Article 20 export).
+  // F8: one-click portable copy of the account data (GDPR Article 20 export; B7.4 wording).
   const handleDownloadData = async () => {
     setExporting(true);
     try {
@@ -605,7 +605,9 @@ export default function SettingsPage() {
       {/* Privacy & data (F1 + F8) */}
       <AccountSection title="Your data" tone="danger">
         <p className="mt-1 text-sm text-ink-2">
-          Download a copy of everything we hold about you, or delete your account.
+          Download a portable copy of your account data (your details, addresses, bookings, reviews,
+          consents and notification settings), or delete your account. For a full copy of everything
+          we hold, make a subject access request: see privacy policy section 6.
         </p>
         <div className="mt-4 flex flex-wrap gap-3">
           <button

@@ -12,6 +12,164 @@ interface DeletionRequest {
   processedBy: string | null;
 }
 
+interface SarRow {
+  reference: string;
+  receivedAt: string;
+  deadline: string;
+  status: string;
+  extended: boolean;
+  overdue: boolean;
+}
+
+// B7.4 (RENA-064, D-k): the subject access request record. Reference and
+// clock only; the requester's identity lives in the legal@ mailbox, never here.
+function SubjectAccessRequests() {
+  const [rows, setRows] = useState<SarRow[]>([]);
+  const [reference, setReference] = useState('');
+  const [receivedAt, setReceivedAt] = useState('');
+  const [message, setMessage] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const load = useCallback(async () => {
+    try {
+      const res = await fetch('/api/admin/compliance?section=sar');
+      const data = await res.json().catch(() => null);
+      setRows(Array.isArray(data?.requests) ? data.requests : []);
+    } catch {
+      setMessage('Network error: could not load subject access requests.');
+    }
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const post = async (body: Record<string, string>) => {
+    setBusy(true);
+    setMessage('');
+    try {
+      const res = await fetch('/api/admin/compliance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json().catch(() => null);
+      setMessage(res.ok ? data?.message || 'Recorded.' : `Error: ${data?.error || 'Failed.'}`);
+      if (res.ok) {
+        setReference('');
+        setReceivedAt('');
+        await load();
+      }
+    } catch {
+      setMessage('Network error: could not reach the server.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const fmt = (iso: string) => (iso ? new Date(iso).toLocaleDateString('en-GB') : 'n/a');
+
+  return (
+    <section className="mt-10" data-testid="sar-section">
+      <h2 className="text-xl font-semibold text-ink">Subject access requests</h2>
+      <p className="mt-1 max-w-2xl text-sm text-ink-2">
+        The right of access (UK GDPR Article 15), handled through legal@ per docs/ops/sar.md. Log
+        each request by a reference that carries no name or email. One month from receipt,
+        extendable once by two months.
+      </p>
+      <form
+        className="mt-4 flex flex-wrap items-end gap-3"
+        onSubmit={(e) => {
+          e.preventDefault();
+          post({ action: 'sar_received', reference, ...(receivedAt ? { receivedAt } : {}) });
+        }}
+      >
+        <label className="text-sm text-ink-2">
+          Reference
+          <input
+            value={reference}
+            onChange={(e) => setReference(e.target.value)}
+            pattern="[A-Za-z0-9][A-Za-z0-9-]{2,39}"
+            placeholder="SAR-2026-0001"
+            required
+            className="mt-1 block rounded-[10px] border border-line bg-surface px-3 py-2 text-sm text-ink"
+          />
+        </label>
+        <label className="text-sm text-ink-2">
+          Date received
+          <input
+            type="date"
+            value={receivedAt}
+            onChange={(e) => setReceivedAt(e.target.value)}
+            className="mt-1 block rounded-[10px] border border-line bg-surface px-3 py-2 text-sm text-ink"
+          />
+        </label>
+        <button
+          type="submit"
+          disabled={busy}
+          className="rounded-[10px] bg-primary px-4 py-2 font-jost text-sm font-medium text-white disabled:opacity-40"
+        >
+          Log as received
+        </button>
+      </form>
+      {message && <p className="mt-3 text-sm text-ink-2">{message}</p>}
+      {rows.length === 0 ? (
+        <p className="mt-4 text-sm text-ink-3">No subject access requests logged.</p>
+      ) : (
+        <ul className="mt-4 space-y-2">
+          {rows.map((r) => (
+            <li
+              key={r.reference}
+              className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line bg-surface px-4 py-3"
+            >
+              <div>
+                <span className="font-medium text-ink">{r.reference}</span>
+                <span
+                  className={`ml-2 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                    r.status === 'FULFILLED'
+                      ? 'bg-primary-soft text-primary'
+                      : r.overdue
+                        ? 'bg-danger/10 text-danger'
+                        : 'bg-warning/10 text-warning'
+                  }`}
+                >
+                  {r.status === 'FULFILLED' ? 'Fulfilled' : r.overdue ? 'Overdue' : 'Open'}
+                </span>
+                <p className="mt-0.5 text-xs text-ink-3">
+                  Received {fmt(r.receivedAt)}. Deadline {fmt(r.deadline)}
+                  {r.extended ? ' (extended)' : ''}.
+                </p>
+              </div>
+              {r.status !== 'FULFILLED' && (
+                <div className="flex items-center gap-2">
+                  {!r.extended && (
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => post({ action: 'sar_extended', reference: r.reference })}
+                      className="rounded-[10px] border border-line px-3 py-1.5 font-jost text-sm text-ink-2 hover:bg-page disabled:opacity-40"
+                    >
+                      Extend by two months
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => post({ action: 'sar_fulfilled', reference: r.reference })}
+                    className="rounded-[10px] bg-primary px-3 py-1.5 font-jost text-sm font-medium text-white disabled:opacity-40"
+                  >
+                    Mark fulfilled
+                  </button>
+                </div>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
 export default function AdminCompliancePage() {
   const [requests, setRequests] = useState<DeletionRequest[]>([]);
   const [loading, setLoading] = useState(true);
@@ -41,7 +199,11 @@ export default function AdminCompliancePage() {
     fetchRequests();
   }, [fetchRequests]);
 
-  const act = async (id: string, action: 'approve_deletion' | 'reject_deletion', notes?: string) => {
+  const act = async (
+    id: string,
+    action: 'approve_deletion' | 'reject_deletion',
+    notes?: string
+  ) => {
     setProcessingId(id);
     setStatusMessage('');
     try {
@@ -178,6 +340,8 @@ export default function AdminCompliancePage() {
           ))}
         </div>
       )}
+
+      <SubjectAccessRequests />
     </div>
   );
 }

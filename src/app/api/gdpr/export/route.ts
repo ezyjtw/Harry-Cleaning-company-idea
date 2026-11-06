@@ -2,7 +2,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
 import { getSessionUser } from '@/lib/auth/session';
-import { GdprService } from '@/lib/services/gdpr.service';
+import { GdprService, exportNotice } from '@/lib/services/gdpr.service';
 
 // ─── GET /api/gdpr/export?userId=xxx ─── Export user data ──
 
@@ -27,8 +27,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: true,
       data,
-      notice:
-        'This export contains all personal data we hold about you, in compliance with GDPR Article 20.',
+      // B7.4 (RENA-064, D-k): a portable copy, its categories named; the
+      // full right of access is the subject access request.
+      notice: exportNotice(),
     });
   } catch (error) {
     // eslint-disable-next-line no-console

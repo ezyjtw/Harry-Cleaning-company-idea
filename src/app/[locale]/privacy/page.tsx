@@ -222,7 +222,16 @@ export default function PrivacyPage() {
           <ul className="mt-4 list-disc pl-6 space-y-2 font-jost font-normal text-ink-2">
             <li>
               <strong className="font-normal text-ink">Access:</strong> Request a copy of the
-              personal data we hold about you.
+              personal data we hold about you (a subject access request). Email{' '}
+              <a
+                href="mailto:legal@renacleaning.co.uk"
+                className="text-primary underline hover:text-primary-hover"
+              >
+                legal@renacleaning.co.uk
+              </a>{' '}
+              from the email address on your account. We confirm your identity, then answer within
+              one month; for a complex request we may extend by up to two further months and will
+              tell you within the first month.
             </li>
             <li>
               <strong className="font-normal text-ink">Rectification:</strong> Request correction of
@@ -237,8 +246,10 @@ export default function PrivacyPage() {
               processing of your personal data.
             </li>
             <li>
-              <strong className="font-normal text-ink">Portability:</strong> Request transfer of
-              your data in a structured, commonly used format.
+              <strong className="font-normal text-ink">Portability:</strong> Download a portable
+              copy of your account data from Account settings on the website or the Rena Pro app;
+              the categories it contains are listed with the download. You may also ask us to
+              transfer it in a structured, commonly used format.
             </li>
             <li>
               <strong className="font-normal text-ink">Objection:</strong> Object to processing of
