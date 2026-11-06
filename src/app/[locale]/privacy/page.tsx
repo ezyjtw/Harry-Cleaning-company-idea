@@ -174,10 +174,10 @@ export default function PrivacyPage() {
                 daily in batches and a held record waits. */}
             <li>
               <strong className="font-normal text-ink">Account data:</strong> retained while your
-              account is active and for up to 6 years after closure, then reduced to a minimal
-              record (no name, contact details, addresses or profile text). A record is held longer
-              while a dispute, complaint or payment on it is still open, or a booking on it is less
-              than 6 years old.
+              account is active and for up to 6 years after closure, then minimised (name, contact
+              details, addresses and profile text removed; the record itself remains so bookings and
+              payments keep their anchor). A record is held longer while a dispute, complaint or
+              payment on it is still open, or a booking on it is less than 6 years old.
             </li>
             <li>
               <strong className="font-normal text-ink">Booking and payment records:</strong>{' '}

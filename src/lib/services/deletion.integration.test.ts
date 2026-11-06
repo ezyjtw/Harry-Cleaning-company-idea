@@ -262,6 +262,26 @@ describe.skipIf(!enabled)('deletion executor and SLA against Postgres (B7.5)', (
     });
   }
 
+  it('every completed stage advances updatedAt, so recovery means 24 hours without progress (B7b delta)', async () => {
+    const { req } = await fixtureAccount();
+    await prisma.$executeRaw`UPDATE "DataDeletionRequest" SET "updatedAt" = NOW() - INTERVAL '30 hours' WHERE "id" = ${req.id}`;
+    const before = (await prisma.dataDeletionRequest.findUniqueOrThrow({ where: { id: req.id } }))
+      .updatedAt;
+    vi.spyOn(prisma.address, 'deleteMany').mockRejectedValueOnce(new Error('db blip'));
+    await expect(
+      gdpr.GdprService.processDataDeletion({ requestId: req.id, processedBy: 'SYSTEM' })
+    ).rejects.toThrow();
+    vi.restoreAllMocks();
+    const after = (await prisma.dataDeletionRequest.findUniqueOrThrow({ where: { id: req.id } }))
+      .updatedAt;
+    // The documents, messages, analytics and consents stages completed and each stamped progress.
+    expect(after.getTime()).toBeGreaterThan(before.getTime());
+    expect(Date.now() - after.getTime()).toBeLessThan(60_000);
+    // Progress inside the last 24 hours: the recovery leaves it alone even though the claim is 30 hours old.
+    expect((await gdpr.GdprService.recoverStalledDeletions()).recovered).toBe(0);
+    expect(await status(req.id)).toBe('IN_PROGRESS');
+  });
+
   it('a clean run completes once; a second call refuses (not APPROVED)', async () => {
     const { req } = await fixtureAccount();
     const r = await gdpr.GdprService.processDataDeletion({

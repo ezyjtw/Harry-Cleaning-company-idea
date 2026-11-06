@@ -72,6 +72,7 @@ describe('retention matrix (B7.3)', () => {
       }
     }
     expect(privacy).toContain('then anonymised');
+    expect(privacy).toContain('then minimised');
     expect(privacy).not.toContain('Retained for 2 years after the last message, then anonymised');
   });
 

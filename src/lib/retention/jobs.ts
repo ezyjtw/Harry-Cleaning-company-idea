@@ -10,6 +10,7 @@ import type { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db/prisma';
 import { log } from '@/lib/log';
 
+import { ARMED, type RetentionMode, getRetentionMode } from './arming';
 import {
   BATCH_SIZE,
   CHARGEBACK_WINDOW_DAYS,
@@ -25,11 +26,17 @@ export interface RetentionRunOptions {
   batch?: number;
   /** Safety valve for a first production run: stop after this many batches. */
   maxBatches?: number;
+  /** Test seam only: the mode is read from the arming gate when absent. */
+  mode?: RetentionMode;
 }
 
 export interface RetentionRunResult {
   class: RetentionClass;
+  /** dry_run: counts only, nothing mutated (the default until James arms it). */
+  mode: RetentionMode;
   cutoff: string;
+  /** Rows past the horizon and not held: what a run would act on (dry run) or did (armed, before acting). */
+  eligible: number;
   batches: number;
   affected: number;
   /** Rows past the horizon that a legal hold kept, counted once per run. */
@@ -67,11 +74,28 @@ async function runBatches(
   opts: RetentionRunOptions,
   select: Selector,
   apply: Applier,
-  countHeld: (cutoff: Date) => Promise<number>
+  countHeld: (cutoff: Date) => Promise<number>,
+  countEligible: (cutoff: Date) => Promise<number>
 ): Promise<RetentionRunResult> {
   const now = opts.now ?? new Date();
   const take = opts.batch ?? BATCH_SIZE;
   const cutoff = horizonCutoff(cls, now);
+  const mode = opts.mode ?? (await getRetentionMode());
+  const eligible = await countEligible(cutoff);
+  if (mode !== ARMED) {
+    // UNARMED: the same eligibility and hold queries, no mutation, counts only.
+    const held = await countHeld(cutoff);
+    log.info('retention', 'dry_run', { class: cls, eligible, held });
+    return {
+      class: cls,
+      mode,
+      cutoff: cutoff.toISOString(),
+      eligible,
+      batches: 0,
+      affected: 0,
+      held,
+    };
+  }
   let batches = 0;
   let affected = 0;
   // Each batch selects afresh: an applied row no longer matches, so the loop
@@ -94,8 +118,8 @@ async function runBatches(
     if (ids.length < take) break;
   }
   const held = await countHeld(cutoff);
-  log.info('retention', 'job_run', { class: cls, batches, affected, held });
-  return { class: cls, cutoff: cutoff.toISOString(), batches, affected, held };
+  log.info('retention', 'job_run', { class: cls, mode, eligible, batches, affected, held });
+  return { class: cls, mode, cutoff: cutoff.toISOString(), eligible, batches, affected, held };
 }
 
 // ─── Account data: six years after closure, tombstone to the minimum ────────
@@ -166,7 +190,11 @@ export function runAccountDataRetention(opts: RetentionRunOptions = {}) {
       return n;
     },
     (cutoff) =>
-      prisma.user.count({ where: { AND: [accountPastHorizon(cutoff), accountHoldWhere(now)] } })
+      prisma.user.count({ where: { AND: [accountPastHorizon(cutoff), accountHoldWhere(now)] } }),
+    (cutoff) =>
+      prisma.user.count({
+        where: { AND: [accountPastHorizon(cutoff), { NOT: accountHoldWhere(now) }] },
+      })
   );
 }
 
@@ -252,6 +280,10 @@ export function runBookingRecordsRetention(opts: RetentionRunOptions = {}) {
     (cutoff) =>
       prisma.booking.count({
         where: { date: { lt: cutoff }, AND: [bookingPii(), bookingHoldWhere(now)] },
+      }),
+    (cutoff) =>
+      prisma.booking.count({
+        where: { date: { lt: cutoff }, AND: [bookingPii(), { NOT: bookingHoldWhere(now) }] },
       })
   );
 }
@@ -261,6 +293,23 @@ export function runBookingRecordsRetention(opts: RetentionRunOptions = {}) {
 // The anchor is per thread (sender and receiver pair plus booking): a thread
 // with one new message keeps every message, so a live conversation is never
 // partially redacted. Set-based in SQL, since the anchor is an aggregate.
+async function countMessages(cutoff: Date, held: boolean): Promise<number> {
+  const rows = await prisma.$queryRaw<Array<{ n: bigint }>>`
+    SELECT COUNT(*)::bigint AS n FROM "Message" m
+    WHERE m."content" <> ${MESSAGE_REDACTED}
+      AND ${held} = EXISTS (
+        SELECT 1 FROM "Dispute" d
+        WHERE d."bookingId" = m."bookingId" AND d."status"::text IN ('OPEN','UNDER_REVIEW','RESOLVING_REFUND','RESOLVING_RELEASE')
+      )
+      AND (
+        SELECT MAX(t."createdAt") FROM "Message" t
+        WHERE t."bookingId" = m."bookingId"
+          AND LEAST(t."senderId", t."receiverId") = LEAST(m."senderId", m."receiverId")
+          AND GREATEST(t."senderId", t."receiverId") = GREATEST(m."senderId", m."receiverId")
+      ) < ${cutoff}`;
+  return Number(rows[0]?.n ?? 0);
+}
+
 async function selectRedactableMessages(cutoff: Date, take: number): Promise<string[]> {
   const rows = await prisma.$queryRaw<Array<{ id: string }>>`
     SELECT m."id"
@@ -294,22 +343,8 @@ export function runMessagesRetention(opts: RetentionRunOptions = {}) {
       });
       return r.count;
     },
-    async (cutoff) => {
-      const rows = await prisma.$queryRaw<Array<{ n: bigint }>>`
-        SELECT COUNT(*)::bigint AS n FROM "Message" m
-        WHERE m."content" <> ${MESSAGE_REDACTED}
-          AND EXISTS (
-            SELECT 1 FROM "Dispute" d
-            WHERE d."bookingId" = m."bookingId" AND d."status"::text IN ('OPEN','UNDER_REVIEW','RESOLVING_REFUND','RESOLVING_RELEASE')
-          )
-          AND (
-            SELECT MAX(t."createdAt") FROM "Message" t
-            WHERE t."bookingId" = m."bookingId"
-              AND LEAST(t."senderId", t."receiverId") = LEAST(m."senderId", m."receiverId")
-              AND GREATEST(t."senderId", t."receiverId") = GREATEST(m."senderId", m."receiverId")
-          ) < ${cutoff}`;
-      return Number(rows[0]?.n ?? 0);
-    }
+    (cutoff) => countMessages(cutoff, true),
+    (cutoff) => countMessages(cutoff, false)
   );
 }
 
@@ -329,7 +364,8 @@ export function runNotificationsRetention(opts: RetentionRunOptions = {}) {
         })
       ).map((n) => n.id),
     async (tx, ids) => (await tx.notification.deleteMany({ where: { id: { in: ids } } })).count,
-    async () => 0
+    async () => 0,
+    (cutoff) => prisma.notification.count({ where: { createdAt: { lt: cutoff } } })
   );
 }
 
@@ -358,7 +394,14 @@ export function runConsentMetadataRetention(opts: RetentionRunOptions = {}) {
           data: { ipAddress: null, userAgent: null },
         })
       ).count,
-    async () => 0
+    async () => 0,
+    (cutoff) =>
+      prisma.gdprConsent.count({
+        where: {
+          createdAt: { lt: cutoff },
+          OR: [{ ipAddress: { not: null } }, { userAgent: { not: null } }],
+        },
+      })
   );
 }
 
@@ -382,7 +425,8 @@ export function runAuditLogsRetention(opts: RetentionRunOptions = {}) {
       // seven years (COMPLIANCE_JOB_RUN included) can never be deleted.
       (await tx.auditLog.deleteMany({ where: { id: { in: ids }, createdAt: { lt: cutoff } } }))
         .count,
-    async () => 0
+    async () => 0,
+    (cutoff) => prisma.auditLog.count({ where: { createdAt: { lt: cutoff } } })
   );
 }
 

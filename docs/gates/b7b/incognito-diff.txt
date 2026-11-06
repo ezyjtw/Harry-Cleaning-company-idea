@@ -1,7 +1,7 @@
-B7b incognito diff (hash law). Branch claude/b7 at the B7b head and the control build of main 87672a0b, each served on localhost:3102 from the same rig database, one after the other (the runbook rule), fetched signed out with a plain user agent, normalised as the hash tool normalises. Lines starting with < are the branch, > the control. The other 26 governed routes are hash identical (hash-branch.json against hash-control-main-87672a0.json).
+B7b incognito diff (hash law). Branch claude/b7 at the B7b delta head and the control build of main 87672a0b, each served on localhost:3102 from the same rig database, one after the other (the runbook rule), fetched signed out with a plain user agent, normalised as the hash tool normalises. Lines starting with < are the branch, > the control. The other 26 governed routes are hash identical (hash-branch.json against hash-control-main-87672a0.json).
 
 === /privacy ===
-< <strong>Account data:</strong> retained while your account is active and for up to 6 years after closure, then reduced to a minimal record (no name, contact details, addresses or profile text). A record is held longer while a dispute, complaint or payment on it is still open, or a booking on it is less than 6 years old.</li>
+< <strong>Account data:</strong> retained while your account is active and for up to 6 years after closure, then minimised (name, contact details, addresses and profile text removed; the record itself remains so bookings and payments keep their anchor). A record is held longer while a dispute, complaint or payment on it is still open, or a booking on it is less than 6 years old.</li>
 > <strong>Account data:</strong> Retained while your account is active and for 6 years after account closure (to comply with HMRC requirements and for legal claims).</li>
 < <strong>Booking and payment records:</strong> <!-- -->retained for up to 6 years after the booking date for tax and legal compliance, then anonymised (names, contact details, address lines and notes removed; amounts, dates and statuses kept).</li>
 > <strong>Booking and payment records:</strong> <!-- -->Retained for 6 years after the booking date for tax and legal compliance.</li>
@@ -23,6 +23,6 @@ B7b incognito diff (hash law). Branch claude/b7 at the B7b head and the control 
 > <strong>Audit logs:</strong> Retained for 7 years for regulatory compliance and fraud prevention.</li>
 
 === /account-deletion ===
-< <p>All identity-bearing data is deleted or anonymised: your profile and photo, contact details, saved addresses and saved preferences are deleted; messages you sent are anonymised (the words are removed, the conversation record stays for the other person). After deletion your account cannot be recovered.</p>
+< <p>All identity-bearing data is removed: your name, contact details and photo are minimised on the account record, your profile text and saved addresses are removed, your marketing consents are withdrawn, and messages you sent are anonymised (the words are removed, the conversation record stays for the other person). After deletion your account cannot be recovered.</p>
 > <p>All identity-bearing data is deleted: your profile and photo, contact details, saved addresses, messages, and saved preferences. After deletion your account cannot be recovered.</p>
 

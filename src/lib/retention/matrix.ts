@@ -74,7 +74,7 @@ export const RETENTION_MATRIX: readonly RetentionRow[] = [
     horizonYears: 6,
     action: 'tombstone',
     policy:
-      'Account data: retained while your account is active and for up to 6 years after closure, then reduced to a minimal record (no name, contact details, addresses or profile text).',
+      'Account data: retained while your account is active and for up to 6 years after closure, then minimised (name, contact details, addresses and profile text removed; the record itself remains so bookings and payments keep their anchor).',
     holds: [HOLDS.openDispute, HOLDS.openComplaint, HOLDS.unsettledMoney, HOLDS.taxHold],
   },
   {

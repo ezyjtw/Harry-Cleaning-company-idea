@@ -110,10 +110,17 @@ export class ComplianceSchedulerService {
   ): Promise<ComplianceJobResult> {
     try {
       const result = await run();
+      // A dry run is a successful execution (counts only), never a failure.
       return {
         job,
         success: true,
-        details: { batches: result.batches, affected: result.affected, held: result.held },
+        details: {
+          mode: result.mode,
+          eligible: result.eligible,
+          held: result.held,
+          batches: result.batches,
+          affected: result.affected,
+        },
         executedAt: new Date(),
       };
     } catch (error) {

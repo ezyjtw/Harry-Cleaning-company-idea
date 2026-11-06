@@ -6,6 +6,7 @@ import type * as ComplianceModule from '@/lib/services/compliance-scheduler.serv
 import type * as LeaseModule from '@/lib/services/scheduler-lease.service';
 import type * as SchedulerModule from '@/lib/services/scheduler.service';
 
+import { ARMED, DRY_RUN, RETENTION_MODE_KEY } from './arming';
 import { MESSAGE_REDACTED } from './matrix';
 
 // B7.3 (RENA-063): the retention matrix against a real Postgres. Opt-in:
@@ -124,7 +125,77 @@ describe.skipIf(!enabled)('retention matrix against Postgres (B7.3)', () => {
     });
   }
 
+  // ─── The arming gate (B7b delta): UNARMED by default, counts only ────────
+
+  it('unarmed by default: a missing row is created as dry_run; the run counts eligible and held and mutates nothing', async () => {
+    await prisma.platformConfig.deleteMany({ where: { key: RETENTION_MODE_KEY } });
+    const cleaner = await user('CLEANER');
+    const past = await closedUser(yearsAgo(6, 1));
+    const held = await closedUser(yearsAgo(6, 1));
+    await booking(held.id, cleaner.id, yearsAgo(5));
+    const old = await prisma.notification.create({
+      data: {
+        userId: past.id,
+        type: 'BOOKING_CONFIRMED',
+        title: 'x',
+        body: 'x',
+        createdAt: yearsAgo(2, 1),
+      },
+    });
+
+    const r = await jobs.runAccountDataRetention({ now: NOW });
+    expect(r).toMatchObject({ mode: DRY_RUN, eligible: 1, held: 1, affected: 0, batches: 0 });
+    const n = await jobs.runNotificationsRetention({ now: NOW });
+    expect(n).toMatchObject({ mode: DRY_RUN, eligible: 1, affected: 0 });
+    const row = await prisma.platformConfig.findUniqueOrThrow({
+      where: { key: RETENTION_MODE_KEY },
+    });
+    expect(row.value).toBe(DRY_RUN);
+    expect((await prisma.user.findUniqueOrThrow({ where: { id: past.id } })).name).not.toBe(
+      'Deleted user'
+    );
+    expect(await prisma.address.count({ where: { userId: past.id } })).toBe(1);
+    expect(await prisma.notification.findUnique({ where: { id: old.id } })).not.toBeNull();
+    expect(
+      await prisma.dataRetentionLog.count({
+        where: { entityType: 'accountData', entityId: 'batch' },
+      })
+    ).toBe(0);
+    // Any value other than the exact armed string is a dry run.
+    await prisma.platformConfig.update({
+      where: { key: RETENTION_MODE_KEY },
+      data: { value: 'ARMED' },
+    });
+    expect((await jobs.runAccountDataRetention({ now: NOW })).mode).toBe(DRY_RUN);
+    await prisma.platformConfig.update({
+      where: { key: RETENTION_MODE_KEY },
+      data: { value: 'armed ' },
+    });
+    expect((await jobs.runAccountDataRetention({ now: NOW })).mode).toBe(DRY_RUN);
+    await prisma.platformConfig.update({
+      where: { key: RETENTION_MODE_KEY },
+      data: { value: DRY_RUN },
+    });
+  });
+
+  it('a dry run through the compliance job is a success with mode dry_run, never a failure', async () => {
+    await prisma.platformConfig.upsert({
+      where: { key: RETENTION_MODE_KEY },
+      update: { value: DRY_RUN },
+      create: { key: RETENTION_MODE_KEY, value: DRY_RUN },
+    });
+    const r = await compliance.ComplianceSchedulerService.runRetentionRow(
+      'retention_notifications',
+      jobs.runNotificationsRetention
+    );
+    expect(r.success).toBe(true);
+    expect(r.details.mode).toBe(DRY_RUN);
+    expect(r.details.affected).toBe(0);
+  });
+
   // ─── Account data: six years after closure ─────────────────────────────
+  // The mutating cases below run ARMED, set directly on the rig row as the
+  // stand-in for James's word; the gate itself is proven above.
 
   it('account data: tombstoned one day past six years, untouched one day short, and each legal hold keeps the row', async () => {
     const cleaner = await user('CLEANER');
@@ -160,7 +231,7 @@ describe.skipIf(!enabled)('retention matrix against Postgres (B7.3)', () => {
     // a settled, old booking on the past user does not hold it
     await booking(past.id, cleaner.id, yearsAgo(7));
 
-    const r = await jobs.runAccountDataRetention({ now: NOW });
+    const r = await jobs.runAccountDataRetention({ now: NOW, mode: ARMED });
     expect(r.affected).toBe(1);
     expect(r.held).toBe(4);
     const p = await prisma.user.findUniqueOrThrow({ where: { id: past.id } });
@@ -175,7 +246,7 @@ describe.skipIf(!enabled)('retention matrix against Postgres (B7.3)', () => {
       expect(row.name).not.toBe('Deleted user');
       expect(await prisma.address.count({ where: { userId: u.id } })).toBe(1);
     }
-    expect((await jobs.runAccountDataRetention({ now: NOW })).affected).toBe(0);
+    expect((await jobs.runAccountDataRetention({ now: NOW, mode: ARMED })).affected).toBe(0);
     const logs = await prisma.dataRetentionLog.findMany({
       where: { entityType: 'accountData', entityId: 'batch' },
     });
@@ -231,7 +302,7 @@ describe.skipIf(!enabled)('retention matrix against Postgres (B7.3)', () => {
       },
     });
 
-    const r = await jobs.runBookingRecordsRetention({ now: NOW });
+    const r = await jobs.runBookingRecordsRetention({ now: NOW, mode: ARMED });
     expect(r.affected).toBe(1);
     expect(r.held).toBe(3);
     const p = await prisma.booking.findUniqueOrThrow({ where: { id: past.id } });
@@ -250,7 +321,7 @@ describe.skipIf(!enabled)('retention matrix against Postgres (B7.3)', () => {
       const row = await prisma.booking.findUniqueOrThrow({ where: { id: b.id } });
       expect(row.guestEmail, b.id).toBe(pii.guestEmail);
     }
-    expect((await jobs.runBookingRecordsRetention({ now: NOW })).affected).toBe(0);
+    expect((await jobs.runBookingRecordsRetention({ now: NOW, mode: ARMED })).affected).toBe(0);
   });
 
   // ─── Messages: two years after the thread's last message ───────────────
@@ -283,7 +354,7 @@ describe.skipIf(!enabled)('retention matrix against Postgres (B7.3)', () => {
       data: { bookingId: held.id, raisedById: c.id, reason: 'x', description: 'x', status: 'OPEN' },
     });
 
-    const r = await jobs.runMessagesRetention({ now: NOW });
+    const r = await jobs.runMessagesRetention({ now: NOW, mode: ARMED });
     expect(r.affected).toBe(2);
     expect(r.held).toBe(1);
     for (const id of [s1.id, s2.id]) {
@@ -297,7 +368,7 @@ describe.skipIf(!enabled)('retention matrix against Postgres (B7.3)', () => {
         'hello there'
       );
     }
-    expect((await jobs.runMessagesRetention({ now: NOW })).affected).toBe(0);
+    expect((await jobs.runMessagesRetention({ now: NOW, mode: ARMED })).affected).toBe(0);
   });
 
   // ─── Notifications, consent metadata, audit logs ───────────────────────
@@ -322,7 +393,7 @@ describe.skipIf(!enabled)('retention matrix against Postgres (B7.3)', () => {
         createdAt: yearsAgo(2, -1),
       },
     });
-    const r = await jobs.runNotificationsRetention({ now: NOW });
+    const r = await jobs.runNotificationsRetention({ now: NOW, mode: ARMED });
     expect(r.affected).toBe(1);
     expect(await prisma.notification.findUnique({ where: { id: old.id } })).toBeNull();
     expect(await prisma.notification.findUnique({ where: { id: young.id } })).not.toBeNull();
@@ -350,13 +421,13 @@ describe.skipIf(!enabled)('retention matrix against Postgres (B7.3)', () => {
         createdAt: yearsAgo(2, -1),
       },
     });
-    const r = await jobs.runConsentMetadataRetention({ now: NOW });
+    const r = await jobs.runConsentMetadataRetention({ now: NOW, mode: ARMED });
     expect(r.affected).toBe(1);
     const o = await prisma.gdprConsent.findUniqueOrThrow({ where: { id: old.id } });
     expect([o.ipAddress, o.userAgent, o.granted]).toEqual([null, null, true]);
     const y = await prisma.gdprConsent.findUniqueOrThrow({ where: { id: young.id } });
     expect(y.ipAddress).toBe('203.0.113.6');
-    expect((await jobs.runConsentMetadataRetention({ now: NOW })).affected).toBe(0);
+    expect((await jobs.runConsentMetadataRetention({ now: NOW, mode: ARMED })).affected).toBe(0);
   });
 
   it('audit logs past seven years are deleted; one day short stays; a COMPLIANCE_JOB_RUN row inside seven years is never deleted', async () => {
@@ -367,7 +438,7 @@ describe.skipIf(!enabled)('retention matrix against Postgres (B7.3)', () => {
     const old = await mk('ADMIN_ACTION', yearsAgo(7, 1));
     const edge = await mk('ADMIN_ACTION', yearsAgo(7, -1));
     const run = await mk('COMPLIANCE_JOB_RUN', yearsAgo(6));
-    const r = await jobs.runAuditLogsRetention({ now: NOW, batch: 1 });
+    const r = await jobs.runAuditLogsRetention({ now: NOW, batch: 1, mode: ARMED });
     expect(r.affected).toBeGreaterThanOrEqual(1);
     expect(await prisma.auditLog.findUnique({ where: { id: old.id } })).toBeNull();
     expect(await prisma.auditLog.findUnique({ where: { id: edge.id } })).not.toBeNull();
@@ -387,7 +458,7 @@ describe.skipIf(!enabled)('retention matrix against Postgres (B7.3)', () => {
         },
       });
     }
-    const r = await jobs.runNotificationsRetention({ now: NOW, batch: 2 });
+    const r = await jobs.runNotificationsRetention({ now: NOW, batch: 2, mode: ARMED });
     expect([r.batches, r.affected]).toEqual([3, 5]);
     const logs = await prisma.dataRetentionLog.findMany({
       where: { entityType: 'notifications', entityId: 'batch' },
@@ -396,7 +467,9 @@ describe.skipIf(!enabled)('retention matrix against Postgres (B7.3)', () => {
     expect(logs.map((l) => (l.metadata as { affected: number }).affected).sort()).toEqual([
       1, 2, 2,
     ]);
-    expect((await jobs.runNotificationsRetention({ now: NOW, batch: 2 })).batches).toBe(0);
+    expect(
+      (await jobs.runNotificationsRetention({ now: NOW, batch: 2, mode: ARMED })).batches
+    ).toBe(0);
   });
 
   // ─── The compliance gate (finding a) ───────────────────────────────────

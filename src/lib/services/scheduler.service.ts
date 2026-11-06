@@ -21,6 +21,12 @@ export interface ComplianceHandlerResult extends HandlerResult {
   // B7.3 gate fix: the jobs that failed on the day's last attempt. Present on
   // every tick until a clean run writes the day marker, so the heartbeat sees it.
   failed?: string[];
+  // B7b delta: the retention arming state the day's run executed under
+  // (dry_run until James arms it), with the per-class counts.
+  retention?: {
+    mode: 'dry_run' | 'armed';
+    classes: Record<string, { eligible: number; held: number; affected: number }>;
+  };
 }
 
 export interface SchedulerSummary {
@@ -413,6 +419,21 @@ export async function processComplianceJobsDaily(): Promise<ComplianceHandlerRes
   const sweep = results.find((r) => r.job === 'sweepSessionRows');
   const out: ComplianceHandlerResult = { processed: results.length };
   if (failed.length) out.failed = failed;
+  const retentionRows = results.filter((r) => r.job.startsWith('retention_') && r.success);
+  if (retentionRows.length) {
+    const classes: Record<string, { eligible: number; held: number; affected: number }> = {};
+    let mode: 'dry_run' | 'armed' = 'dry_run';
+    for (const r of retentionRows) {
+      const d = r.details as { mode?: string; eligible?: number; held?: number; affected?: number };
+      if (d.mode === 'armed') mode = 'armed';
+      classes[r.job.replace('retention_', '')] = {
+        eligible: d.eligible ?? 0,
+        held: d.held ?? 0,
+        affected: d.affected ?? 0,
+      };
+    }
+    out.retention = { mode, classes };
+  }
   if (sweep) {
     const d = sweep.details as { bridgeCodes: number; sessions: number; handoffCodes: number };
     out.sessionSweep = sweep.success

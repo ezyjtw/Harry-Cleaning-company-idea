@@ -9,7 +9,7 @@
   },
   "/account-deletion": {
     "status": 200,
-    "hash": "d595d8101db60224"
+    "hash": "398f581651d2d247"
   },
   "/cleaners": {
     "status": 200,
@@ -65,7 +65,7 @@
   },
   "/privacy": {
     "status": 200,
-    "hash": "b8f1883a9e2887c5"
+    "hash": "78d3e542f8b6cdc3"
   },
   "/regular-clean": {
     "status": 200,

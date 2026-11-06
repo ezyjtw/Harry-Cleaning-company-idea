@@ -728,6 +728,15 @@ export class GdprService {
     for (const [stage, run] of stages) {
       try {
         await run();
+        // B7b delta: every completed stage advances DataDeletionRequest.updatedAt,
+        // so the recovery's 24 hours mean 24 hours without progress, not 24
+        // hours since the claim.
+        if (stage !== 'complete') {
+          await prisma.dataDeletionRequest.updateMany({
+            where: { id: params.requestId, status: 'IN_PROGRESS' },
+            data: { processedBy: params.processedBy, updatedAt: new Date() },
+          });
+        }
       } catch (err) {
         // The request stays IN_PROGRESS: the recovery returns it to APPROVED
         // after 24 hours and the next run repeats every stage.
