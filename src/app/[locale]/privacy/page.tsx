@@ -148,14 +148,14 @@ export default function PrivacyPage() {
               information is shared with our vetted background check partners.
             </li>
             <li>
-              <strong className="font-normal text-ink">Service Providers:</strong> We use these
-              processors, each under a data processing agreement and only for the purpose named
-              (B7.8; the list is checked against the code that uses them): payments and payouts,
-              Stripe; hosting and our database, Railway; network edge and encrypted document
-              storage, Cloudflare; email, Resend; SMS, Twilio; app push notifications, Expo; error
-              reporting when enabled, Sentry; the website chat assistant, Groq; travel time and
-              coverage calculation, OpenRouteService; area information for our operations, Google
-              Places; accounting, Xero.
+              <strong className="font-normal text-ink">Service Providers:</strong> These companies
+              handle data for us as a technical fact of how the Platform runs; each is used only for
+              the purpose named (the list is checked against the code that uses them): payments and
+              payouts, Stripe; hosting and our database, Railway; network edge and encrypted
+              document storage, Cloudflare; email, Resend; SMS, Twilio; app push notifications,
+              Expo; error reporting when enabled, Sentry; the website chat assistant, Groq; travel
+              time and coverage calculation, OpenRouteService; area information for our operations,
+              Google Places; accounting, Xero.
             </li>
             <li>
               <strong className="font-normal text-ink">Legal Requirements:</strong> We may disclose

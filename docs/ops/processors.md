@@ -1,4 +1,12 @@
-# Processors and data processing agreements
+# Third-party services handling data, and data processing agreements
+
+Technical facts versus legal classification (owner governance ruling, register
+D-ar): the table below records which third-party service receives which data,
+as the code shows. It does not assert that any of them is a "processor" in the
+UK GDPR sense; that classification (processor, joint controller, independent
+controller) and the adequacy of each agreement are legal determinations that
+wait for the external legal and privacy review mandated before B9 launch
+closure. "DPA status" below is a bookkeeping column for James, not a finding.
 
 B7.8 (RENA-072). The processors the code uses, grouped by purpose. The first
 three columns are read from the code (`src/lib/privacy/processors.ts`, checked

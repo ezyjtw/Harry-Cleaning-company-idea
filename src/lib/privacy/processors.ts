@@ -1,5 +1,9 @@
-// B7.8 (RENA-072): the processors in use, read from the code, grouped by
-// purpose. The privacy page section 4 names every row and
+// B7.8 (RENA-072): the third-party services that handle data for Rena, read
+// from the code, grouped by purpose. This is a TECHNICAL inventory (which
+// service receives which data), not a legal classification: whether a given
+// service is a processor, a joint controller or an independent controller
+// under UK GDPR is a legal determination that waits for the external review
+// mandated before B9 (owner governance ruling, register D-ar). The privacy page section 4 names every row and
 // src/lib/privacy/processors.test.ts checks the page against this table and
 // the table against the environment variables the code reads. Region, DPA
 // status and renewal are facts James enters in docs/ops/processors.md; they
