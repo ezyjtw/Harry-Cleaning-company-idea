@@ -576,9 +576,18 @@ describe.skipIf(!enabled)('retention matrix against Postgres (B7.3)', () => {
       expect(row.lastFailedAt).not.toBeNull();
       expect(row.lastError).toContain('compliance jobs failed');
       expect(row.lastSummary).toEqual({ probe: true });
-      // Once the last clean run is older than the stale window, the status is failing, not stale.
+      // Once the last clean run is older than the stale window, the status is
+      // failing, not stale. The lease row is shared with the other suites (CI
+      // runs the lease suite seconds earlier and leaves a fresh success), so
+      // the probe time is taken from the newer of the two stamps, not from
+      // now: inside the window the row reads healthy by design.
       if (!row.lastFailedAt) throw new Error('lastFailedAt not set');
-      const later = new Date(row.lastFailedAt.getTime() + 11 * 60 * 1000);
+      const newest = Math.max(row.lastFailedAt.getTime(), row.lastSucceededAt?.getTime() ?? 0);
+      const inside = new Date(newest + 1000);
+      const later = new Date(newest + lease.STALE_AFTER_MS + 1000);
+      expect(lease.heartbeatStatus(row, inside)).toBe(
+        row.lastSucceededAt && row.lastSucceededAt > row.lastFailedAt ? 'healthy' : 'failing'
+      );
       expect(lease.heartbeatStatus(row, later)).toBe('failing');
     });
   });
