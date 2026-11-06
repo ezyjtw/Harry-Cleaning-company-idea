@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useCallback, useState } from 'react';
 
+import Dialog from '@/components/ui/Dialog';
 import { propertySizeEnumLabel, serviceLabelFromSlug } from '@/lib/constants/services';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -621,75 +622,80 @@ function RefundModal({
     reason.trim().length > 0;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="bg-surface rounded-xl shadow-xl w-full max-w-md p-6">
-        <h3 className="text-lg font-semibold text-ink mb-1">Refund Booking</h3>
-        <p className="text-sm text-ink-3 mb-4">
-          Booking {bookingId.substring(0, 8).toUpperCase()} — max refundable £
-          {maxRefundable.toFixed(2)}
-        </p>
-        {result && (
-          <div
-            className={`mb-4 rounded-lg px-4 py-3 text-sm ${result.ok ? 'bg-trust/10 text-trust' : 'bg-danger/10 text-danger'}`}
-          >
-            {result.message}
-          </div>
-        )}
-        {!result?.ok ? (
-          <>
-            <label className="block text-sm font-medium text-ink-2 mb-1">
-              Amount (max £{maxRefundable.toFixed(2)})
-            </label>
-            <input
-              type="number"
-              step="0.01"
-              min="0.01"
-              max={maxRefundable}
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              disabled={submitting}
-              className="w-full rounded-lg border border-line px-3 py-2 text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-primary"
-            />
-            <label className="block text-sm font-medium text-ink-2 mb-1">Reason</label>
-            <textarea
-              rows={2}
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              disabled={submitting}
-              placeholder="Why is this refund being issued?"
-              className="w-full rounded-lg border border-line px-3 py-2 text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-primary resize-none"
-            />
-            <div className="flex justify-end gap-3">
-              <button
-                onClick={onClose}
-                disabled={submitting}
-                className="px-4 py-2 text-sm font-medium text-ink-2 rounded-lg border border-line hover:bg-page"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSubmit}
-                disabled={!valid || submitting}
-                className="px-4 py-2 text-sm font-medium text-white rounded-lg bg-danger hover:bg-danger disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {submitting
-                  ? 'Processing…'
-                  : `Refund £${parsedAmount > 0 ? parsedAmount.toFixed(2) : '0.00'}`}
-              </button>
-            </div>
-          </>
-        ) : (
-          <div className="flex justify-end">
+    <Dialog
+      open
+      onClose={onClose}
+      dismissible={!submitting}
+      label="Refund booking"
+      overlayClassName="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+      className="bg-surface rounded-xl shadow-xl w-full max-w-md p-6"
+    >
+      <h3 className="text-lg font-semibold text-ink mb-1">Refund Booking</h3>
+      <p className="text-sm text-ink-3 mb-4">
+        Booking {bookingId.substring(0, 8).toUpperCase()} — max refundable £
+        {maxRefundable.toFixed(2)}
+      </p>
+      {result && (
+        <div
+          className={`mb-4 rounded-lg px-4 py-3 text-sm ${result.ok ? 'bg-trust/10 text-trust' : 'bg-danger/10 text-danger'}`}
+        >
+          {result.message}
+        </div>
+      )}
+      {!result?.ok ? (
+        <>
+          <label className="block text-sm font-medium text-ink-2 mb-1">
+            Amount (max £{maxRefundable.toFixed(2)})
+          </label>
+          <input
+            type="number"
+            step="0.01"
+            min="0.01"
+            max={maxRefundable}
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            disabled={submitting}
+            className="w-full rounded-lg border border-line px-3 py-2 text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-primary"
+          />
+          <label className="block text-sm font-medium text-ink-2 mb-1">Reason</label>
+          <textarea
+            rows={2}
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            disabled={submitting}
+            placeholder="Why is this refund being issued?"
+            className="w-full rounded-lg border border-line px-3 py-2 text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+          />
+          <div className="flex justify-end gap-3">
             <button
               onClick={onClose}
+              disabled={submitting}
               className="px-4 py-2 text-sm font-medium text-ink-2 rounded-lg border border-line hover:bg-page"
             >
-              Close
+              Cancel
+            </button>
+            <button
+              onClick={handleSubmit}
+              disabled={!valid || submitting}
+              className="px-4 py-2 text-sm font-medium text-white rounded-lg bg-danger hover:bg-danger disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {submitting
+                ? 'Processing…'
+                : `Refund £${parsedAmount > 0 ? parsedAmount.toFixed(2) : '0.00'}`}
             </button>
           </div>
-        )}
-      </div>
-    </div>
+        </>
+      ) : (
+        <div className="flex justify-end">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-sm font-medium text-ink-2 rounded-lg border border-line hover:bg-page"
+          >
+            Close
+          </button>
+        </div>
+      )}
+    </Dialog>
   );
 }
 

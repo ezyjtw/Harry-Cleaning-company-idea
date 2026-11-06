@@ -1716,6 +1716,21 @@ export async function sendSignupNotification(data: {
   return sendEmail(notificationEmail, subject, html);
 }
 
+// ─── Undelivered deletion warning (RENA-104) ────────────────
+
+/** Admin alert: same recipient as signup notifications, ids only. */
+export async function sendAdminApplicationWarningUndelivered(data: {
+  applicationId: string;
+  userId: string;
+  failures: number;
+}): Promise<boolean> {
+  const notificationEmail = process.env.RESEND_NOTIFICATION_EMAIL;
+  if (!notificationEmail) return false;
+  const { buildAdminApplicationWarningUndelivered } = await import('./email-templates');
+  const { subject, html } = buildAdminApplicationWarningUndelivered(data);
+  return sendEmail(notificationEmail, subject, html);
+}
+
 // ─── Dispute early-warning (B1.3) ──────────────────────────
 
 /** Admin alert on charge.dispute.created — same recipient as signup

@@ -26,10 +26,6 @@ export const PRODUCTS_FEE_COMMISSION_RATE = 0.1;
  * guards) are never editable: a hand edit would re-run or skip a batch.
  */
 export const EDITABLE_PLATFORM_CONFIG_KEYS = [
-  'same_day_multiplier',
-  'one_off_multiplier',
-  'fortnightly_multiplier',
-  'deep_multiplier',
   'min_cleaner_rate',
   'max_cleaner_rate',
   'hq_api_amber_pct',

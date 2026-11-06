@@ -3,6 +3,8 @@
 import Link from 'next/link';
 import { useState } from 'react';
 
+import Dialog from '@/components/ui/Dialog';
+
 import type { CleanerRow } from './page';
 
 const ITEMS_PER_PAGE = 8;
@@ -384,34 +386,39 @@ export default function AdminCleanersClient({
       </div>
       {/* H106 confirm modal — states exactly what is removed. */}
       {confirmRemove && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4">
-          <div className="w-full max-w-sm rounded-xl border border-line bg-surface p-6">
-            <p className="font-newsreader text-lg font-semibold text-ink">
-              Remove {confirmRemove.name}&apos;s incomplete signup?
-            </p>
-            <p className="mt-2 font-jost text-sm text-ink-2">
-              Their account and email will be deleted — this can&apos;t be undone.
-            </p>
-            {removeError && <p className="mt-2 font-jost text-sm text-danger">{removeError}</p>}
-            <div className="mt-5 flex gap-3">
-              <button
-                type="button"
-                onClick={() => setConfirmRemove(null)}
-                className="flex-1 rounded-[10px] border border-line py-2.5 font-jost text-sm text-ink-2"
-              >
-                Keep
-              </button>
-              <button
-                type="button"
-                disabled={!!removing}
-                onClick={() => removeIncomplete(confirmRemove.id)}
-                className="flex-1 rounded-[10px] bg-danger py-2.5 font-jost text-sm font-semibold text-white disabled:opacity-60"
-              >
-                {removing ? 'Removing…' : 'Remove'}
-              </button>
-            </div>
+        <Dialog
+          open
+          onClose={() => setConfirmRemove(null)}
+          dismissible={!removing}
+          label="Remove incomplete signup"
+          overlayClassName="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4"
+          className="w-full max-w-sm rounded-xl border border-line bg-surface p-6"
+        >
+          <p className="font-newsreader text-lg font-semibold text-ink">
+            Remove {confirmRemove.name}&apos;s incomplete signup?
+          </p>
+          <p className="mt-2 font-jost text-sm text-ink-2">
+            Their account and email will be deleted — this can&apos;t be undone.
+          </p>
+          {removeError && <p className="mt-2 font-jost text-sm text-danger">{removeError}</p>}
+          <div className="mt-5 flex gap-3">
+            <button
+              type="button"
+              onClick={() => setConfirmRemove(null)}
+              className="flex-1 rounded-[10px] border border-line py-2.5 font-jost text-sm text-ink-2"
+            >
+              Keep
+            </button>
+            <button
+              type="button"
+              disabled={!!removing}
+              onClick={() => removeIncomplete(confirmRemove.id)}
+              className="flex-1 rounded-[10px] bg-danger py-2.5 font-jost text-sm font-semibold text-white disabled:opacity-60"
+            >
+              {removing ? 'Removing…' : 'Remove'}
+            </button>
           </div>
-        </div>
+        </Dialog>
       )}
     </div>
   );

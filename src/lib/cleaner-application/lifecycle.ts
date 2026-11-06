@@ -11,10 +11,18 @@
 // or overlapping scheduler runs can never send either twice. Resuming moves
 // lastActivityAt (no longer due); submitting or deleting removes the
 // candidate. Service emails only; no push.
+//
+// RENA-104 (B6): a deletion warning still undelivered after
+// WARNING_ALERT_FAILURES daily attempts raises one operational alert to the
+// notification inbox (ids and counts only). Its audit row is written only
+// after the alert sends, so a failed alert retries on the next failed attempt
+// and a sent one never repeats. A later delivery logs the alert cleared.
 
 import prisma from '@/lib/db/prisma';
 import { log } from '@/lib/log';
+import { AuditService } from '@/lib/services/audit.service';
 import {
+  sendAdminApplicationWarningUndelivered,
   sendApplicationExpiryReminder,
   sendApplicationInactivityReminder,
 } from '@/lib/services/email.service';
@@ -24,15 +32,56 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 export const INACTIVITY_REMINDER_DAYS = 2;
 export const EXPIRY_REMINDER_DAYS_BEFORE = 3;
 const BATCH = 50;
+/** Undelivered daily attempts before the operational alert (RENA-104). */
+export const WARNING_ALERT_FAILURES = 3;
+const ALERT_ACTION = 'APPLICATION_WARNING_ALERT_RAISED' as const;
 
 type Send = {
   inactivity: (email: string, firstName: string) => Promise<boolean>;
   expiry: (email: string, firstName: string, expiresOn: Date) => Promise<boolean>;
+  alert: (data: { applicationId: string; userId: string; failures: number }) => Promise<boolean>;
 };
 const realSend: Send = {
   inactivity: sendApplicationInactivityReminder,
   expiry: sendApplicationExpiryReminder,
+  alert: sendAdminApplicationWarningUndelivered,
 };
+
+const alertRaised = async (applicationId: string) =>
+  (await prisma.auditLog.count({
+    where: { action: ALERT_ACTION, entityType: 'CleanerApplicationDraft', entityId: applicationId },
+  })) > 0;
+
+async function raiseWarningAlert(
+  row: { id: string; userId: string },
+  failures: number,
+  send: Send
+): Promise<boolean> {
+  if (failures < WARNING_ALERT_FAILURES || (await alertRaised(row.id))) return false;
+  let sent = false;
+  try {
+    sent = await send.alert({ applicationId: row.id, userId: row.userId, failures });
+  } catch (err) {
+    log.error('cleaner_application', 'expiry_warning_alert_failed', { userId: row.userId }, err);
+    return false;
+  }
+  if (!sent) {
+    log.error('cleaner_application', 'expiry_warning_alert_failed', { userId: row.userId });
+    return false;
+  }
+  await AuditService.log({
+    userId: row.userId,
+    action: ALERT_ACTION,
+    entityType: 'CleanerApplicationDraft',
+    entityId: row.id,
+    metadata: { failures },
+  });
+  log.error('cleaner_application', 'expiry_warning_alert_raised', {
+    userId: row.userId,
+    count: failures,
+  });
+  return true;
+}
 
 function firstNameOf(data: unknown, fallback: string | null): string {
   const d = (data && typeof data === 'object' ? data : {}) as Record<string, unknown>;
@@ -43,8 +92,8 @@ function firstNameOf(data: unknown, fallback: string | null): string {
 export async function sendApplicationReminders(
   now: Date = new Date(),
   send: Send = realSend
-): Promise<{ inactivity: number; expiry: number; expiryFailed: number }> {
-  const out = { inactivity: 0, expiry: 0, expiryFailed: 0 };
+): Promise<{ inactivity: number; expiry: number; expiryFailed: number; alerts: number }> {
+  const out = { inactivity: 0, expiry: 0, expiryFailed: 0, alerts: 0 };
 
   // ─── Reminder 1, the 2-day nudge (James-ruled: claim, then send; a failed
   // nudge is not retried, never repeating wins) ───
@@ -148,13 +197,17 @@ export async function sendApplicationReminders(
         data: { expiryReminderSentAt: now },
       });
       out.expiry += 1;
+      if (await alertRaised(row.id))
+        log.info('cleaner_application', 'expiry_warning_alert_cleared', { userId: row.userId });
     } else {
-      await prisma.cleanerApplicationDraft.updateMany({
+      const { expiryReminderFailures: failures } = await prisma.cleanerApplicationDraft.update({
         where: { id: row.id },
         data: { expiryReminderFailures: { increment: 1 } },
+        select: { expiryReminderFailures: true },
       });
       out.expiryFailed += 1;
       log.error('cleaner_application', 'expiry_warning_undelivered', { userId: row.userId });
+      if (await raiseWarningAlert(row, failures, send)) out.alerts += 1;
     }
   }
   return out;

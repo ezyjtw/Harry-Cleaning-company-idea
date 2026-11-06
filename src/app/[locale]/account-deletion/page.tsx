@@ -1,6 +1,9 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 
+// RENA-051 (B6.3): static, regenerated hourly.
+export const revalidate = 3600;
+
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://www.renacleaning.co.uk';
 
 // Store-compliance page (James-ordered): the account deletion route for the

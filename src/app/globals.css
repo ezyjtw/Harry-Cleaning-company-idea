@@ -29,6 +29,13 @@
   --color-danger: 220 38 38; /* #dc2626 */
   --color-wash-to: 238 243 251; /* #eef3fb */
   --color-rating: 217 119 6; /* #d97706 — amber for star ratings (semantic, distinct from warning) */
+  /* B6.6 (RENA-083): the self-hosted subset families (src/lib/fonts.ts,
+     whose variable classes sit on <html>) chained into one family list each,
+     in Google's subset order; the last carries the fallbacks. */
+  --font-jost: var(--font-jost-latin), var(--font-jost-latin-ext), var(--font-jost-cyrillic);
+  --font-newsreader:
+    var(--font-newsreader-latin), var(--font-newsreader-latin-ext),
+    var(--font-newsreader-vietnamese);
 }
 
 @font-face {

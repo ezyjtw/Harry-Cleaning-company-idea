@@ -3,8 +3,6 @@ import { notFound } from 'next/navigation';
 import { hasLocale, NextIntlClientProvider } from 'next-intl';
 import { getMessages, getTranslations, setRequestLocale } from 'next-intl/server';
 
-export const dynamic = 'force-dynamic';
-
 import AIChatWidget from '@/components/AIChatWidget';
 import ContactFab from '@/components/ContactFab';
 import CookieConsent from '@/components/CookieConsent';
@@ -15,6 +13,7 @@ import NavProgress from '@/components/nav/NavProgress';
 import Navbar from '@/components/Navbar';
 import AuthProvider from '@/components/providers/AuthProvider';
 import ServiceWorkerRegistration from '@/components/ServiceWorkerRegistration';
+import { pickClientMessages } from '@/i18n/client-namespaces';
 import { routing } from '@/i18n/routing';
 import { LIVE_CHAT_ENABLED } from '@/lib/config/features';
 import { fontVariables } from '@/lib/fonts';
@@ -24,6 +23,13 @@ type Props = {
   children: React.ReactNode;
   params: Promise<{ locale: string }>;
 };
+
+// RENA-051 (B6.3, James-ruled least-invasive): no blanket force-dynamic; each
+// segment declares its own mode (public pages static or ISR, signed-in and
+// request-bound segments force-dynamic in their own layouts).
+export function generateStaticParams() {
+  return routing.locales.map((locale) => ({ locale }));
+}
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { locale } = await params;
@@ -84,7 +90,7 @@ export default async function LocaleLayout({ children, params }: Props) {
         <JsonLd data={generateOrganizationSchema()} />
       </head>
       <body className="flex min-h-screen flex-col">
-        <NextIntlClientProvider messages={messages}>
+        <NextIntlClientProvider messages={pickClientMessages(messages)}>
           <AuthProvider>
             <a
               href="#main-content"

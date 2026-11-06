@@ -3,7 +3,6 @@ export {
   generateServiceSchema,
   generateLocalBusinessSchema,
   generateFAQSchema,
-  generateBreadcrumbSchema,
-  generateReviewAggregateSchema,
+  generateAreaServiceSchema,
 } from './structured-data';
 export { generatePageMetadata, PAGE_METADATA } from './metadata';

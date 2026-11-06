@@ -4,6 +4,11 @@ import { notFound } from 'next/navigation';
 import ChromeHider from '@/components/ChromeHider';
 import { isCustomerShell, isRenaShell } from '@/lib/shell';
 
+// RENA-051 (B6.3, James-ruled least-invasive): the locale layout no longer
+// forces every page dynamic; this signed-in or request-bound segment keeps
+// rendering per request, exactly as before.
+export const dynamic = 'force-dynamic';
+
 // The Rena Pro purpose-built screens (Today, Offer). Rendered chrome-free inside
 // the native shell — the native tab bar replaces the marketing nav/footer
 // (hidden via ChromeHider). Served only to the shell in production, EXCEPT for a

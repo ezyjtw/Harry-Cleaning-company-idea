@@ -1,5 +1,8 @@
 import { generatePageMetadata } from '@/lib/seo/metadata';
 
+// RENA-051 (B6.3): static, regenerated hourly (the page is a client component).
+export const revalidate = 3600;
+
 export const metadata = generatePageMetadata({
   title: 'Contact Us',
   description:

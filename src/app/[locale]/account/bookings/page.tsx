@@ -20,6 +20,7 @@ import {
 import BookingStatusChip, { mapStatus, type BookingStatus } from '@/components/BookingStatusChip';
 import CleanerAvatar from '@/components/CleanerAvatar';
 import RegularCleanOfferCard from '@/components/RegularCleanOfferCard';
+import Dialog from '@/components/ui/Dialog';
 import { serviceLabelFromSlug } from '@/lib/constants/services';
 import { markStale, registerPane } from '@/lib/freshness';
 import { isCustomerShellUA } from '@/lib/shell';
@@ -1038,90 +1039,87 @@ export default function BookingsPage() {
         {/* Review sheet — the Home card's ?review= deep link (H72) lands here:
             the browser page's own review state + submit, in sheet clothes. */}
         {reviewTarget && !reviewTarget.hasReview && (
-          <div
-            className="fixed inset-0 z-[60] flex items-end bg-ink/40"
-            role="dialog"
-            aria-modal="true"
-            aria-label="Leave a review"
-            onClick={() => !reviewSubmitting && dismissReview()}
+          <Dialog
+            open
+            onClose={dismissReview}
+            dismissible={!reviewSubmitting}
+            variant="sheet"
+            label="Leave a review"
+            overlayClassName="fixed inset-0 z-[60] flex items-end bg-ink/40"
+            className="mx-auto w-full max-w-lg rounded-t-2xl border-t border-line bg-surface px-5 pt-6"
+            style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 20px)' }}
+            panelTestId="mc-review-sheet"
           >
-            <div
-              className="mx-auto w-full max-w-lg rounded-t-2xl border-t border-line bg-surface px-5 pt-6"
-              style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 20px)' }}
-              onClick={(e) => e.stopPropagation()}
-              data-testid="mc-review-sheet"
-            >
-              <h2 className="font-jost text-xl font-semibold text-ink">How Was Your Clean?</h2>
-              <p className="mt-1 font-jost text-[13px] text-ink-3">
-                {reviewTarget.cleanerName} · {serviceLabelFromSlug(reviewTarget.serviceType)}
-              </p>
-              <div className="mt-4 flex justify-center gap-2">
-                {[1, 2, 3, 4, 5].map((star) => (
-                  <button
-                    key={star}
-                    type="button"
-                    onClick={() => setReviewRating(star)}
-                    className="text-4xl focus:outline-none"
-                  >
-                    <span className={star <= reviewRating ? 'text-rating' : 'text-ink-3/40'}>
-                      &#9733;
-                    </span>
-                  </button>
-                ))}
-              </div>
-              <div className="mt-4 grid grid-cols-3 gap-2">
-                {(
-                  [
-                    ['Thoroughness', reviewThoroughness, setReviewThoroughness],
-                    ['Punctuality', reviewPunctuality, setReviewPunctuality],
-                    ['Communication', reviewCommunication, setReviewCommunication],
-                  ] as const
-                ).map(([label, value, setter]) => (
-                  <div key={label} className="text-center">
-                    <span className="mb-1 block font-jost text-[11px] text-ink-3">{label}</span>
-                    <div className="flex justify-center gap-0.5">
-                      {[1, 2, 3, 4, 5].map((star) => (
-                        <button
-                          key={star}
-                          type="button"
-                          onClick={() => (setter as (v: number) => void)(star)}
-                          className="text-sm focus:outline-none"
-                        >
-                          <span className={star <= value ? 'text-rating' : 'text-ink-3/40'}>
-                            &#9733;
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <textarea
-                rows={3}
-                value={reviewText}
-                onChange={(e) => setReviewText(e.target.value)}
-                placeholder="Tell us about your experience (optional)"
-                maxLength={2000}
-                className="mt-4 w-full resize-none rounded-[10px] border border-line bg-surface px-3 py-2 font-jost text-sm text-ink placeholder-ink-3 focus:border-primary focus:outline-none"
-              />
-              <button
-                type="button"
-                onClick={() => submitReview(reviewTarget.fullId)}
-                disabled={reviewSubmitting || reviewRating < 1}
-                className="mt-4 w-full rounded-[10px] bg-primary py-3 font-jost text-sm font-medium text-white active:opacity-90 disabled:opacity-50"
-              >
-                {reviewSubmitting ? 'Submitting…' : 'Submit Review'}
-              </button>
-              <button
-                type="button"
-                onClick={dismissReview}
-                disabled={reviewSubmitting}
-                className="mt-1 w-full py-3 font-jost text-sm font-medium text-ink-2 active:opacity-70 disabled:opacity-60"
-              >
-                Not Now
-              </button>
+            <h2 className="font-jost text-xl font-semibold text-ink">How Was Your Clean?</h2>
+            <p className="mt-1 font-jost text-[13px] text-ink-3">
+              {reviewTarget.cleanerName} · {serviceLabelFromSlug(reviewTarget.serviceType)}
+            </p>
+            <div className="mt-4 flex justify-center gap-2">
+              {[1, 2, 3, 4, 5].map((star) => (
+                <button
+                  key={star}
+                  type="button"
+                  onClick={() => setReviewRating(star)}
+                  className="text-4xl focus:outline-none"
+                >
+                  <span className={star <= reviewRating ? 'text-rating' : 'text-ink-3/40'}>
+                    &#9733;
+                  </span>
+                </button>
+              ))}
             </div>
-          </div>
+            <div className="mt-4 grid grid-cols-3 gap-2">
+              {(
+                [
+                  ['Thoroughness', reviewThoroughness, setReviewThoroughness],
+                  ['Punctuality', reviewPunctuality, setReviewPunctuality],
+                  ['Communication', reviewCommunication, setReviewCommunication],
+                ] as const
+              ).map(([label, value, setter]) => (
+                <div key={label} className="text-center">
+                  <span className="mb-1 block font-jost text-[11px] text-ink-3">{label}</span>
+                  <div className="flex justify-center gap-0.5">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <button
+                        key={star}
+                        type="button"
+                        onClick={() => (setter as (v: number) => void)(star)}
+                        className="text-sm focus:outline-none"
+                      >
+                        <span className={star <= value ? 'text-rating' : 'text-ink-3/40'}>
+                          &#9733;
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <textarea
+              rows={3}
+              value={reviewText}
+              onChange={(e) => setReviewText(e.target.value)}
+              placeholder="Tell us about your experience (optional)"
+              maxLength={2000}
+              className="mt-4 w-full resize-none rounded-[10px] border border-line bg-surface px-3 py-2 font-jost text-sm text-ink placeholder-ink-3 focus:border-primary focus:outline-none"
+            />
+            <button
+              type="button"
+              onClick={() => submitReview(reviewTarget.fullId)}
+              disabled={reviewSubmitting || reviewRating < 1}
+              className="mt-4 w-full rounded-[10px] bg-primary py-3 font-jost text-sm font-medium text-white active:opacity-90 disabled:opacity-50"
+            >
+              {reviewSubmitting ? 'Submitting…' : 'Submit Review'}
+            </button>
+            <button
+              type="button"
+              onClick={dismissReview}
+              disabled={reviewSubmitting}
+              className="mt-1 w-full py-3 font-jost text-sm font-medium text-ink-2 active:opacity-70 disabled:opacity-60"
+            >
+              Not Now
+            </button>
+          </Dialog>
         )}
       </div>
     );

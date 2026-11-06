@@ -8,8 +8,12 @@ import CleanersDirectory from './CleanersDirectory';
 // arrived via client-side fetch. The first page is now server-rendered — the
 // same data through the same eligibility filter — and the client component
 // hydrates from it. Postcode/filter interactions still fetch client-side.
-// Refreshes every 5 minutes; a DB hiccup falls back to the client fetch.
-export const revalidate = 300;
+// RENA-051 (B6.3, named for James's ruling): kept per request, as in
+// production today. Railway builds without the private network (and before
+// the deploy's migrations), so a build-time render of this database-reading
+// page would cache an empty fallback until it revalidated (benched: /cleaners
+// served its no-data build render on the first request after start).
+export const dynamic = 'force-dynamic';
 
 export default async function CleanersPage() {
   let initialCleaners: Awaited<ReturnType<typeof listDirectoryCleaners>> | null = null;

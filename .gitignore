@@ -1,6 +1,6 @@
 # dependencies
 /node_modules
-mobile/node_modules/
+mobile/node_modules
 mobile-customer/node_modules
 /.pnp
 .pnp.js

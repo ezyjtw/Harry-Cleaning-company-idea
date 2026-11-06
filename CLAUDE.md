@@ -267,6 +267,13 @@ The integrity check in `instrumentation.ts` verifies the reference seed
 populated correctly. If it doesn't, the app refuses to boot and Railway
 rolls back the deploy.
 
+## Database integration tests
+
+Run all six database suites locally with `npm run test:integration` (one file
+at a time, every suite flag set). Never run them in parallel against one
+database: the money ledger's S1 and S2 refuse while another suite's booking
+exists (RENA-105). CI runs each suite as its own sequential step.
+
 ## Rate limiting
 
 Three independent in-memory rate limiting layers exist:

@@ -21,45 +21,16 @@ interface PlatformConfigEntry {
   description: string | null;
 }
 
-interface FixedPrice {
-  propertySize: string;
-  estimatedHours: number;
-  customerPrice: number;
-}
-
-interface ServiceTypeEntry {
-  id: string;
-  slug: string;
-  name: string;
-  pricingModel: string;
-  baseMultiplier: number;
-  fixedPrices: FixedPrice[];
-}
-
-const PROPERTY_SIZE_LABELS: Record<string, string> = {
-  STUDIO: 'Studio',
-  ONE_BED: '1 Bed',
-  TWO_BED: '2 Bed',
-  THREE_BED: '3 Bed',
-  FOUR_BED: '4 Bed',
-  FIVE_PLUS: '5+ Bed',
-};
-
 export default function AdminPricingPage() {
   const [configs, setConfigs] = useState<PlatformConfigEntry[]>([]);
-  const [services, setServices] = useState<ServiceTypeEntry[]>([]);
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
   const [saveStatus, setSaveStatus] = useState('');
 
   const fetchData = useCallback(async () => {
     try {
-      const [configRes, servicesRes] = await Promise.all([
-        fetch('/api/admin/pricing/config'),
-        fetch('/api/pricing/services'),
-      ]);
+      const configRes = await fetch('/api/admin/pricing/config');
       if (configRes.ok) setConfigs(await configRes.json());
-      if (servicesRes.ok) setServices(await servicesRes.json());
     } catch {
       // silently fail
     }
@@ -96,8 +67,8 @@ export default function AdminPricingPage() {
   const cleanerFeePct = COMMISSION_RATES.regular;
   const customerFeePct = PLATFORM_FEE_RATE;
 
-  const calcMargin = (rate: number, hours: number, multiplier: number) => {
-    const gross = new Decimal(rate).mul(hours).mul(multiplier);
+  const calcMargin = (rate: number, hours: number) => {
+    const gross = new Decimal(rate).mul(hours);
     const cleanerFee = gross.mul(cleanerFeePct);
     const customerFee = gross.mul(customerFeePct);
     const renaTotal = cleanerFee.plus(customerFee);
@@ -108,15 +79,10 @@ export default function AdminPricingPage() {
     };
   };
 
-  const fixedServices = services.filter((s) => s.pricingModel === 'FIXED');
-
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto space-y-8">
       <div>
         <h1 className="text-2xl font-bold text-ink">Pricing Configuration</h1>
-        <p className="text-sm text-ink-3 mt-1">
-          Manage platform fees, multipliers, and fixed prices
-        </p>
         {saveStatus && <p className="mt-2 text-sm text-trust">{saveStatus}</p>}
       </div>
 
@@ -213,38 +179,6 @@ export default function AdminPricingPage() {
         </div>
       </section>
 
-      {/* Fixed Price Editor */}
-      <section className="bg-surface rounded-xl border border-line p-6">
-        <h2 className="text-lg font-semibold text-ink mb-4">Fixed Prices (EOT &amp; Airbnb)</h2>
-        {fixedServices.map((svc) => (
-          <div key={svc.id} className="mb-6 last:mb-0">
-            <h3 className="text-sm font-semibold text-ink-2 mb-2">{svc.name}</h3>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-line">
-                    <th className="text-left py-2 px-3 font-medium text-ink-3">Property</th>
-                    <th className="text-left py-2 px-3 font-medium text-ink-3">Est. Hours</th>
-                    <th className="text-left py-2 px-3 font-medium text-ink-3">Customer Price</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {svc.fixedPrices.map((fp) => (
-                    <tr key={fp.propertySize} className="border-b border-line">
-                      <td className="py-2 px-3">
-                        {PROPERTY_SIZE_LABELS[fp.propertySize] ?? fp.propertySize}
-                      </td>
-                      <td className="py-2 px-3">{fp.estimatedHours} hrs</td>
-                      <td className="py-2 px-3 font-medium">&pound;{fp.customerPrice}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        ))}
-      </section>
-
       {/* Margin Calculator */}
       <section className="bg-surface rounded-xl border border-line p-6">
         <h2 className="text-lg font-semibold text-ink mb-4">Margin Calculator</h2>
@@ -263,7 +197,7 @@ export default function AdminPricingPage() {
             </thead>
             <tbody>
               {[14, 20, 35].map((rate) => {
-                const m = calcMargin(rate, 3, 1.0);
+                const m = calcMargin(rate, 3);
                 return (
                   <tr key={rate} className="border-b border-line">
                     <td className="py-2 px-3">&pound;{rate}/hr</td>

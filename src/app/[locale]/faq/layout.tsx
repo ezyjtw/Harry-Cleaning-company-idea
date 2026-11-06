@@ -2,6 +2,9 @@ import JsonLd from '@/components/JsonLd';
 import { PAGE_METADATA } from '@/lib/seo/metadata';
 import { generateFAQSchema } from '@/lib/seo/structured-data';
 
+// RENA-051 (B6.3): static, regenerated hourly (the page is a client component).
+export const revalidate = 3600;
+
 export const metadata = PAGE_METADATA.faq;
 
 const faqs = [
