@@ -213,7 +213,11 @@ web on Railway and update on deploy — they need neither a build nor an OTA.
 
 - **Net-first earnings**: everywhere cleaner-facing, show net figures first.
 - **6% service fee appears only at checkout** plus the pricing-example box —
-  nowhere else on the site or app.
+  nowhere else on the site or app. Booking-flow fee ruling (D-al 8, James,
+  23 Oct; recorded on main 6 Nov, D-am): every surface before checkout shows
+  the cleaner's own advertised price (`src/lib/pricing/display.ts`); the 6%
+  enters the checkout calculation only; `src/lib/pricing/display.test.ts`
+  pins display price against checkout total.
 - **Cleaner-set rates** — no multipliers, anywhere.
 - **Same-day cleaning = "coming soon"**, no price shown.
 - **Light app theme**; **option-B logo untouched** (the lockup on light stays
@@ -266,6 +270,19 @@ Do not add to the dev seed.
 The integrity check in `instrumentation.ts` verifies the reference seed
 populated correctly. If it doesn't, the app refuses to boot and Railway
 rolls back the deploy.
+
+## E2E identity and the rate-limit fixture (James-ruled, D-al 9 and D-am)
+
+No caller-supplied test identity exists in production code, flag-gated or
+not; production anti-abuse code learns no bypass. The Playwright
+`isolateRateBucket` fixture (`e2e/fixtures.ts`) is rig-only test
+infrastructure: it sets a per-test TEST-NET-3 address in X-Forwarded-For so
+each spec sits in its own global-limiter bucket on a rig with no proxy in
+front. Behind Railway's edge the rightmost X-Forwarded-For entry is the
+edge-appended peer (`src/lib/http/client-ip.ts`), so that header is never a
+production bypass. The live rate-limit header verification the second
+auditor asked for at B6 was waived by James on that source read; no header
+test runs against staging or production.
 
 ## Database integration tests
 
