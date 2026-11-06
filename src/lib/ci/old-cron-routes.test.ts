@@ -7,7 +7,9 @@ import { describe, expect, it } from 'vitest';
 // outside the lease are gone. GET /api/cron/rtw-expiry duplicated the daily
 // compliance jobs check_rtw_expiry and suspend_expired_rtw_cleaners with no
 // documented caller; POST /api/abandonment/send read a lead list that nothing
-// writes (its capture route is a stub). The scheduler tick is the one entry.
+// writes and POST /api/abandonment/capture wrote nothing (both stubs): James
+// retired the abandonment path outright (D-ao), any future abandonment email
+// being new product work. The scheduler tick is the one entry.
 const ROOT = join(__dirname, '..', '..', '..');
 
 function walk(dir: string, out: string[] = []): string[] {
@@ -24,6 +26,7 @@ describe('old cron routes (B7.2)', () => {
   it('the route files no longer exist', () => {
     expect(existsSync(join(ROOT, 'src/app/api/cron/rtw-expiry/route.ts'))).toBe(false);
     expect(existsSync(join(ROOT, 'src/app/api/abandonment/send/route.ts'))).toBe(false);
+    expect(existsSync(join(ROOT, 'src/app/api/abandonment/capture/route.ts'))).toBe(false);
   });
 
   it('nothing in src, components or either shell calls them', () => {
@@ -33,7 +36,12 @@ describe('old cron routes (B7.2)', () => {
       .flatMap((d) => walk(d));
     const offenders = files.filter((f) => {
       const text = readFileSync(f, 'utf8');
-      return text.includes('cron/rtw-expiry') || text.includes('abandonment/send');
+      return (
+        text.includes('cron/rtw-expiry') ||
+        text.includes('abandonment/send') ||
+        text.includes('abandonment/capture') ||
+        text.includes('sendAbandonmentEmail')
+      );
     });
     expect(offenders).toEqual([]);
   });

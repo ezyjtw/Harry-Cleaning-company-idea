@@ -125,6 +125,16 @@ affected routes before implementation, gets an incognito diff, and re-baselines
 those hashes in the same approved gate. Any unrelated public-route hash change
 stops the batch.
 
+Hash tool runbook (James-ruled, 6 Nov, after the B7a bench): a comparison is
+valid only when the control build and the branch build are served from the
+**same host and port**, against the **same database**, one after the other.
+The canonical link and the og:image and twitter:image metas follow the request
+host, so two servers on different ports differ on all 28 routes by those lines
+alone and the run proves nothing. Build the control (main) in a worktree,
+serve it, hash it, stop it; then serve the branch on that same port and hash it;
+compare with `--compare`. Both JSON files and the incognito diff of the named
+routes go under `docs/gates/<gate>/`.
+
 The canonical list is `docs/public-routes.json`; the copy below must match it
 exactly (a unit test fails otherwise), and the hash tool
 (`scripts/public-route-hashes.ts`) and CI (`e2e/public-routes.spec.ts`) read the

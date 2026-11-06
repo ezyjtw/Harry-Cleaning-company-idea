@@ -2,8 +2,8 @@ B7a incognito diff (hash law), 2026-11-06.
 
 Instrument: scripts/public-route-hashes.ts. Control: a build of main b1c6df9
 served on localhost:3102 from the rig Postgres (hash-control-main-b1c6df9.json).
-Branch: claude/b7 at the B7a head, served on the same host and port from the
-same database (hash-branch.json). Result: 26 of 28 governed routes hash
+Branch: claude/b7 at the B7a merge head (hash-branch.json regenerated there), served
+on the same host and port from the same database. Result: 26 of 28 governed routes hash
 identical; /privacy and /account-deletion differ, both named before
 implementation (B7.4). Render modes: the branch prerender manifest matches the
 RENA-051 table.
@@ -26,5 +26,4 @@ omitted, having been explained above). < is the branch, > the control.
 === /account-deletion ===
 < <p>Email <a href="mailto:legal@renacleaning.co.uk">legal@renacleaning.co.uk</a> from the email address on your account and ask for it to be deleted. We action email requests within 30 days.</p>
 > <p>Email <a href="mailto:support@renacleaning.co.uk">support@renacleaning.co.uk</a> from the email address on your account and ask for it to be deleted. We action email requests within 30 days.</p>
-< <p>Questions about your data are covered in our <a href="/privacy">Privacy Policy</a>, or reach us at <a href="mailto:legal@renacleaning.co.uk">legal@renacleaning.co.uk</a>.</p>
-> <p>Questions about your data are covered in our <a href="/privacy">Privacy Policy</a>, or reach us at <a href="mailto:support@renacleaning.co.uk">support@renacleaning.co.uk</a>.</p>
+(The general contact line "or reach us at" stays support@renacleaning.co.uk at the merge head, James's ruling D-ao 1; it differed at the gate head and no longer does.)

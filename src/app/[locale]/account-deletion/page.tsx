@@ -122,10 +122,10 @@ export default function AccountDeletionPage() {
           </Link>
           , or reach us at{' '}
           <a
-            href="mailto:legal@renacleaning.co.uk"
+            href="mailto:support@renacleaning.co.uk"
             className="text-primary underline underline-offset-2"
           >
-            legal@renacleaning.co.uk
+            support@renacleaning.co.uk
           </a>
           .
         </p>

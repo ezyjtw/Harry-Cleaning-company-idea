@@ -5,7 +5,10 @@
 // --compare exits 1 naming every route whose hash differs from the base file.
 // --modes <.next/prerender-manifest.json> (RENA-051) exits 1 naming every route
 // whose rendering mode differs from src/lib/ci/render-modes.ts.
-// Per the law's same-build protocol, compare two builds served on the same rig.
+// Per the law's same-build protocol, compare two builds served on the same rig,
+// from the SAME HOST AND PORT and the SAME DATABASE, one after the other (James,
+// 6 Nov): canonical and og metas follow the request host, so two ports differ
+// on every route by those lines alone. Runbook: CLAUDE.md, "Hash law".
 import { createHash } from 'node:crypto';
 import { readFileSync, writeFileSync } from 'node:fs';
 
