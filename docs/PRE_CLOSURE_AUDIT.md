@@ -1,6 +1,6 @@
 # Pre-closure audit: every finding and lane item, grouped by owner
 
-Read-only audit on James's word (6 Nov 2026). Source of truth: docs/REMEDIATION_REGISTER.md at claude/b7 430db256 (main d7971eed plus the D-ar record), docs/design, docs/gates. Statuses are quoted from the register and not changed to tidy the table; where evidence is absent the row says OWED. This document authorises nothing: no regression freeze, release, OTA publication or production mutation.
+Read-only audit on James's word (6 Nov 2026); his rulings on it are register decision D-as and are folded into the rows below. Source of truth: docs/REMEDIATION_REGISTER.md at claude/b7 430db256 (main d7971eed plus the D-ar record), docs/design, docs/gates. Statuses are quoted from the register and not changed to tidy the table; where evidence is absent the row says OWED. This document authorises nothing: no regression freeze, release, OTA publication or production mutation.
 
 Counts: 102 register entry blocks (105 RENA ids) plus 20 lane items. By owner: Fable/engineering 20, James 66, external provider 2, second-auditor gate 34.
 
