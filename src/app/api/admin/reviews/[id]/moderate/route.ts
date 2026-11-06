@@ -2,6 +2,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
 import { getAdminSession } from '@/lib/auth/session';
+import { log } from '@/lib/log';
 import { checkRateLimit } from '@/lib/rate-limit';
 import { AdminOperationsService } from '@/lib/services/admin-operations.service';
 
@@ -51,8 +52,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     await AdminOperationsService.moderateReview(id, action, admin.id, reason);
     return NextResponse.json({ id, visibility: action });
   } catch (error) {
-    // eslint-disable-next-line no-console
-    console.error('[AdminReviewModerate] Failed:', error);
+    log.error('admin_review_moderate', 'failed', {}, error);
     return NextResponse.json({ error: 'Internal server error.' }, { status: 500 });
   }
 }

@@ -57,6 +57,9 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      - name: Format check (B7.12, RENA-069)
+        run: npm run format:check
+
       - name: Log hygiene (RENA-066)
         run: npx tsx scripts/check-log-hygiene.ts
 
@@ -212,6 +215,9 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Render modes match the RENA-051 table (B6.3, B7.12)
+        run: npx tsx scripts/public-route-hashes.ts --modes .next/prerender-manifest.json
+
       - name: Install Playwright browser
         run: npx playwright install --with-deps chromium
 
@@ -219,6 +225,30 @@ jobs:
         run: npm run test:e2e
         env:
           CI: 'true'
+
+      # B7.12 (RENA-069): the hash law tool runs against the e2e server. The
+      # hashes are uploaded every run; they are COMPARED only once a CI-born
+      # baseline is committed at docs/public-route-hashes.baseline.json in a
+      # sanctioned gate (taken from this artifact, never from a rig: the
+      # request host and the database content decide the bytes).
+      - name: Public route hashes (hash law, B7.12)
+        run: |
+          npm start -- -p 3000 > /tmp/hash-server.log 2>&1 &
+          for i in $(seq 1 60); do curl -sf http://localhost:3000/api/health > /dev/null && break; sleep 2; done
+          npx tsx scripts/public-route-hashes.ts --url http://localhost:3000 --write public-route-hashes.ci.json
+          if [ -f docs/public-route-hashes.baseline.json ]; then
+            npx tsx scripts/public-route-hashes.ts --url http://localhost:3000 --compare docs/public-route-hashes.baseline.json
+          else
+            echo "No CI baseline committed yet (docs/public-route-hashes.baseline.json); hashes uploaded as an artifact."
+          fi
+
+      - name: Upload public route hashes
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-route-hashes
+          path: public-route-hashes.ci.json
+          retention-days: 30
 
       - name: Upload Playwright report
         if: failure()

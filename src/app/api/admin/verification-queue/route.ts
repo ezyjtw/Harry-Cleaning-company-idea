@@ -52,9 +52,7 @@ export async function GET() {
 
   // Verified cleaners with pending docs → fetch their profiles too.
   const knownIds = new Set(unverifiedProfiles.map((p) => p.id));
-  const extraIds = pendingDocs
-    .map((d) => d.profileId as string)
-    .filter((id) => !knownIds.has(id));
+  const extraIds = pendingDocs.map((d) => d.profileId as string).filter((id) => !knownIds.has(id));
   const extraProfiles = extraIds.length
     ? await prisma.cleanerProfile.findMany({
         where: { id: { in: extraIds }, user: { isDeleted: false } },
@@ -96,9 +94,14 @@ export async function GET() {
   const cleaners = profiles
     .map((p) => {
       const mine = docs.filter((d) => d.profileId === p.id);
-      const byType: Record<string, { submitted: boolean; verified: boolean; rejected: boolean }> = {};
+      const byType: Record<string, { submitted: boolean; verified: boolean; rejected: boolean }> =
+        {};
       for (const d of mine) {
-        const cur = byType[d.documentType] ?? { submitted: false, verified: false, rejected: false };
+        const cur = byType[d.documentType] ?? {
+          submitted: false,
+          verified: false,
+          rejected: false,
+        };
         // A verified doc of this type wins; else the NEWEST (docs are desc) sets
         // the rejected flag. A fresh re-upload (newer, not rejected) clears it.
         if (!cur.submitted) cur.rejected = !!d.rejectedAt && !d.isVerified;
@@ -143,8 +146,7 @@ export async function GET() {
         identityReview: !p.verified && missing.length === 0,
         insuranceReview: p.verified && insuranceState === 'submitted',
         needsReview:
-          (!p.verified && missing.length === 0) ||
-          (p.verified && insuranceState === 'submitted'),
+          (!p.verified && missing.length === 0) || (p.verified && insuranceState === 'submitted'),
         goLive: {
           insurance: insuranceState,
           stripe: stripeComplete,

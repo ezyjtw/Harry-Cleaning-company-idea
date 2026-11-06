@@ -18,7 +18,11 @@ export function notificationHref(n: NotificationLike, role: string | null | unde
   switch (n.type) {
     case 'BOOKING_REQUEST':
       // A job offer — money leads. Cleaners act on it in their jobs list.
-      return isCleaner ? '/cleaner/jobs' : data.bookingId ? `/booking/${data.bookingId}` : '/account/bookings';
+      return isCleaner
+        ? '/cleaner/jobs'
+        : data.bookingId
+          ? `/booking/${data.bookingId}`
+          : '/account/bookings';
     case 'BOOKING_CONFIRMED':
     case 'BOOKING_CANCELLED':
     case 'BOOKING_COMPLETED':

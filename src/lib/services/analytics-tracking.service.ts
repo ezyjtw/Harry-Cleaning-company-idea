@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/db/prisma';
+import { log } from '@/lib/log';
 
 export type FunnelType = 'booking' | 'cleaner_signup' | 'client_signup';
 
@@ -86,8 +87,7 @@ export class AnalyticsTrackingService {
       });
     } catch (error) {
       // Analytics should never break the main flow
-      // eslint-disable-next-line no-console
-      console.error('[AnalyticsTracking] Failed to track event:', error);
+      log.error('analytics_tracking', 'failed_to_track_event', {}, error);
       return null;
     }
   }

@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client'
+import { PrismaClient } from '@prisma/client';
 
 // catchmentPolygon is a large stored isochrone (100s of KB of GeoJSON per
 // cleaner) that ONLY the coverage predicate should ever read. Globally omitted
@@ -9,14 +9,14 @@ import { PrismaClient } from '@prisma/client'
 const createClient = () =>
   new PrismaClient({
     omit: { cleanerProfile: { catchmentPolygon: true } },
-  })
+  });
 
-type AppPrismaClient = ReturnType<typeof createClient>
+type AppPrismaClient = ReturnType<typeof createClient>;
 
-const globalForPrisma = globalThis as unknown as { prisma: AppPrismaClient }
+const globalForPrisma = globalThis as unknown as { prisma: AppPrismaClient };
 
-export const prisma = globalForPrisma.prisma || createClient()
+export const prisma = globalForPrisma.prisma || createClient();
 
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma
+if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
 
-export default prisma
+export default prisma;

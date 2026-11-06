@@ -11,6 +11,8 @@ export const FIXTURES = {
   customerA: { email: 'e2e-customer-a@integration.invalid', name: 'Alpha Fixture' },
   customerB: { email: 'e2e-customer-b@integration.invalid', name: 'Bravo Fixture' },
   cleaner: { email: 'e2e-cleaner@integration.invalid', name: 'Cleo Fixture' },
+  // B7.8 (RENA-072): the admin fixture for the compliance governance spec.
+  admin: { email: 'e2e-admin@integration.invalid', name: 'Admin Fixture' },
 } as const;
 
 export default async function globalSetup(): Promise<void> {
@@ -35,6 +37,18 @@ export default async function globalSetup(): Promise<void> {
         },
       });
     }
+    await prisma.user.upsert({
+      where: { email: FIXTURES.admin.email },
+      update: { passwordHash, accountStatus: 'ACTIVE', role: 'ADMIN' },
+      create: {
+        email: FIXTURES.admin.email,
+        name: FIXTURES.admin.name,
+        role: 'ADMIN',
+        passwordHash,
+        emailVerified: now,
+        emailVerifiedAt: now,
+      },
+    });
     const cleaner = await prisma.user.upsert({
       where: { email: FIXTURES.cleaner.email },
       update: { passwordHash, accountStatus: 'ACTIVE', role: 'CLEANER' },

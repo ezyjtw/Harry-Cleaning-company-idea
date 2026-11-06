@@ -96,7 +96,6 @@ export default function RecurringAgreementsCard({
         setAgreements((rows || []).filter((a) => VISIBLE_STATUSES.has(a.status)));
       })
       .catch(() => {});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [role]);
 
   const withdraw = async (id: string) => {

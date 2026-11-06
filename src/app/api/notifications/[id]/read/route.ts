@@ -1,12 +1,9 @@
 import { NextResponse } from 'next/server';
 
-import prisma from '@/lib/db/prisma';
 import { getSessionUser } from '@/lib/auth/session';
+import prisma from '@/lib/db/prisma';
 
-export async function PUT(
-  _request: Request,
-  { params }: { params: { id: string } }
-) {
+export async function PUT(_request: Request, { params }: { params: { id: string } }) {
   try {
     const user = await getSessionUser();
     if (!user) {

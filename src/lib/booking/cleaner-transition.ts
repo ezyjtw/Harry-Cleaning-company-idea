@@ -7,6 +7,7 @@
 import type { BookingStatus } from '@prisma/client';
 
 import prisma from '@/lib/db/prisma';
+import { log } from '@/lib/log';
 import { EnhancedNotificationService } from '@/lib/services/enhanced-notification.service';
 import { formatLondonClock } from '@/lib/time/booking-time';
 
@@ -208,8 +209,7 @@ export async function applyCleanerTransition(params: {
 
     // H74: never a silent catch — a thrown review-request must say so in prod.
     await EnhancedNotificationService.sendReviewRequest(updated.id).catch((e) => {
-      // eslint-disable-next-line no-console
-      console.error(`[ReviewRequest] Failed for booking ${updated.id}:`, e);
+      log.error('review_request', 'failed_for_booking', { updatedId: updated.id }, e);
     });
 
     // R1-A (amended): guests get no review request (parked ruling), so their
@@ -217,8 +217,7 @@ export async function applyCleanerTransition(params: {
     // when the pair is offer-eligible (the sender logs a named skip otherwise).
     const { sendGuestCompletionOffer } = await import('@/lib/services/email.service');
     await sendGuestCompletionOffer(updated.id).catch((e) => {
-      // eslint-disable-next-line no-console
-      console.error(`[RegularOffer] Guest completion email failed for ${updated.id}:`, e);
+      log.error('regular_offer', 'guest_completion_email_failed_for', { updatedId: updated.id }, e);
     });
   }
 

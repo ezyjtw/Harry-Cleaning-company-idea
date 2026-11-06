@@ -29,6 +29,7 @@
 import type { BookingStatus } from '@prisma/client';
 
 import { prisma } from '@/lib/db/prisma';
+import { log } from '@/lib/log';
 import { cancellationAnchorUtc } from '@/lib/time/booking-time';
 
 import { AuditService } from './audit.service';
@@ -243,10 +244,10 @@ export async function executeCancellation(params: {
           });
           isPaid = true;
           fenceLatePaid = true;
-          // eslint-disable-next-line no-console
-          console.log(
-            `[Cancellation] FENCE: intent ${booking.stripePaymentIntentId} for ${bookingId} succeeded mid-cancel — routing to paid cancellation with FULL refund`
-          );
+          log.info('cancellation', 'fence_intent_for_succeeded_mid', {
+            stripePaymentIntentId: booking.stripePaymentIntentId,
+            bookingId,
+          });
         }
       } catch {
         // Retrieve failed too — piStatus stays null and we fail safe below.
@@ -255,10 +256,10 @@ export async function executeCancellation(params: {
         // Neither a confirmed kill nor a confirmed payment — the intent is in
         // an unknown or in-flight state (processing, network error). Fail safe:
         // the booking is NOT cancelled.
-        // eslint-disable-next-line no-console
-        console.error(
-          `[Cancellation] FENCE: could not confirm intent kill for ${bookingId} (intent ${booking.stripePaymentIntentId}, status: ${piStatus ?? 'unknown'}) — cancel aborted`
-        );
+        log.error('cancellation', 'fence_could_not_confirm_intent', {
+          bookingId,
+          stripePaymentIntentId: booking.stripePaymentIntentId,
+        });
         return {
           ok: false,
           status: 409,

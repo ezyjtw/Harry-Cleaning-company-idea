@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server';
 import { getCleanerSession } from '@/lib/auth/session';
 import prisma from '@/lib/db/prisma';
 import { resolveClientIp } from '@/lib/http/client-ip';
+import { log } from '@/lib/log';
 import { DBSVerificationService } from '@/lib/services/dbs-verification.service';
 import { decodeBase64File, IMAGE_MIMES } from '@/lib/utils/file-validation';
 
@@ -24,8 +25,7 @@ export async function GET() {
 
     return NextResponse.json({ verification: status });
   } catch (error) {
-    // eslint-disable-next-line no-console
-    console.error('[DBSVerification] GET error:', error);
+    log.error('dbsverification', 'get_error', {}, error);
     return NextResponse.json({ error: 'Failed to fetch verification status' }, { status: 500 });
   }
 }
@@ -105,8 +105,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ error: 'Invalid action. Must be: liveness_check' }, { status: 400 });
   } catch (error) {
-    // eslint-disable-next-line no-console
-    console.error('[DBSVerification] POST error:', error);
+    log.error('dbsverification', 'post_error', {}, error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Failed to process verification request' },
       { status: 500 }

@@ -114,8 +114,7 @@ export async function POST(request: NextRequest) {
     // Ensure API key is configured
     const apiKey = process.env.GROQ_API_KEY;
     if (!apiKey) {
-      // eslint-disable-next-line no-console
-      console.error('GROQ_API_KEY is not set');
+      log.error('chat', 'groq_api_key_is_not', {});
       return NextResponse.json({ error: 'Chat service is not configured.' }, { status: 500 });
     }
 
@@ -161,8 +160,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ reply });
   } catch (error) {
-    // eslint-disable-next-line no-console
-    console.error('Chat API error:', error);
+    log.error('chat', 'chat_api_error', {}, error);
 
     if (error instanceof SyntaxError) {
       return NextResponse.json({ error: 'Invalid JSON in request body.' }, { status: 400 });

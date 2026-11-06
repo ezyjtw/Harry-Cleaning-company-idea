@@ -58,10 +58,16 @@
     },
     {
       "files": ["src/lib/**/*.ts", "src/lib/**/*.tsx", "src/app/api/**/*.ts"],
-      "excludedFiles": ["src/lib/log.ts", "**/*.test.ts", "**/*.integration.test.ts"],
+      "excludedFiles": [
+        "src/lib/log.ts",
+        "**/*.test.ts",
+        "**/*.integration.test.ts",
+        "src/lib/nav/nav-trace.ts"
+      ],
       "rules": {
         "no-console": "error"
-      }
+      },
+      "noInlineConfig": true
     },
     {
       "files": ["apps/**/*.ts", "apps/**/*.tsx"],
@@ -84,5 +90,6 @@
         "jsx-a11y/alt-text": "off"
       }
     }
-  ]
+  ],
+  "reportUnusedDisableDirectives": true
 }

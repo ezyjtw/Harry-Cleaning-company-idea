@@ -1,0 +1,10 @@
+B7c incognito diff (hash law). Branch claude/b7 at the B7c head and the control build of main f0cb914a, each served on localhost:3102 from the same rig database, one after the other (the runbook rule), fetched signed out with a plain user agent, normalised as the hash tool normalises. Lines starting with < are the branch, > the control. The other 26 governed routes are hash identical (hash-branch.json against hash-control-main-f0cb914.json).
+
+=== /privacy ===
+< <strong>Service Providers:</strong> We use these processors, each under a data processing agreement and only for the purpose named (B7.8; the list is checked against the code that uses them): payments and payouts, Stripe; hosting and our database, Railway; network edge and encrypted document storage, Cloudflare; email, Resend; SMS, Twilio; app push notifications, Expo; error reporting when enabled, Sentry; the website chat assistant, Groq; travel time and coverage calculation, OpenRouteService; area information for our operations, Google Places; accounting, Xero.</li>
+> <strong>Service Providers:</strong> We may use third-party services for hosting, analytics, email delivery, and customer support.</li>
+< <li>
+< <strong>Complain:</strong> You have the right to complain to the Information Commissioner&#x27;s Office (<a href="https://ico.org.uk" rel="noopener noreferrer">ico.org.uk</a>). We would welcome the chance to address your concern first.</li>
+< <p>Our primary application database is hosted in the Netherlands. We also use service providers that may process personal data in the UK, EEA and other countries; where required, appropriate international-transfer safeguards are used.</p>
+> <p>Your data is primarily stored and processed in the United Kingdom. Where we use third-party services that process data outside the UK, we ensure appropriate safeguards are in place, such as Standard Contractual Clauses or adequacy decisions.</p>
+

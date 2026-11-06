@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 
 import { getCleanerSession } from '@/lib/auth/session';
 import prisma from '@/lib/db/prisma';
+import { log } from '@/lib/log';
 import stripe from '@/lib/stripe';
 
 // P1 (ledger, the boundary-audit gap): Stripe Express login link — lets a
@@ -30,8 +31,7 @@ export async function POST() {
     const link = await stripe.accounts.createLoginLink(profile.stripeAccountId);
     return NextResponse.json({ url: link.url });
   } catch (error) {
-    // eslint-disable-next-line no-console
-    console.error('[StripeLoginLink] Failed for user', user.id, error);
+    log.error('stripe_login_link', 'failed_for_user', {}, error);
     return NextResponse.json(
       { error: 'Could not open your payouts dashboard. Please try again.' },
       { status: 502 }

@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 
 import { getAdminSession } from '@/lib/auth/session';
 import prisma from '@/lib/db/prisma';
+import { log } from '@/lib/log';
 import { AuditService } from '@/lib/services/audit.service';
 import { resolveProfileImageUrl } from '@/lib/storage/r2-client';
 import { sanitizeInput } from '@/lib/utils/validation';
@@ -128,8 +129,7 @@ export async function GET() {
 
     return NextResponse.json({ cleaners, count: cleaners.length });
   } catch (error) {
-    // eslint-disable-next-line no-console
-    console.error('[AdminImportedReviews] List failed:', error);
+    log.error('admin_imported_reviews', 'list_failed', {}, error);
     return NextResponse.json({ error: 'Internal server error.' }, { status: 500 });
   }
 }
@@ -205,8 +205,7 @@ export async function POST(request: NextRequest) {
       { status: 201 }
     );
   } catch (error) {
-    // eslint-disable-next-line no-console
-    console.error('[AdminImportedReviews] Create failed:', error);
+    log.error('admin_imported_reviews', 'create_failed', {}, error);
     return NextResponse.json({ error: 'Internal server error.' }, { status: 500 });
   }
 }

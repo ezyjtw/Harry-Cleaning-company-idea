@@ -32,8 +32,7 @@ export async function POST(request: NextRequest) {
   for (let i = 0; i < secrets.length; i++) {
     try {
       event = stripe.webhooks.constructEvent(rawBody, signature, secrets[i]);
-      // eslint-disable-next-line no-console
-      console.log(`[Stripe Webhook] Verified with secret ${i + 1} of ${secrets.length}`);
+      log.info('stripe_webhook', 'verified_with_secret_of', {});
       break;
     } catch {
       // Try next secret
@@ -41,8 +40,7 @@ export async function POST(request: NextRequest) {
   }
 
   if (!event) {
-    // eslint-disable-next-line no-console
-    console.error('[Stripe Webhook] Signature verification failed against all configured secrets');
+    log.error('stripe_webhook', 'signature_verification_failed_against_all', {});
     return NextResponse.json({ error: 'Invalid signature' }, { status: 400 });
   }
 
@@ -219,10 +217,7 @@ export async function POST(request: NextRequest) {
           },
           data: { paymentStatus: 'FAILED' },
         });
-        // eslint-disable-next-line no-console
-        console.log(
-          `[RecurringCharge] payment_failed webhook for occurrence ${bookingId} — marked FAILED, messaging owned by the charge service`
-        );
+        log.info('recurring_charge', 'payment_failed_webhook_for_occurrence', { bookingId });
         await markProcessed();
         return NextResponse.json({ received: true });
       }
@@ -379,10 +374,7 @@ export async function POST(request: NextRequest) {
     const bookingRef = booking
       ? booking.id.substring(0, 8).toUpperCase()
       : `charge ${chargeId ?? 'unknown'}`;
-    // eslint-disable-next-line no-console
-    console.error(
-      `[Dispute] OPENED ${dispute.id} on ${bookingRef} — £${(dispute.amount / 100).toFixed(2)}, respond by ${dueBy ?? 'UNKNOWN'}`
-    );
+    log.error('dispute', 'opened_on_respond_by', { disputeId: dispute.id, bookingRef });
     const { sendAdminDisputeOpened } = await import('@/lib/services/email.service');
     await sendAdminDisputeOpened({
       bookingRef,
@@ -392,8 +384,7 @@ export async function POST(request: NextRequest) {
       reason: dispute.reason || 'not given',
       evidenceDueBy: dueBy,
     }).catch((e) => {
-      // eslint-disable-next-line no-console
-      console.error(`[Dispute] alert email FAILED for ${dispute.id} — banner still shows it`, e);
+      log.error('dispute', 'alert_email_failed_for_banner', { disputeId: dispute.id }, e);
     });
   }
 
@@ -414,10 +405,11 @@ export async function POST(request: NextRequest) {
       ? await prisma.booking.findUnique({ where: { stripeChargeId: chargeId } })
       : null;
     if (!booking) {
-      // eslint-disable-next-line no-console
-      console.error(
-        `[xero-push] dispute ${dispute.id} (${event.type}) has no matching booking for charge ${chargeId} — NOT booked to Xero`
-      );
+      log.error('xero_push', 'dispute_has_no_matching_booking', {
+        disputeId: dispute.id,
+        type: event.type,
+        chargeId,
+      });
     } else {
       const withdrawn = event.type === 'charge.dispute.funds_withdrawn';
       const amountPounds = dispute.amount / 100;

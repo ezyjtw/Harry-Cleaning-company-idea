@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 
 import { getAdminSession } from '@/lib/auth/session';
+import { log } from '@/lib/log';
 import { getChartOfAccounts } from '@/lib/services/xero.service';
 
 export const runtime = 'nodejs';
@@ -22,8 +23,7 @@ export async function GET() {
     }
     return NextResponse.json({ accounts });
   } catch (err) {
-    // eslint-disable-next-line no-console
-    console.error('[xero] getAccounts failed:', err);
+    log.error('xero', 'get_accounts_failed', {}, err);
     return NextResponse.json({ error: 'Could not read the chart of accounts.' }, { status: 502 });
   }
 }

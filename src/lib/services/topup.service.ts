@@ -132,7 +132,6 @@ export async function executeTopup(bookingId: string): Promise<TopupResult> {
   const attempt = topupRecord.attempt + 1;
   const idempotencyKey = `topup_${topupRecord.id}_v${attempt}`;
 
-  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- savedMethodId is set when methodIsReusable is true
   if (methodIsReusable && savedMethodId && stripeCustomerId) {
     return executeOffSessionTopup(
       booking,
@@ -603,15 +602,11 @@ async function writeTopupSuccess(
   // above correctly sends neither (no new acceptance happened).
   const { BookingReminderService } = await import('./booking-reminder.service');
   await BookingReminderService.scheduleReminders(booking.id).catch((e) => {
-    // eslint-disable-next-line no-console
-    console.error(`[Topup] Reminder scheduling failed for ${booking.id}:`, e);
+    log.error('topup', 'reminder_scheduling_failed_for', { bookingId: booking.id }, e);
   });
   const { sendCleanerAcceptedBooking } = await import('./email.service');
   const sent = await sendCleanerAcceptedBooking(booking.id).catch(() => false);
-  // eslint-disable-next-line no-console
-  console.log(
-    `[Topup] Acceptance email for ${booking.id} after top-up finalize — ${sent ? 'sent' : 'NOT sent'}`
-  );
+  log.info('topup', 'acceptance_email_for_after_top', { bookingId: booking.id, ok: sent });
   return 'ASSIGNED';
 }
 

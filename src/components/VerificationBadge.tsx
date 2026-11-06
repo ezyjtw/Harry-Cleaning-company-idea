@@ -1,31 +1,28 @@
-import { getVerificationLevel, getVerificationBadge } from "@/lib/trust";
+import { getVerificationLevel, getVerificationBadge } from '@/lib/trust';
 
 interface Props {
   identityVerified: boolean;
   backgroundChecked: boolean;
-  size?: "sm" | "md";
+  size?: 'sm' | 'md';
 }
 
 export default function VerificationBadge({
   identityVerified,
   backgroundChecked,
-  size = "sm",
+  size = 'sm',
 }: Props) {
   const level = getVerificationLevel(identityVerified, backgroundChecked);
   const badge = getVerificationBadge(level);
 
-  if (level === "unverified") return null;
+  if (level === 'unverified') return null;
 
-  const sizeClasses =
-    size === "md"
-      ? "px-3 py-1 text-sm"
-      : "px-2 py-0.5 text-xs";
+  const sizeClasses = size === 'md' ? 'px-3 py-1 text-sm' : 'px-2 py-0.5 text-xs';
 
   return (
     <span
       className={`inline-flex items-center gap-1.5 rounded-full font-medium ring-1 ring-inset ${badge.color} ${sizeClasses}`}
     >
-      {level === "full" ? (
+      {level === 'full' ? (
         <svg className="h-3.5 w-3.5" fill="currentColor" viewBox="0 0 20 20">
           <path
             fillRule="evenodd"

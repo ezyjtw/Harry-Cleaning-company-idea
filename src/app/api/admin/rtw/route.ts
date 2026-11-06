@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 
 import { getAdminSession } from '@/lib/auth/session';
 import { resolveClientIp } from '@/lib/http/client-ip';
+import { log } from '@/lib/log';
 import { RightToWorkService } from '@/lib/services/right-to-work.service';
 import { isValidShareCode } from '@/lib/validation/inputs';
 
@@ -38,8 +39,7 @@ export async function GET(request: NextRequest) {
     const expiring = await RightToWorkService.getExpiringDocuments(days);
     return NextResponse.json({ expiring, count: expiring.length, withinDays: days });
   } catch (error) {
-    // eslint-disable-next-line no-console
-    console.error('[AdminRTW] Error:', error);
+    log.error('admin_rtw', 'error', {}, error);
     return NextResponse.json({ error: 'Failed to fetch RTW data' }, { status: 500 });
   }
 }
@@ -111,8 +111,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
   } catch (error) {
-    // eslint-disable-next-line no-console
-    console.error('[AdminRTW] Error:', error);
+    log.error('admin_rtw', 'error', {}, error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Failed to process RTW action' },
       { status: 500 }

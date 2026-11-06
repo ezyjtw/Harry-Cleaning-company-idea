@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 
 import { revokeAllSessions } from '@/lib/auth/device-session';
 import { getAdminSession, getSessionUser } from '@/lib/auth/session';
+import { log } from '@/lib/log';
 import { GdprService } from '@/lib/services/gdpr.service';
 
 // ─── POST /api/gdpr/deletion ─── Request data deletion ──
@@ -123,8 +124,7 @@ export async function POST(request: NextRequest) {
         'Your account has been deactivated. Your data will be erased within 30 days, except records we are legally required to keep (e.g. booking and tax records).',
     });
   } catch (error) {
-    // eslint-disable-next-line no-console
-    console.error('[GDPR] Deletion request error:', error);
+    log.error('gdpr', 'deletion_request_error', {}, error);
     return NextResponse.json({ error: 'Failed to submit deletion request' }, { status: 500 });
   }
 }
@@ -143,8 +143,7 @@ export async function GET() {
     const requests = await GdprService.getPendingDeletionRequests();
     return NextResponse.json({ requests });
   } catch (error) {
-    // eslint-disable-next-line no-console
-    console.error('[GDPR] Fetch deletion requests error:', error);
+    log.error('gdpr', 'fetch_deletion_requests_error', {}, error);
     return NextResponse.json({ error: 'Failed to fetch deletion requests' }, { status: 500 });
   }
 }

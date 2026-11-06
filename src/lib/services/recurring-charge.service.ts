@@ -43,8 +43,7 @@ function occurrenceStart(date: Date, startTime: string): number {
 async function sendPayNow(bookingId: string): Promise<void> {
   const { sendOccurrencePayNow } = await import('@/lib/services/email.service');
   await sendOccurrencePayNow(bookingId).catch((e) => {
-    // eslint-disable-next-line no-console
-    console.error(`[RecurringCharge] pay-now email failed for ${bookingId}:`, e);
+    log.error('recurring_charge', 'pay_now_email_failed_for', { bookingId }, e);
   });
 }
 
@@ -56,10 +55,7 @@ async function failAttempt(bookingId: string, reason: string): Promise<void> {
     where: { id: bookingId },
     data: { paymentStatus: 'FAILED' },
   });
-  // eslint-disable-next-line no-console
-  console.log(
-    `[RecurringCharge] SINGLE ATTEMPT FAILED for ${bookingId}: ${reason} — pay-now email sent`
-  );
+  log.info('recurring_charge', 'single_attempt_failed_for_pay', { bookingId, reason });
   await sendPayNow(bookingId);
   // R10 Lane 1 (James-ruled): the hold-begin BELL rides the email — slot
   // held, payment needed, the deadline stated. Best-effort, never blocks.
@@ -237,14 +233,9 @@ export async function attemptOccurrenceCharge(
             chargeId: chargeId ?? null,
           },
         });
-        // eslint-disable-next-line no-console
-        console.log(`[RecurringCharge] charge SUCCEEDED for occurrence ${b.id} (${outcome})`);
+        log.info('recurring_charge', 'charge_succeeded_for_occurrence', { bId: b.id, outcome });
       } catch (postErr) {
-        // eslint-disable-next-line no-console
-        console.error(
-          `[RecurringCharge] charge SUCCEEDED for ${b.id} but post-processing failed — sweep will complete it:`,
-          postErr
-        );
+        log.error('recurring_charge', 'charge_succeeded_for_but_post', { bId: b.id }, postErr);
       }
       return 'succeeded';
     }
@@ -526,10 +517,10 @@ export async function cancelUnpaidOccurrences(): Promise<{ processed: number }> 
         select: { paymentStatus: true, status: true },
       });
       if (nowRow?.paymentStatus === 'SUCCEEDED') {
-        // eslint-disable-next-line no-console
-        console.error(
-          `[RecurringCharge] CANCEL SWEEP MET A PAID OCCURRENCE ${b.id} inside the T-24h window (status ${nowRow.status}) — skipped, INVESTIGATE how it got here`
-        );
+        log.error('recurring_charge', 'cancel_sweep_met_a_paid', {
+          bId: b.id,
+          status: nowRow.status,
+        });
       }
       continue;
     }
@@ -539,16 +530,11 @@ export async function cancelUnpaidOccurrences(): Promise<{ processed: number }> 
       await stripe.paymentIntents.cancel(b.stripePaymentIntentId).catch(() => {});
     }
 
-    const dateStr = b.date.toISOString().split('T')[0];
-    // eslint-disable-next-line no-console
-    console.log(
-      `[RecurringCharge] UNPAID AT T-24h — occurrence ${b.id} (${dateStr}) auto-cancelled; agreement untouched`
-    );
+    log.info('recurring_charge', 'unpaid_at_t_24h_occurrence', { bId: b.id });
 
     const { sendOccurrenceAutoCancelled } = await import('@/lib/services/email.service');
     await sendOccurrenceAutoCancelled(b.id).catch((e) => {
-      // eslint-disable-next-line no-console
-      console.error(`[RecurringCharge] auto-cancel email failed for ${b.id}:`, e);
+      log.error('recurring_charge', 'auto_cancel_email_failed_for', { bId: b.id }, e);
     });
     // R10 Lane 1 (James-ruled): the honest release notice reaches the
     // CUSTOMER as a bell too, not only the email. Best-effort.

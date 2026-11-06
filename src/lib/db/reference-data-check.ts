@@ -1,4 +1,5 @@
 import prisma from '@/lib/db/prisma';
+import { log } from '@/lib/log';
 
 class ReferenceDataMissingError extends Error {
   constructor(message: string) {
@@ -24,8 +25,7 @@ export async function checkReferenceDataIntegrity(): Promise<void> {
       }
     } catch (err) {
       if (err instanceof ReferenceDataMissingError) throw err;
-      // eslint-disable-next-line no-console
-      console.warn('[Integrity check] Could not verify reference data:', err);
+      log.warn('integrity_check', 'could_not_verify_reference_data', {}, err);
     }
   })();
   return integrityCheckPromise;

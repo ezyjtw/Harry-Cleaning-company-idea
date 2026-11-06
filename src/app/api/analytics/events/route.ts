@@ -2,6 +2,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
 import { getSessionUser } from '@/lib/auth/session';
+import { log } from '@/lib/log';
 import { getClientIp, rateLimit } from '@/lib/rate-limit';
 import { AnalyticsTrackingService } from '@/lib/services/analytics-tracking.service';
 
@@ -91,8 +92,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    // eslint-disable-next-line no-console
-    console.error('[Analytics] Event capture error:', error);
+    log.error('analytics', 'event_capture_error', {}, error);
     return NextResponse.json({ error: 'Failed to capture event' }, { status: 500 });
   }
 }

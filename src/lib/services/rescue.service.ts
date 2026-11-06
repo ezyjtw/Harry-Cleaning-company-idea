@@ -36,6 +36,7 @@
 import { assignCleaner } from '@/lib/booking/assign';
 import { serviceLabelFromSlug } from '@/lib/constants/services';
 import { prisma } from '@/lib/db/prisma';
+import { log } from '@/lib/log';
 import {
   NONEXISTENT_TIME_MESSAGE,
   bookingStartOrDayStartUtc,
@@ -556,17 +557,13 @@ export async function sweepRescueTimeouts(): Promise<{ scanned: number; refunded
   let refunded = 0;
   for (const b of due) {
     try {
-      // eslint-disable-next-line no-console
-      console.warn(
-        `[RESCUE-SWEEP] booking ${b.id}: no customer choice by deadline — auto-refunding in full`
-      );
+      log.warn('rescue_sweep', 'booking_no_customer_choice_by', { bId: b.id });
       const result = await rescueChooseRefund({ bookingId: b.id, actor: 'sweep' });
       if (result.ok) refunded++;
       // A late customer click that won the race leaves this a clean no-op
       // (executeCancellation's claim fails → ok:false) — coherent either way.
     } catch (err) {
-      // eslint-disable-next-line no-console
-      console.error(`[RESCUE-SWEEP] failed for booking ${b.id}:`, err);
+      log.error('rescue_sweep', 'failed_for_booking', { bId: b.id }, err);
     }
   }
   return { scanned: due.length, refunded };

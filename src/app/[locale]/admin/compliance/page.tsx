@@ -198,6 +198,545 @@ function SubjectAccessRequests() {
   );
 }
 
+// B7.8 (RENA-072): the three governance sections the API already serves
+// (dpa, breaches, ico) with the existing POST actions. Ids and counts only in
+// anything that could reach a log; free text stays in the record.
+interface Dpa {
+  id: string;
+  processorName: string;
+  processorType: string;
+  status: string;
+  agreementDate: string | null;
+  expiryDate: string | null;
+  reviewDate: string | null;
+  documentRef: string | null;
+}
+interface Breach {
+  id: string;
+  title: string;
+  severity: string;
+  status: string;
+  detectedAt: string;
+  reportedToIcoAt: string | null;
+  isNotifiable: boolean;
+  individualsAffected: number;
+}
+interface Ico {
+  registrationNumber: string | null;
+  registeredName: string;
+  renewalDate: string | null;
+  status: string;
+  dpoName: string | null;
+  dpoEmail: string | null;
+}
+
+const fmtDate = (iso: string | null | undefined) =>
+  iso ? new Date(iso).toLocaleDateString('en-GB') : 'n/a';
+const hoursSince = (iso: string) => Math.floor((Date.now() - new Date(iso).getTime()) / 3600000);
+
+function useCompliancePost(onDone: () => Promise<void>) {
+  const [message, setMessage] = useState('');
+  const [busy, setBusy] = useState(false);
+  const post = async (body: Record<string, unknown>) => {
+    setBusy(true);
+    setMessage('');
+    try {
+      const res = await fetch('/api/admin/compliance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json().catch(() => null);
+      setMessage(res.ok ? data?.message || 'Saved.' : `Error: ${data?.error || 'Failed.'}`);
+      if (res.ok) await onDone();
+      return res.ok;
+    } catch {
+      setMessage('Network error: could not reach the server.');
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  };
+  return { post, message, busy };
+}
+
+const inputCls =
+  'mt-1 block w-full rounded-[10px] border border-line bg-surface px-3 py-2 text-sm text-ink';
+const btnCls =
+  'rounded-[10px] bg-primary px-4 py-2 font-jost text-sm font-medium text-white disabled:opacity-40';
+const chipCls = (tone: 'ok' | 'warn' | 'danger') =>
+  `inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+    tone === 'ok'
+      ? 'bg-primary-soft text-primary'
+      : tone === 'warn'
+        ? 'bg-warning/10 text-warning'
+        : 'bg-danger/10 text-danger'
+  }`;
+
+function DpaSection() {
+  const [rows, setRows] = useState<Dpa[]>([]);
+  const [form, setForm] = useState({
+    processorName: '',
+    processorType: 'hosting',
+    agreementDate: '',
+    expiryDate: '',
+    documentRef: '',
+  });
+  const load = useCallback(async () => {
+    const res = await fetch('/api/admin/compliance?section=dpa');
+    const data = await res.json().catch(() => null);
+    setRows(Array.isArray(data?.agreements) ? data.agreements : []);
+  }, []);
+  const { post, message, busy } = useCompliancePost(load);
+  useEffect(() => {
+    load();
+  }, [load]);
+  return (
+    <section className="mt-10" data-testid="dpa-section">
+      <h2 className="text-xl font-semibold text-ink">Data processing agreements</h2>
+      <p className="mt-1 max-w-2xl text-sm text-ink-2">
+        One row per processor (docs/ops/processors.md lists the processors the code uses). Status
+        PENDING until the signed agreement reference is entered.
+      </p>
+      <form
+        className="mt-4 grid max-w-3xl grid-cols-1 gap-3 sm:grid-cols-5"
+        onSubmit={async (e) => {
+          e.preventDefault();
+          if (await post({ action: 'create_dpa', ...form, status: 'PENDING' })) {
+            setForm({
+              processorName: '',
+              processorType: 'hosting',
+              agreementDate: '',
+              expiryDate: '',
+              documentRef: '',
+            });
+          }
+        }}
+      >
+        <label className="text-sm text-ink-2">
+          Processor
+          <input
+            required
+            value={form.processorName}
+            onChange={(e) => setForm({ ...form, processorName: e.target.value })}
+            className={inputCls}
+          />
+        </label>
+        <label className="text-sm text-ink-2">
+          Type
+          <select
+            value={form.processorType}
+            onChange={(e) => setForm({ ...form, processorType: e.target.value })}
+            className={inputCls}
+          >
+            {[
+              'payment_processor',
+              'email_provider',
+              'sms_provider',
+              'hosting',
+              'storage',
+              'analytics',
+              'push',
+              'ai',
+              'mapping',
+              'accounting',
+            ].map((t) => (
+              <option key={t} value={t}>
+                {t}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="text-sm text-ink-2">
+          Agreement date
+          <input
+            type="date"
+            value={form.agreementDate}
+            onChange={(e) => setForm({ ...form, agreementDate: e.target.value })}
+            className={inputCls}
+          />
+        </label>
+        <label className="text-sm text-ink-2">
+          Expiry
+          <input
+            type="date"
+            value={form.expiryDate}
+            onChange={(e) => setForm({ ...form, expiryDate: e.target.value })}
+            className={inputCls}
+          />
+        </label>
+        <label className="text-sm text-ink-2">
+          Signed ref
+          <input
+            value={form.documentRef}
+            onChange={(e) => setForm({ ...form, documentRef: e.target.value })}
+            className={inputCls}
+          />
+        </label>
+        <div className="sm:col-span-5">
+          <button type="submit" disabled={busy} className={btnCls}>
+            Add agreement
+          </button>
+        </div>
+      </form>
+      {message && <p className="mt-3 text-sm text-ink-2">{message}</p>}
+      {rows.length === 0 ? (
+        <p className="mt-4 text-sm text-ink-3">No agreements recorded.</p>
+      ) : (
+        <ul className="mt-4 space-y-2">
+          {rows.map((r) => (
+            <li
+              key={r.id}
+              className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line bg-surface px-4 py-3"
+            >
+              <div>
+                <span className="font-medium text-ink">{r.processorName}</span>
+                <span className="ml-2 text-xs text-ink-3">{r.processorType}</span>
+                <span
+                  className={`ml-2 ${chipCls(r.status === 'ACTIVE' ? 'ok' : r.status === 'EXPIRED' || r.status === 'TERMINATED' ? 'danger' : 'warn')}`}
+                >
+                  {r.status}
+                </span>
+                <p className="mt-0.5 text-xs text-ink-3">
+                  Signed {fmtDate(r.agreementDate)}. Expires {fmtDate(r.expiryDate)}. Review{' '}
+                  {fmtDate(r.reviewDate)}.{r.documentRef ? ` Ref ${r.documentRef}.` : ''}
+                </p>
+              </div>
+              {r.status !== 'ACTIVE' && r.status !== 'TERMINATED' && (
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => post({ action: 'update_dpa', dpaId: r.id, status: 'ACTIVE' })}
+                  className="rounded-[10px] border border-line px-3 py-1.5 font-jost text-sm text-ink-2 hover:bg-page disabled:opacity-40"
+                >
+                  Mark active
+                </button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+function BreachSection() {
+  const [rows, setRows] = useState<Breach[]>([]);
+  const [icoRefs, setIcoRefs] = useState<Record<string, string>>({});
+  const [form, setForm] = useState({
+    title: '',
+    description: '',
+    severity: 'MEDIUM',
+    individualsAffected: '0',
+    isNotifiable: false,
+  });
+  const load = useCallback(async () => {
+    const res = await fetch('/api/admin/compliance?section=breaches');
+    const data = await res.json().catch(() => null);
+    setRows(Array.isArray(data?.breaches) ? data.breaches : []);
+  }, []);
+  const { post, message, busy } = useCompliancePost(load);
+  useEffect(() => {
+    load();
+  }, [load]);
+  return (
+    <section className="mt-10" data-testid="breach-section">
+      <h2 className="text-xl font-semibold text-ink">Breach incidents</h2>
+      <p className="mt-1 max-w-2xl text-sm text-ink-2">
+        docs/ops/breach.md is the process. The 72 hour ICO clock runs from detection. No personal
+        data in the title or description: internal ids and counts only.
+      </p>
+      <form
+        className="mt-4 grid max-w-3xl grid-cols-1 gap-3 sm:grid-cols-2"
+        onSubmit={async (e) => {
+          e.preventDefault();
+          if (
+            await post({
+              action: 'report_breach',
+              ...form,
+              individualsAffected: Number(form.individualsAffected) || 0,
+            })
+          ) {
+            setForm({
+              title: '',
+              description: '',
+              severity: 'MEDIUM',
+              individualsAffected: '0',
+              isNotifiable: false,
+            });
+          }
+        }}
+      >
+        <label className="text-sm text-ink-2">
+          Title (no personal data)
+          <input
+            required
+            value={form.title}
+            onChange={(e) => setForm({ ...form, title: e.target.value })}
+            className={inputCls}
+          />
+        </label>
+        <label className="text-sm text-ink-2">
+          Severity
+          <select
+            value={form.severity}
+            onChange={(e) => setForm({ ...form, severity: e.target.value })}
+            className={inputCls}
+          >
+            {['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'].map((t) => (
+              <option key={t} value={t}>
+                {t}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="text-sm text-ink-2 sm:col-span-2">
+          Description (what happened, what was exposed, as ids and counts)
+          <textarea
+            required
+            value={form.description}
+            onChange={(e) => setForm({ ...form, description: e.target.value })}
+            className={inputCls}
+            rows={3}
+          />
+        </label>
+        <label className="text-sm text-ink-2">
+          Individuals affected (count)
+          <input
+            type="number"
+            min={0}
+            value={form.individualsAffected}
+            onChange={(e) => setForm({ ...form, individualsAffected: e.target.value })}
+            className={inputCls}
+          />
+        </label>
+        <label className="flex items-center gap-2 self-end text-sm text-ink-2">
+          <input
+            type="checkbox"
+            checked={form.isNotifiable}
+            onChange={(e) => setForm({ ...form, isNotifiable: e.target.checked })}
+          />
+          Likely notifiable to the ICO
+        </label>
+        <div className="sm:col-span-2">
+          <button type="submit" disabled={busy} className={btnCls}>
+            Report breach
+          </button>
+        </div>
+      </form>
+      {message && <p className="mt-3 text-sm text-ink-2">{message}</p>}
+      {rows.length === 0 ? (
+        <p className="mt-4 text-sm text-ink-3">No incidents recorded.</p>
+      ) : (
+        <ul className="mt-4 space-y-2">
+          {rows.map((r) => {
+            const hours = hoursSince(r.detectedAt);
+            const clockDanger = r.isNotifiable && !r.reportedToIcoAt && hours >= 48;
+            return (
+              <li
+                key={r.id}
+                className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line bg-surface px-4 py-3"
+              >
+                <div>
+                  <span className="font-medium text-ink">{r.title}</span>
+                  <span
+                    className={`ml-2 ${chipCls(r.severity === 'CRITICAL' || r.severity === 'HIGH' ? 'danger' : 'warn')}`}
+                  >
+                    {r.severity}
+                  </span>
+                  <span className={`ml-2 ${chipCls(r.status === 'RESOLVED' ? 'ok' : 'warn')}`}>
+                    {r.status}
+                  </span>
+                  {r.isNotifiable && !r.reportedToIcoAt && (
+                    <span className={`ml-2 ${chipCls(clockDanger ? 'danger' : 'warn')}`}>
+                      ICO clock: {hours}h of 72
+                    </span>
+                  )}
+                  <p className="mt-0.5 text-xs text-ink-3">
+                    Detected {fmtDate(r.detectedAt)}. {r.individualsAffected} affected.
+                    {r.reportedToIcoAt ? ` Reported to the ICO ${fmtDate(r.reportedToIcoAt)}.` : ''}
+                  </p>
+                </div>
+                {r.status !== 'RESOLVED' && (
+                  <div className="flex items-center gap-2">
+                    {r.status === 'DETECTED' && (
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() =>
+                          post({
+                            action: 'update_breach',
+                            breachId: r.id,
+                            status: 'CONTAINED',
+                            containedAt: new Date().toISOString(),
+                          })
+                        }
+                        className="rounded-[10px] border border-line px-3 py-1.5 font-jost text-sm text-ink-2 hover:bg-page disabled:opacity-40"
+                      >
+                        Contained
+                      </button>
+                    )}
+                    {r.isNotifiable && !r.reportedToIcoAt && (
+                      <>
+                        <input
+                          value={icoRefs[r.id] ?? ''}
+                          onChange={(e) => setIcoRefs({ ...icoRefs, [r.id]: e.target.value })}
+                          placeholder="ICO reference"
+                          className="rounded-[10px] border border-line bg-surface px-3 py-1.5 text-sm text-ink"
+                        />
+                        <button
+                          type="button"
+                          disabled={busy || !(icoRefs[r.id] ?? '').trim()}
+                          onClick={() =>
+                            post({
+                              action: 'update_breach',
+                              breachId: r.id,
+                              status: 'REPORTED_TO_ICO',
+                              reportedToIcoAt: new Date().toISOString(),
+                              icoNotificationRef: (icoRefs[r.id] ?? '').trim(),
+                            })
+                          }
+                          className="rounded-[10px] border border-line px-3 py-1.5 font-jost text-sm text-ink-2 hover:bg-page disabled:opacity-40"
+                        >
+                          Reported to ICO
+                        </button>
+                      </>
+                    )}
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() =>
+                        post({
+                          action: 'update_breach',
+                          breachId: r.id,
+                          status: 'RESOLVED',
+                          resolvedAt: new Date().toISOString(),
+                        })
+                      }
+                      className={btnCls}
+                    >
+                      Resolved
+                    </button>
+                  </div>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+function IcoSection() {
+  const [reg, setReg] = useState<Ico | null>(null);
+  const [form, setForm] = useState({
+    registrationNumber: '',
+    registeredName: 'Rena Cleaning Network',
+    renewalDate: '',
+    dpoName: '',
+    dpoEmail: '',
+  });
+  const load = useCallback(async () => {
+    const res = await fetch('/api/admin/compliance?section=ico');
+    const data = await res.json().catch(() => null);
+    const r = data?.registration ?? null;
+    setReg(r);
+    if (r)
+      setForm({
+        registrationNumber: r.registrationNumber ?? '',
+        registeredName: r.registeredName ?? '',
+        renewalDate: r.renewalDate ? r.renewalDate.slice(0, 10) : '',
+        dpoName: r.dpoName ?? '',
+        dpoEmail: r.dpoEmail ?? '',
+      });
+  }, []);
+  const { post, message, busy } = useCompliancePost(load);
+  useEffect(() => {
+    load();
+  }, [load]);
+  return (
+    <section className="mt-10" data-testid="ico-section">
+      <h2 className="text-xl font-semibold text-ink">ICO registration</h2>
+      <p className="mt-1 max-w-2xl text-sm text-ink-2">
+        The registration reference and renewal date are entered here by James; the record is empty
+        until then.{' '}
+        {reg ? (
+          <span>
+            Current:{' '}
+            <span className={chipCls(reg.status === 'ACTIVE' ? 'ok' : 'warn')}>{reg.status}</span>{' '}
+            {reg.registrationNumber ? `ref ${reg.registrationNumber}, ` : ''}renewal{' '}
+            {fmtDate(reg.renewalDate)}.
+          </span>
+        ) : (
+          <span>No registration recorded.</span>
+        )}
+      </p>
+      <form
+        className="mt-4 grid max-w-3xl grid-cols-1 gap-3 sm:grid-cols-2"
+        onSubmit={async (e) => {
+          e.preventDefault();
+          await post({
+            action: 'update_ico',
+            ...form,
+            status: form.registrationNumber ? 'ACTIVE' : 'PENDING',
+          });
+        }}
+      >
+        <label className="text-sm text-ink-2">
+          Registration reference
+          <input
+            value={form.registrationNumber}
+            onChange={(e) => setForm({ ...form, registrationNumber: e.target.value })}
+            className={inputCls}
+          />
+        </label>
+        <label className="text-sm text-ink-2">
+          Registered name
+          <input
+            required
+            value={form.registeredName}
+            onChange={(e) => setForm({ ...form, registeredName: e.target.value })}
+            className={inputCls}
+          />
+        </label>
+        <label className="text-sm text-ink-2">
+          Renewal date
+          <input
+            type="date"
+            value={form.renewalDate}
+            onChange={(e) => setForm({ ...form, renewalDate: e.target.value })}
+            className={inputCls}
+          />
+        </label>
+        <label className="text-sm text-ink-2">
+          Data protection contact (name)
+          <input
+            value={form.dpoName}
+            onChange={(e) => setForm({ ...form, dpoName: e.target.value })}
+            className={inputCls}
+          />
+        </label>
+        <label className="text-sm text-ink-2">
+          Data protection contact (email)
+          <input
+            type="email"
+            value={form.dpoEmail}
+            onChange={(e) => setForm({ ...form, dpoEmail: e.target.value })}
+            className={inputCls}
+          />
+        </label>
+        <div className="sm:col-span-2">
+          <button type="submit" disabled={busy} className={btnCls}>
+            Save registration
+          </button>
+        </div>
+      </form>
+      {message && <p className="mt-3 text-sm text-ink-2">{message}</p>}
+    </section>
+  );
+}
+
 export default function AdminCompliancePage() {
   const [requests, setRequests] = useState<DeletionRequest[]>([]);
   const [loading, setLoading] = useState(true);
@@ -268,7 +807,7 @@ export default function AdminCompliancePage() {
   return (
     <div className="p-6 lg:p-10">
       <header className="mb-6">
-        <h1 className="text-2xl font-semibold text-ink">Compliance — data deletion requests</h1>
+        <h1 className="text-2xl font-semibold text-ink">Compliance</h1>
         <p className="mt-1 max-w-2xl text-sm text-ink-2">
           GDPR right-to-erasure requests. Approving executes the erasure immediately and
           irreversibly: the user is anonymised, addresses deleted, identity documents destroyed
@@ -372,6 +911,9 @@ export default function AdminCompliancePage() {
       )}
 
       <SubjectAccessRequests />
+      <DpaSection />
+      <BreachSection />
+      <IcoSection />
     </div>
   );
 }

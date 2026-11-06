@@ -2,6 +2,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
 import prisma from '@/lib/db/prisma';
+import { log } from '@/lib/log';
 import { getClientIp } from '@/lib/rate-limit';
 import { RateLimiter } from '@/lib/utils/security';
 import { normalizeUkPostcode } from '@/lib/validation/inputs';
@@ -59,8 +60,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    // eslint-disable-next-line no-console
-    console.error('Waitlist API error:', error);
+    log.error('waitlist', 'waitlist_api_error', {}, error);
 
     if (error instanceof SyntaxError) {
       return NextResponse.json({ error: 'Invalid request.' }, { status: 400 });

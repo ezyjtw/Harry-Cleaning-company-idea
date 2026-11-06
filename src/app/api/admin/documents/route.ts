@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 
 import { getAdminSession } from '@/lib/auth/session';
 import { resolveClientIp } from '@/lib/http/client-ip';
+import { log } from '@/lib/log';
 import { DocumentStorageService } from '@/lib/services/document-storage.service';
 
 /**
@@ -32,8 +33,7 @@ export async function GET(request: NextRequest) {
     const docs = await DocumentStorageService.getPendingVerification(documentType || undefined);
     return NextResponse.json({ documents: docs, count: docs.length });
   } catch (error) {
-    // eslint-disable-next-line no-console
-    console.error('[AdminDocuments] Error:', error);
+    log.error('admin_documents', 'error', {}, error);
     return NextResponse.json({ error: 'Failed to fetch documents' }, { status: 500 });
   }
 }
@@ -81,8 +81,7 @@ export async function PATCH(request: NextRequest) {
       approved,
     });
   } catch (error) {
-    // eslint-disable-next-line no-console
-    console.error('[AdminDocuments] Verification error:', error);
+    log.error('admin_documents', 'verification_error', {}, error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Failed to verify document' },
       { status: 500 }
@@ -113,8 +112,7 @@ export async function DELETE(request: NextRequest) {
 
     return NextResponse.json({ message: 'Document securely destroyed', documentId });
   } catch (error) {
-    // eslint-disable-next-line no-console
-    console.error('[AdminDocuments] Destroy error:', error);
+    log.error('admin_documents', 'destroy_error', {}, error);
     return NextResponse.json({ error: 'Failed to destroy document' }, { status: 500 });
   }
 }

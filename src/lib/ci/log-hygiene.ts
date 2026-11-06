@@ -7,10 +7,15 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 export const HYGIENE_ROOTS = ['src/lib', 'src/app/api'];
-const SKIP = [/\.test\.tsx?$/, /^src\/lib\/log\.ts$/];
+// nav-trace.ts: the H39 browser-side trap, the one named console exception (B7.13).
+const SKIP = [/\.test\.tsx?$/, /^src\/lib\/log\.ts$/, /^src\/lib\/nav\/nav-trace\.ts$/];
 const CONSOLE = /console\.(log|info|warn|error|debug)\(/;
 const BAD =
   /\b(payload|email|e-mail|phone|mobile|postcode|address|body|htmlBody|subject)\b|\.to\b|\bto\b(?=\s*[,)}])/i;
+// B7.13 (RENA-085, finding f): a raw error object or an object literal passed
+// to console carries whatever the thrower or the caller put in it. Those go
+// through log.ts (reduceError and the field allowlist), never to console.
+const RAW_ERROR_OR_OBJECT = /(^|[\s,(])(error|err|e|cause|exception)\s*(,|$)|(^|[\s,(])\{/;
 
 export function listSourceFiles(dir: string, out: string[] = []): string[] {
   for (const name of readdirSync(dir)) {
@@ -43,7 +48,9 @@ export function violationsInSource(source: string): Array<{ line: number; text: 
       j += 1;
       stmt += `\n${lines[j]}`;
     }
-    if (BAD.test(argumentText(stmt))) hits.push({ line: i + 1, text: lines[i].trim() });
+    const args = argumentText(stmt);
+    if (BAD.test(args) || RAW_ERROR_OR_OBJECT.test(args))
+      hits.push({ line: i + 1, text: lines[i].trim() });
   }
   return hits;
 }

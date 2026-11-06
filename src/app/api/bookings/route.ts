@@ -181,10 +181,7 @@ export async function POST(request: NextRequest) {
         });
         return cs.client_secret;
       } catch (err) {
-        // eslint-disable-next-line no-console
-        console.warn(
-          `[stripe] CustomerSession mint failed: ${err instanceof Error ? err.message : String(err)}`
-        );
+        log.warn('stripe', 'customer_session_mint_failed', {}, err);
         return null;
       }
     };
@@ -658,11 +655,7 @@ export async function POST(request: NextRequest) {
       }
 
       if (attachedBackupIds.length < backupCleanerIds.length) {
-        // eslint-disable-next-line no-console
-        console.warn(
-          `[Booking] Dropped ${backupCleanerIds.length - attachedBackupIds.length} backup(s) failing eligibility/slot checks`,
-          backupCleanerIds.filter((id) => !attachedBackupIds.includes(id))
-        );
+        log.warn('booking', 'dropped_backup_s_failing_eligibility', {});
       }
     }
 
@@ -968,8 +961,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     // Log full detail server-side only; never leak error messages/stack traces to
     // the client (the previous TEMPORARY DEBUG block returned the stack in prod).
-    // eslint-disable-next-line no-console
-    console.error('[POST /api/bookings] Unhandled error:', error);
+    log.error('post_api_bookings', 'unhandled_error', {}, error);
     return NextResponse.json({ error: 'Internal server error.' }, { status: 500 });
   }
 }

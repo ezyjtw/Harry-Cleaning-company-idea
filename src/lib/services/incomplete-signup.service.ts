@@ -207,8 +207,7 @@ export async function sweepIncompleteSignups(
         log.info('incomplete_sweep', 'removed', { userId: c.id });
       }
     } catch (err) {
-      // eslint-disable-next-line no-console
-      console.error(`[IncompleteSweep] failed removing ${c.id}:`, err);
+      log.error('incomplete_sweep', 'failed_removing', { cId: c.id }, err);
     }
   }
   return { processed };

@@ -15,6 +15,7 @@
 
 import { logApiCall } from '@/lib/api-metering';
 import prisma from '@/lib/db/prisma';
+import { log } from '@/lib/log';
 import { lookupPostcode } from '@/lib/utils/postcode';
 
 const ORS_ISOCHRONE_URL = 'https://api.openrouteservice.org/v2/isochrones';
@@ -122,18 +123,14 @@ export function triggerCatchmentRefresh(userId: string): void {
         // H105 rider: mint success is LOUD — H105 was only diagnosable because
         // absence-of-call was silent; this line makes the next absence
         // self-announcing (both-ways logging, matching the heal sweep).
-        // eslint-disable-next-line no-console
-        console.log(`[catchment] polygon minted for ${userId}`);
+        log.info('catchment', 'polygon_minted_for', { userId });
       } else if (r.status === 'failed') {
-        // eslint-disable-next-line no-console
-        console.warn(`[catchment] generation failed for ${userId}: ${r.reason}`);
+        log.warn('catchment', 'generation_failed_for', { userId, reason: r.reason });
       } else {
-        // eslint-disable-next-line no-console
-        console.log(`[catchment] ${r.status} for ${userId}: ${r.reason}`);
+        log.info('catchment', 'for', { status: r.status, userId, reason: r.reason });
       }
     })
     .catch((err) => {
-      // eslint-disable-next-line no-console
-      console.warn(`[catchment] generation crashed for ${userId}:`, err);
+      log.warn('catchment', 'generation_crashed_for', { userId }, err);
     });
 }

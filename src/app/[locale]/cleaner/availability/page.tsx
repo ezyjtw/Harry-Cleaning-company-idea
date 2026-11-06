@@ -435,7 +435,6 @@ export default function AvailabilityPage() {
       }
     }
     setRepeatDraft(d);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [weeklyRanges, repeatDirty]);
 
   const editRepeatDay = (day: DayOfWeek, patch: Partial<RepeatWindow>) => {

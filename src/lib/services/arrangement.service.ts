@@ -15,6 +15,7 @@
 
 import { timeToMinutes } from '@/lib/availability/timesheet';
 import { prisma } from '@/lib/db/prisma';
+import { log } from '@/lib/log';
 
 /** The cleaner's response window (James-ruled: 48 hours). */
 export const ARRANGEMENT_RESPONSE_HOURS = 48;
@@ -108,10 +109,10 @@ export async function acceptArrangement(
   // clashes loudly and never mints into the past.
   const { mintOccurrences } = await import('./recurring.service');
   const mintResult = await mintOccurrences(agreementId).catch((e) => {
-    // eslint-disable-next-line no-console
-    console.error(`[Arrangement] mint after accept failed for ${agreementId}:`, e);
+    log.error('arrangement', 'mint_after_accept_failed_for', { agreementId }, e);
     return null;
   });
+  log.info('arrangement', 'mint_after_accept', { agreementId, ok: mintResult !== null });
 
   // "The first clean charges now" (James-ruled) — the earliest minted
   // occurrence takes the shared single attempt immediately. Failure follows
@@ -129,21 +130,14 @@ export async function acceptArrangement(
   } else {
     // Start date clashed away or lapsed — ACTIVE with nothing minted yet is a
     // finding, not noise.
-    // eslint-disable-next-line no-console
-    console.error(
-      `[Arrangement] ACCEPTED ${agreementId} but no occurrence existed to charge (mint: ${JSON.stringify(mintResult)}) — INVESTIGATE`
-    );
+    log.error('arrangement', 'accepted_but_no_occurrence_existed', { agreementId });
   }
 
-  // eslint-disable-next-line no-console
-  console.log(
-    `[Arrangement] ACCEPTED ${agreementId} by cleaner — first occurrence ${first?.id ?? 'none'}, charge ${chargeOutcome}`
-  );
+  log.info('arrangement', 'accepted_by_cleaner_first_occurrence', { agreementId });
 
   const { sendArrangementAccepted } = await import('./email.service');
   await sendArrangementAccepted(agreementId, chargeOutcome).catch((e) => {
-    // eslint-disable-next-line no-console
-    console.error(`[Arrangement] accepted email failed for ${agreementId}:`, e);
+    log.error('arrangement', 'accepted_email_failed_for', { agreementId }, e);
   });
   await notifyCustomer(
     agreementId,
@@ -174,13 +168,11 @@ export async function declineArrangement(
     return { ok: false, error: 'This request is no longer open.', status: 409 };
   }
 
-  // eslint-disable-next-line no-console
-  console.log(`[Arrangement] DECLINED ${agreementId} by cleaner — no charge, customer notified`);
+  log.info('arrangement', 'declined_by_cleaner_no_charge', { agreementId });
 
   const { sendArrangementDeclined } = await import('./email.service');
   await sendArrangementDeclined(agreementId, 'DECLINED').catch((e) => {
-    // eslint-disable-next-line no-console
-    console.error(`[Arrangement] declined email failed for ${agreementId}:`, e);
+    log.error('arrangement', 'declined_email_failed_for', { agreementId }, e);
   });
   await notifyCustomer(
     agreementId,
@@ -229,8 +221,7 @@ export async function withdrawArrangement(
     };
   }
 
-  // eslint-disable-next-line no-console
-  console.log(`[Arrangement] WITHDRAWN ${agreementId} by customer — no charge, cleaner notified`);
+  log.info('arrangement', 'withdrawn_by_customer_no_charge', { agreementId });
 
   await prisma.notification
     .create({
@@ -271,13 +262,11 @@ export async function expirePendingArrangements(): Promise<{ processed: number }
     processed++;
 
     // The watched-set line (James-ruled, verbatim shape).
-    // eslint-disable-next-line no-console
-    console.log(`[Arrangement] PENDING expired for ${a.id} — no charge, customer notified`);
+    log.info('arrangement', 'pending_expired_for_no_charge', { aId: a.id });
 
     const { sendArrangementDeclined } = await import('./email.service');
     await sendArrangementDeclined(a.id, 'EXPIRED').catch((e) => {
-      // eslint-disable-next-line no-console
-      console.error(`[Arrangement] expiry email failed for ${a.id}:`, e);
+      log.error('arrangement', 'expiry_email_failed_for', { aId: a.id }, e);
     });
     await notifyCustomer(
       a.id,

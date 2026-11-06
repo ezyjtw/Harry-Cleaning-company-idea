@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server';
 import { getSessionUser } from '@/lib/auth/session';
 import { timeToMinutes } from '@/lib/availability/timesheet';
 import { prisma } from '@/lib/db/prisma';
+import { log } from '@/lib/log';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 import { ARRANGEMENT_RESPONSE_HOURS } from '@/lib/services/arrangement.service';
 import { pricingService } from '@/lib/services/pricing.service';
@@ -278,17 +279,13 @@ export async function POST(request: NextRequest) {
     throw err;
   }
 
-  // eslint-disable-next-line no-console
-  console.log(
-    `[Arrangement] proposal ${agreement.id} created (${frequency}, start ${startDate}) — pending cleaner acceptance until ${respondBy.toISOString()}`
-  );
+  log.info('arrangement', 'proposal_created_start_pending_cleaner', { agreementId: agreement.id });
 
   // Tell the cleaner — email + bell. Failures are loud but never unwind the
   // proposal (the request card on their surfaces is the source of truth).
   const { sendArrangementRequest } = await import('@/lib/services/email.service');
   await sendArrangementRequest(agreement.id).catch((e) => {
-    // eslint-disable-next-line no-console
-    console.error(`[Arrangement] request email failed for ${agreement.id}:`, e);
+    log.error('arrangement', 'request_email_failed_for', { agreementId: agreement.id }, e);
   });
   await prisma.notification
     .create({

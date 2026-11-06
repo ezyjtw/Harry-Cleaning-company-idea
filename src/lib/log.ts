@@ -250,7 +250,20 @@ function emit(
   /* eslint-enable no-console */
 }
 
+/**
+ * B7.13 (RENA-085): the scheduler's summary line keeps its exact bytes
+ * (`[Scheduler] {json}`, and `[Scheduler] skipped: lease held {json}`) so the
+ * seven day watch, the register and the deploy-log readers keep reading it.
+ * Counts and statuses only: the payload is the scheduler's own summary.
+ */
+export function summary(tag: string, payload: object, note?: string): void {
+  /* eslint-disable no-console */
+  console.log(note ? `[${tag}] ${note}` : `[${tag}]`, JSON.stringify(payload));
+  /* eslint-enable no-console */
+}
+
 export const log = {
+  summary,
   debug: (scope: string, event: string, fields?: LogFields) => emit('debug', scope, event, fields),
   info: (scope: string, event: string, fields?: LogFields) => emit('info', scope, event, fields),
   warn: (scope: string, event: string, fields?: LogFields, err?: unknown) =>

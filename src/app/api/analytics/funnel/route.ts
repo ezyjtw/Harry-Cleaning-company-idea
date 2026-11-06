@@ -2,6 +2,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
 import { getAdminSession } from '@/lib/auth/session';
+import { log } from '@/lib/log';
 import { AnalyticsTrackingService } from '@/lib/services/analytics-tracking.service';
 import type { FunnelType } from '@/lib/services/analytics-tracking.service';
 
@@ -50,8 +51,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ funnel, view, data });
   } catch (error) {
-    // eslint-disable-next-line no-console
-    console.error('[Analytics] Funnel query error:', error);
+    log.error('analytics', 'funnel_query_error', {}, error);
     return NextResponse.json({ error: 'Failed to fetch funnel data' }, { status: 500 });
   }
 }

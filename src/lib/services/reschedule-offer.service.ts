@@ -23,6 +23,7 @@ import { blocksCleanerSlotWhere } from '@/lib/availability/slot-eligibility';
 import { timeToMinutes } from '@/lib/availability/timesheet';
 import { assignCleaner } from '@/lib/booking/assign';
 import { prisma } from '@/lib/db/prisma';
+import { log } from '@/lib/log';
 import {
   NONEXISTENT_TIME_MESSAGE,
   bookingStartOrDayStartUtc,
@@ -384,8 +385,7 @@ export async function resolveRescheduleOffer(params: {
   if (claim.count === 0) {
     // The booking moved but the offer was resolved concurrently — restore is
     // NOT attempted (the move was customer-authorized either way); log loudly.
-    // eslint-disable-next-line no-console
-    console.error(`[Reschedule] offer ${offer.id} raced its own resolution after the move`);
+    log.error('reschedule', 'offer_raced_its_own_resolution', { offerId: offer.id });
   }
 
   await prisma.notification

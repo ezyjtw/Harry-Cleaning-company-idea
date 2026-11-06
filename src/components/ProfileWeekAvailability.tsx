@@ -28,9 +28,7 @@ function fmt(t: string): string {
 
 export default function ProfileWeekAvailability({ slots }: { slots: Slot[] }) {
   if (!slots || slots.length === 0) {
-    return (
-      <p className="font-jost text-[14px] font-light text-ink-3">Availability not set yet.</p>
-    );
+    return <p className="font-jost text-[14px] font-light text-ink-3">Availability not set yet.</p>;
   }
 
   return (

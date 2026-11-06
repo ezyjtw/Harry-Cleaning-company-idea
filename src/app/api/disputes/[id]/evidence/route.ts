@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server';
 
 import { getSessionUser } from '@/lib/auth/session';
 import prisma from '@/lib/db/prisma';
+import { log } from '@/lib/log';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 import { AuditService } from '@/lib/services/audit.service';
 import { DisputeEvidenceService } from '@/lib/services/dispute-evidence.service';
@@ -176,8 +177,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     );
   } catch (error) {
     // H23: no more silent 500s on this family of routes.
-    // eslint-disable-next-line no-console
-    console.error('[DisputeEvidence] Request failed:', error);
+    log.error('dispute_evidence', 'request_failed', {}, error);
     return NextResponse.json({ error: 'Internal server error.' }, { status: 500 });
   }
 }

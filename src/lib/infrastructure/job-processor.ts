@@ -73,8 +73,7 @@ export async function processNextBatch(batchSize: number = 10): Promise<number> 
         where: { id: job.id },
         data: { status: 'FAILED', lastError: `No handler for job type: ${job.type}` },
       });
-      // eslint-disable-next-line no-console
-      console.warn(`[JobProcessor] No handler for job type: ${job.type}`);
+      log.warn('job_processor', 'no_handler_for_job_type', { type: job.type });
       continue;
     }
 
@@ -101,8 +100,7 @@ export async function processNextBatch(batchSize: number = 10): Promise<number> 
         data: { status: newStatus, lastError: errorMessage },
       });
 
-      // eslint-disable-next-line no-console
-      console.error(`[JobProcessor] Job ${job.id} failed:`, errorMessage);
+      log.error('job_processor', 'job_failed', { jobId: job.id });
     }
   }
 
@@ -153,12 +151,10 @@ registerJobHandler('SEND_EMAIL', async (payload) => {
           }
         }
       } else {
-        // eslint-disable-next-line no-console
-        console.log('[JobProcessor] VAPID keys not configured, skipping push notification');
+        log.info('job_processor', 'vapid_keys_not_configured_skipping', {});
       }
     } catch {
-      // eslint-disable-next-line no-console
-      console.log('[JobProcessor] web-push not available or push failed');
+      log.info('job_processor', 'web_push_not_available_or', {});
     }
     return;
   }

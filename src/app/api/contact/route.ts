@@ -1,10 +1,11 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
+import { log } from '@/lib/log';
 import { getClientIp } from '@/lib/rate-limit';
-import { isValidPhone } from '@/lib/validation/inputs';
 import { sendContactConfirmation, sendSupportAlert } from '@/lib/services/email.service';
 import { sanitizeHtml, RateLimiter } from '@/lib/utils/security';
+import { isValidPhone } from '@/lib/validation/inputs';
 
 // Rate limiter: 5 submissions per hour per IP
 const contactRateLimiter = new RateLimiter({
@@ -37,7 +38,10 @@ export async function POST(request: NextRequest) {
     const { name, email, phone, subject, message, bookingRef } = body;
     // Validation sweep: optional phone must be well-formed when given.
     if (phone && !isValidPhone(String(phone))) {
-      return NextResponse.json({ error: 'Enter a valid phone number, or leave it blank.' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Enter a valid phone number, or leave it blank.' },
+        { status: 400 }
+      );
     }
 
     // Validate required fields
@@ -96,8 +100,7 @@ export async function POST(request: NextRequest) {
       { status: 200 }
     );
   } catch (error) {
-    // eslint-disable-next-line no-console
-    console.error('[Contact API] Error:', error);
+    log.error('contact_api', 'error', {}, error);
     return NextResponse.json(
       { error: 'An unexpected error occurred. Please try again later.' },
       { status: 500 }

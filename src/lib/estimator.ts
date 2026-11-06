@@ -5,8 +5,8 @@
 
 export interface RoomDetail {
   type: string;
-  size: "small" | "medium" | "large";
-  condition: "light" | "moderate" | "heavy";
+  size: 'small' | 'medium' | 'large';
+  condition: 'light' | 'moderate' | 'heavy';
 }
 
 export interface HomeDetails {
@@ -35,8 +35,8 @@ const ROOM_BASE_MINUTES: Record<string, number> = {
   bedroom: 20,
   bathroom: 25,
   kitchen: 30,
-  "living-room": 20,
-  "dining-room": 15,
+  'living-room': 20,
+  'dining-room': 15,
   office: 15,
   hallway: 10,
   laundry: 10,
@@ -58,12 +58,12 @@ const CONDITION_MULTIPLIER: Record<string, number> = {
 };
 
 const EXTRA_MINUTES: Record<string, number> = {
-  "inside-oven": 20,
-  "inside-fridge": 15,
+  'inside-oven': 20,
+  'inside-fridge': 15,
   windows: 25,
   laundry: 20,
-  "organize-closets": 30,
-  "wall-marks": 15,
+  'organize-closets': 30,
+  'wall-marks': 15,
   balcony: 15,
 };
 
@@ -78,11 +78,11 @@ export function generateEstimate(details: HomeDetails): CleaningEstimate {
 
     const minutes = Math.round(base * sizeMultiplier * condMultiplier);
 
-    let note = "";
-    if (room.condition === "heavy") {
-      note = "Deep scrub needed";
-    } else if (room.size === "large") {
-      note = "Large space — extra time allocated";
+    let note = '';
+    if (room.condition === 'heavy') {
+      note = 'Deep scrub needed';
+    } else if (room.size === 'large') {
+      note = 'Large space — extra time allocated';
     }
 
     breakdown.push({
@@ -112,28 +112,36 @@ export function generateEstimate(details: HomeDetails): CleaningEstimate {
   const maxHours = hours + 0.5;
 
   // Determine service type
-  const hasHeavyRooms = details.rooms.some((r) => r.condition === "heavy");
+  const hasHeavyRooms = details.rooms.some((r) => r.condition === 'heavy');
   const roomCount = details.rooms.length;
-  let recommendedServiceType = "standard";
+  let recommendedServiceType = 'standard';
   if (hasHeavyRooms || details.extras.length >= 3) {
-    recommendedServiceType = "deep";
+    recommendedServiceType = 'deep';
   } else if (roomCount <= 2 && !hasHeavyRooms) {
-    recommendedServiceType = "standard";
+    recommendedServiceType = 'standard';
   }
 
   // Generate helpful tips
   const tips: string[] = [];
   if (details.hasPets) {
-    tips.push("Pet-friendly products will be used. Consider booking a cleaner with the Pet-Friendly specialty.");
+    tips.push(
+      'Pet-friendly products will be used. Consider booking a cleaner with the Pet-Friendly specialty.'
+    );
   }
   if (hasHeavyRooms) {
-    tips.push("Some rooms need heavy cleaning — a deep clean service is recommended for the best results.");
+    tips.push(
+      'Some rooms need heavy cleaning — a deep clean service is recommended for the best results.'
+    );
   }
   if (roomCount >= 6) {
-    tips.push("For larger homes, you may want to consider splitting the job across two sessions for the best quality.");
+    tips.push(
+      'For larger homes, you may want to consider splitting the job across two sessions for the best quality.'
+    );
   }
-  if (details.extras.includes("inside-oven")) {
-    tips.push("Oven cleaning works best when the oven is cool. Please turn it off at least 2 hours before your booking.");
+  if (details.extras.includes('inside-oven')) {
+    tips.push(
+      'Oven cleaning works best when the oven is cool. Please turn it off at least 2 hours before your booking.'
+    );
   }
 
   return {
@@ -148,30 +156,30 @@ export function generateEstimate(details: HomeDetails): CleaningEstimate {
 
 function formatRoomName(type: string): string {
   return type
-    .split("-")
+    .split('-')
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(" ");
+    .join(' ');
 }
 
 export const ROOM_TYPES = [
-  { value: "bedroom", label: "Bedroom" },
-  { value: "bathroom", label: "Bathroom" },
-  { value: "kitchen", label: "Kitchen" },
-  { value: "living-room", label: "Living Room" },
-  { value: "dining-room", label: "Dining Room" },
-  { value: "office", label: "Home Office" },
-  { value: "hallway", label: "Hallway / Entrance" },
-  { value: "laundry", label: "Laundry Room" },
-  { value: "garage", label: "Garage" },
-  { value: "other", label: "Other" },
+  { value: 'bedroom', label: 'Bedroom' },
+  { value: 'bathroom', label: 'Bathroom' },
+  { value: 'kitchen', label: 'Kitchen' },
+  { value: 'living-room', label: 'Living Room' },
+  { value: 'dining-room', label: 'Dining Room' },
+  { value: 'office', label: 'Home Office' },
+  { value: 'hallway', label: 'Hallway / Entrance' },
+  { value: 'laundry', label: 'Laundry Room' },
+  { value: 'garage', label: 'Garage' },
+  { value: 'other', label: 'Other' },
 ];
 
 export const EXTRA_SERVICES = [
-  { value: "inside-oven", label: "Inside Oven" },
-  { value: "inside-fridge", label: "Inside Fridge" },
-  { value: "windows", label: "Interior Windows" },
-  { value: "laundry", label: "Laundry (wash & fold)" },
-  { value: "organize-closets", label: "Organize Closets" },
-  { value: "wall-marks", label: "Wall Mark Removal" },
-  { value: "balcony", label: "Balcony / Patio" },
+  { value: 'inside-oven', label: 'Inside Oven' },
+  { value: 'inside-fridge', label: 'Inside Fridge' },
+  { value: 'windows', label: 'Interior Windows' },
+  { value: 'laundry', label: 'Laundry (wash & fold)' },
+  { value: 'organize-closets', label: 'Organize Closets' },
+  { value: 'wall-marks', label: 'Wall Mark Removal' },
+  { value: 'balcony', label: 'Balcony / Patio' },
 ];
