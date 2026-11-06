@@ -1,6 +1,6 @@
 import { revokeAllSessions } from '@/lib/auth/device-session';
 import prisma from '@/lib/db/prisma';
-import { log } from '@/lib/log';
+import { log, pseudonym } from '@/lib/log';
 import { AuditService } from '@/lib/services/audit.service';
 import { deleteObject } from '@/lib/storage/r2-client';
 
@@ -141,8 +141,9 @@ export async function removeIncompleteSignup(params: {
     entityType: 'User',
     entityId: user.id,
     metadata: {
-      email: user.email,
-      name: user.name,
+      // B7.5 (finding c): a keyed pseudonym of the address, never the email
+      // or name, so the audit row carries no personal data.
+      requester: pseudonym(user.email),
       swept: params.swept ?? false,
       documentsRemoved: docs.length,
     },

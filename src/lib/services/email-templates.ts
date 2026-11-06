@@ -1784,3 +1784,23 @@ export function buildForceCompleteNotice(data: {
     p('Thank you for using Rena!');
   return { subject, html: renderEmail({ contentHtml }) };
 }
+
+// ─── B7.5 (RENA-065): deletion SLA backlog alert ───────────────────────────
+export function buildAdminDeletionBacklog(data: {
+  total: number;
+  overdue: number;
+  oldestAgeDays: number;
+  ids: string[];
+}): { subject: string; html: string } {
+  const subject = `Deletion requests: ${data.total} open past 21 days, oldest ${data.oldestAgeDays} days`;
+  const ids = data.ids.map((id) => `<li><code>${id}</code></li>`).join('');
+  const contentHtml = `
+    <p>${data.total} data deletion request${data.total === 1 ? '' : 's'} ${
+      data.total === 1 ? 'has' : 'have'
+    } been open for 21 days or more; ${data.overdue} ${
+      data.overdue === 1 ? 'is' : 'are'
+    } past the 30 day promise. The oldest is ${data.oldestAgeDays} days old.</p>
+    <p>Request ids (open the compliance page to act):</p>
+    <ul>${ids}</ul>`;
+  return { subject, html: renderEmail({ contentHtml }) };
+}

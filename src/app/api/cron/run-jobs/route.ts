@@ -57,7 +57,17 @@ export async function POST(request: NextRequest) {
     // eslint-disable-next-line no-console
     console.log('[Scheduler]', JSON.stringify(summary));
 
-    await releaseSchedulerLease({ summary });
+    // B7.3 gate fix: a compliance job that failed on the day's last attempt
+    // is a failed run for the heartbeat, every tick until a clean run.
+    const failedJobs = summary.compliance?.failed ?? [];
+    if (failedJobs.length > 0) {
+      await releaseSchedulerLease({
+        summary,
+        error: new Error(`compliance jobs failed: ${failedJobs.join(', ')}`),
+      });
+    } else {
+      await releaseSchedulerLease({ summary });
+    }
     return NextResponse.json(summary);
   } catch (error) {
     // eslint-disable-next-line no-console

@@ -2,6 +2,7 @@ import type { DisputeStatus } from '@prisma/client';
 
 import { revokeAllSessions } from '@/lib/auth/device-session';
 import { prisma } from '@/lib/db/prisma';
+import { log, pseudonym } from '@/lib/log';
 import { bookingCity, bookingPostcode } from '@/lib/utils/booking-address';
 
 import { AuditService } from './audit.service';
@@ -9,6 +10,18 @@ import { DocumentStorageService } from './document-storage.service';
 
 // A dispute blocks deletion until it is settled, including while its
 // resolution money step is still pending (B4 RESOLVING states).
+export type DeletionStage =
+  | 'documents'
+  | 'messages'
+  | 'analytics'
+  | 'consents'
+  | 'addresses'
+  | 'cleanerLegs'
+  | 'sessions'
+  | 'tombstone'
+  | 'complete';
+export const DELETION_MESSAGE_REDACTED = '[Message removed at the sender’s request]';
+
 const OPEN_DISPUTE_STATUSES: DisputeStatus[] = [
   'OPEN',
   'UNDER_REVIEW',
@@ -291,15 +304,113 @@ export class GdprService {
       },
     });
 
+    // B7.5 (finding c): the audit row carries the request id and, where
+    // LOG_HMAC_KEY is set, a keyed pseudonym of the address; never the email.
     await AuditService.log({
       userId: params.userId,
       action: 'ADMIN_ACTION',
       entityType: 'DataDeletionRequest',
       entityId: request.id,
-      metadata: { action: 'DATA_DELETION_REQUESTED', email: params.email },
+      metadata: {
+        action: 'DATA_DELETION_REQUESTED',
+        requestId: request.id,
+        requester: pseudonym(params.email),
+      },
     });
 
     return request;
+  }
+
+  // ─── B7.5 (RENA-065): the deletion SLA ────────────────────────────────────
+
+  static readonly SLA_DUE_SOON_DAYS = 21;
+  static readonly SLA_OVERDUE_DAYS = 30;
+  static readonly STALLED_AFTER_MS = 24 * 60 * 60 * 1000;
+  static readonly RECOVERIES_BEFORE_ATTENTION = 3;
+  static readonly RECOVERY_NOTE = 'auto-recovered from IN_PROGRESS';
+
+  static ageDays(requestedAt: Date, now: Date = new Date()): number {
+    return Math.floor((now.getTime() - requestedAt.getTime()) / 86400000);
+  }
+
+  static slaChip(ageDays: number): 'none' | 'due_soon' | 'overdue' {
+    if (ageDays >= GdprService.SLA_OVERDUE_DAYS) return 'overdue';
+    if (ageDays >= GdprService.SLA_DUE_SOON_DAYS) return 'due_soon';
+    return 'none';
+  }
+
+  static recoveryCount(notes: string | null | undefined): number {
+    return notes ? notes.split(GdprService.RECOVERY_NOTE).length - 1 : 0;
+  }
+
+  /**
+   * A request that stays IN_PROGRESS for more than 24 hours was claimed by a
+   * run that died after the claim (finding b). It goes back to APPROVED with
+   * a note, so the daily sweep retries it through the idempotent executor;
+   * after three such recoveries it is flagged for attention (a note string,
+   * no column) and sorts first in the queue. Never touches a row younger
+   * than 24 hours: a live run owns it.
+   */
+  static async recoverStalledDeletions(now: Date = new Date()) {
+    const stalledBefore = new Date(now.getTime() - GdprService.STALLED_AFTER_MS);
+    const stalled = await prisma.dataDeletionRequest.findMany({
+      where: { status: 'IN_PROGRESS', updatedAt: { lt: stalledBefore } },
+      select: { id: true, notes: true },
+    });
+    let recovered = 0;
+    let flagged = 0;
+    for (const r of stalled) {
+      const count = GdprService.recoveryCount(r.notes) + 1;
+      const attention = count >= GdprService.RECOVERIES_BEFORE_ATTENTION;
+      const line = `${GdprService.RECOVERY_NOTE} at ${now.toISOString()} (${count})${
+        attention ? ' needsAttention' : ''
+      }`;
+      const moved = await prisma.dataDeletionRequest.updateMany({
+        where: { id: r.id, status: 'IN_PROGRESS', updatedAt: { lt: stalledBefore } },
+        data: { status: 'APPROVED', notes: r.notes ? `${r.notes}\n${line}` : line },
+      });
+      if (moved.count === 1) {
+        recovered += 1;
+        if (attention) flagged += 1;
+        log.error('gdpr', 'deletion_run_recovered', { requestId: r.id, recoveries: count });
+      }
+    }
+    return { recovered, flagged };
+  }
+
+  /** Open requests past the due-soon threshold: counts and ids only. */
+  static async deletionBacklog(now: Date = new Date()) {
+    const dueBefore = new Date(now.getTime() - GdprService.SLA_DUE_SOON_DAYS * 86400000);
+    const rows = await prisma.dataDeletionRequest.findMany({
+      where: {
+        status: { in: ['PENDING', 'APPROVED', 'IN_PROGRESS'] },
+        requestedAt: { lte: dueBefore },
+      },
+      select: { id: true, requestedAt: true, status: true },
+      orderBy: { requestedAt: 'asc' },
+    });
+    const oldestAgeDays = rows[0] ? GdprService.ageDays(rows[0].requestedAt, now) : 0;
+    return {
+      total: rows.length,
+      overdue: rows.filter(
+        (r) => GdprService.ageDays(r.requestedAt, now) >= GdprService.SLA_OVERDUE_DAYS
+      ).length,
+      oldestAgeDays,
+      ids: rows.map((r) => r.id),
+    };
+  }
+
+  /** The HQ glance: every open request, and the oldest age. */
+  static async deletionQueueGlance(now: Date = new Date()) {
+    const oldest = await prisma.dataDeletionRequest.findFirst({
+      where: { status: { in: ['PENDING', 'APPROVED', 'IN_PROGRESS'] } },
+      orderBy: { requestedAt: 'asc' },
+      select: { requestedAt: true },
+    });
+    const open = await prisma.dataDeletionRequest.count({
+      where: { status: { in: ['PENDING', 'APPROVED', 'IN_PROGRESS'] } },
+    });
+    return { open, oldestAgeDays: oldest ? GdprService.ageDays(oldest.requestedAt, now) : null };
   }
 
   /**
@@ -353,11 +464,26 @@ export class GdprService {
   /**
    * Deletion requests an admin can act on (queue + in-flight), newest first.
    */
-  static async getManageableDeletionRequests() {
-    return prisma.dataDeletionRequest.findMany({
+  static async getManageableDeletionRequests(now: Date = new Date()) {
+    const rows = await prisma.dataDeletionRequest.findMany({
       where: { status: { in: ['PENDING', 'APPROVED', 'IN_PROGRESS'] } },
       orderBy: { requestedAt: 'asc' },
     });
+    // B7.5: age, chip and the attention flag ride the row; attention first,
+    // then oldest first.
+    return rows
+      .map((r) => {
+        const ageDays = GdprService.ageDays(r.requestedAt, now);
+        return {
+          ...r,
+          ageDays,
+          slaChip: GdprService.slaChip(ageDays),
+          recoveries: GdprService.recoveryCount(r.notes),
+          needsAttention:
+            GdprService.recoveryCount(r.notes) >= GdprService.RECOVERIES_BEFORE_ATTENTION,
+        };
+      })
+      .sort((a, b) => Number(b.needsAttention) - Number(a.needsAttention) || b.ageDays - a.ageDays);
   }
 
   /**
@@ -403,7 +529,11 @@ export class GdprService {
     // Refusal reverts the claim so the admin can retry once clear.
     const requestUser = await prisma.user.findUnique({
       where: { id: userId },
-      select: { role: true, cleanerProfile: { select: { id: true, stripeAccountId: true } } },
+      select: {
+        role: true,
+        isDeleted: true,
+        cleanerProfile: { select: { id: true, stripeAccountId: true } },
+      },
     });
     if (requestUser?.role === 'CLEANER' || requestUser?.role === 'CLIENT') {
       const blockers =
@@ -421,134 +551,190 @@ export class GdprService {
       }
     }
 
-    // 1) Identity documents. photo_id/selfie/insurance destroyed now (real R2
-    //    delete via destroyDocument). right_to_work + dbs_certificate are under
-    //    statutory holds — deferred to their retention jobs, never cancelled.
-    const docs = await prisma.documentUpload.findMany({
-      where: {
-        userId,
-        isDestroyed: false,
-        documentType: { in: ['photo_id', 'selfie', 'insurance'] },
-      },
-      select: { id: true },
-    });
-    for (const doc of docs) {
-      await DocumentStorageService.destroyDocument(doc.id, 'user_request', params.processedBy);
-    }
-    manifest.identityDocsDestroyed = docs.length;
-    manifest.identityDocsDeferredToStatutoryWindow = await prisma.documentUpload.count({
-      where: {
-        userId,
-        isDestroyed: false,
-        documentType: { in: ['right_to_work', 'dbs_certificate'] },
-      },
-    });
-
-    // 2) Messages authored by the user — redact content, keep the row so the
-    //    counterpart's thread stays intact.
-    const messages = await prisma.message.updateMany({
-      where: { senderId: userId },
-      data: { content: '[Message removed at the sender’s request]' },
-    });
-    manifest.messagesRedacted = messages.count;
-
-    // 3) Analytics — strip PII, keep aggregate rows.
-    const analytics = await prisma.analyticsEvent.updateMany({
-      where: { userId },
-      data: { userId: null, ipAddress: null },
-    });
-    manifest.analyticsAnonymised = analytics.count;
-
-    // 4) Marketing / consent — withdraw every granted consent.
-    const consents = await prisma.gdprConsent.updateMany({
-      where: { userId, granted: true },
-      data: { granted: false, revokedAt: new Date() },
-    });
-    manifest.consentsWithdrawn = consents.count;
-
-    // 5) Addresses — hard delete.
-    const addresses = await prisma.address.deleteMany({ where: { userId } });
-    manifest.addressesDeleted = addresses.count;
-
-    // 5b) H103 cleaner legs — profile RETIRED, not deleted (the row anchors
-    //     booking history; the user tombstone below already removes it from
-    //     search/matching structurally via eligibleCleanerWhere's user gate).
-    if (requestUser?.role === 'CLEANER' && requestUser.cleanerProfile) {
-      const profileId = requestUser.cleanerProfile.id;
-      const [slots, overrides, dateSlots] = await Promise.all([
-        prisma.availabilitySlot.deleteMany({ where: { cleanerProfileId: profileId } }),
-        prisma.availabilityOverride.deleteMany({ where: { cleanerProfileId: profileId } }),
-        prisma.availabilityDateSlot.deleteMany({ where: { cleanerProfileId: profileId } }),
-      ]);
-      manifest.availabilityRowsDeleted = slots.count + overrides.count + dateSlots.count;
-      // Stripe Express: the account is THEIRS — we never delete it at Stripe
-      // (Stripe keeps its own KYC retention; account.application.deauthorized
-      // handles their side). We DETACH: the money blocker guarantees zero in
-      // flight, and the old id is recorded here for the audit trail.
-      manifest.stripeAccountDetached = requestUser.cleanerProfile.stripeAccountId ?? 'none';
-      await prisma.cleanerProfile.update({
-        where: { id: profileId },
-        data: {
-          bio: null,
-          stripeAccountId: null,
-          stripeChargesEnabled: false,
-          stripePayoutsEnabled: false,
+    // B7.5 (James, before any IN_PROGRESS recovery): the executor is a
+    // sequence of named, idempotent stages. A run that dies at any stage
+    // leaves the request IN_PROGRESS; the recovery returns it to APPROVED
+    // and the next run re-enters here and repeats every stage, each of which
+    // selects only what is still to do (destroyed documents are skipped,
+    // redacted messages are not re-selected, deleted rows are gone, the
+    // tombstone is guarded on isDeleted). The failure-injection suite
+    // (src/lib/services/deletion.integration.test.ts) kills a run at each
+    // stage and shows the retry completing with a consistent manifest.
+    const stages: Array<[DeletionStage, () => Promise<void>]> = [
+      [
+        'documents',
+        async () => {
+          // 1) Identity documents. photo_id/selfie/insurance destroyed now
+          //    (real R2 delete via destroyDocument). right_to_work and
+          //    dbs_certificate are under statutory holds: deferred to their
+          //    retention jobs, never cancelled.
+          const docs = await prisma.documentUpload.findMany({
+            where: {
+              userId,
+              isDestroyed: false,
+              documentType: { in: ['photo_id', 'selfie', 'insurance'] },
+            },
+            select: { id: true },
+          });
+          for (const doc of docs) {
+            await DocumentStorageService.destroyDocument(
+              doc.id,
+              'user_request',
+              params.processedBy
+            );
+          }
+          manifest.identityDocsDestroyed = docs.length;
+          manifest.identityDocsDeferredToStatutoryWindow = await prisma.documentUpload.count({
+            where: {
+              userId,
+              isDestroyed: false,
+              documentType: { in: ['right_to_work', 'dbs_certificate'] },
+            },
+          });
         },
-      });
+      ],
+      [
+        'messages',
+        async () => {
+          // 2) Messages authored by the user: redact content, keep the row so
+          //    the counterpart's thread stays intact. Already-redacted rows
+          //    are not re-selected, so the count on a retry is the remainder.
+          const messages = await prisma.message.updateMany({
+            where: { senderId: userId, content: { not: DELETION_MESSAGE_REDACTED } },
+            data: { content: DELETION_MESSAGE_REDACTED },
+          });
+          manifest.messagesRedacted = messages.count;
+        },
+      ],
+      [
+        'analytics',
+        async () => {
+          const analytics = await prisma.analyticsEvent.updateMany({
+            where: { userId },
+            data: { userId: null, ipAddress: null },
+          });
+          manifest.analyticsAnonymised = analytics.count;
+        },
+      ],
+      [
+        'consents',
+        async () => {
+          const consents = await prisma.gdprConsent.updateMany({
+            where: { userId, granted: true },
+            data: { granted: false, revokedAt: new Date() },
+          });
+          manifest.consentsWithdrawn = consents.count;
+        },
+      ],
+      [
+        'addresses',
+        async () => {
+          const addresses = await prisma.address.deleteMany({ where: { userId } });
+          manifest.addressesDeleted = addresses.count;
+        },
+      ],
+      [
+        'cleanerLegs',
+        async () => {
+          // 5b) H103 cleaner legs: profile RETIRED, not deleted (the row
+          //     anchors booking history). Stripe Express: the account is
+          //     THEIRS, never deleted at Stripe; detached here, the old id
+          //     recorded for the audit trail (null on a retry, by design).
+          if (requestUser?.role === 'CLEANER' && requestUser.cleanerProfile) {
+            const profileId = requestUser.cleanerProfile.id;
+            const [slots, overrides, dateSlots] = await Promise.all([
+              prisma.availabilitySlot.deleteMany({ where: { cleanerProfileId: profileId } }),
+              prisma.availabilityOverride.deleteMany({ where: { cleanerProfileId: profileId } }),
+              prisma.availabilityDateSlot.deleteMany({ where: { cleanerProfileId: profileId } }),
+            ]);
+            manifest.availabilityRowsDeleted = slots.count + overrides.count + dateSlots.count;
+            manifest.stripeAccountDetached = requestUser.cleanerProfile.stripeAccountId ?? 'none';
+            await prisma.cleanerProfile.update({
+              where: { id: profileId },
+              data: {
+                bio: null,
+                stripeAccountId: null,
+                stripeChargesEnabled: false,
+                stripePayoutsEnabled: false,
+              },
+            });
+          }
+        },
+      ],
+      [
+        'sessions',
+        async () => {
+          // 5c) H103 session kill plus D-g: every device token, push
+          //     subscription and DeviceSession row goes; the version bumps.
+          const [deviceTokens, pushSubs] = await Promise.all([
+            prisma.deviceToken.deleteMany({ where: { userId } }),
+            prisma.pushSubscription.deleteMany({ where: { userId } }),
+          ]);
+          manifest.deviceTokensDeleted = deviceTokens.count + pushSubs.count;
+          await revokeAllSessions(userId, 'deletion');
+        },
+      ],
+      [
+        'tombstone',
+        async () => {
+          // 6) User identity: tombstone (row retained for booking and payment
+          //    FK integrity under the 6-year tax hold). Guarded on isDeleted
+          //    so a retry never moves deletedAt or passwordChangedAt again.
+          const r = await prisma.user.updateMany({
+            where: { id: userId, isDeleted: false },
+            data: {
+              email: `deleted+${userId}@deleted.invalid`,
+              name: 'Deleted user',
+              phone: null,
+              image: null,
+              passwordHash: null,
+              isDeleted: true,
+              deletedAt: new Date(),
+              accountStatus: 'DEACTIVATED',
+              passwordChangedAt: new Date(),
+            },
+          });
+          manifest.tombstoned = r.count === 1;
+        },
+      ],
+      [
+        'complete',
+        async () => {
+          await prisma.dataRetentionLog.create({
+            data: {
+              entityType: 'User',
+              entityId: userId,
+              action: 'ANONYMISED',
+              reason: 'user_request',
+              performedBy: params.processedBy,
+              metadata: { requestId: params.requestId, ...manifest },
+            },
+          });
+          await prisma.dataDeletionRequest.update({
+            where: { id: params.requestId },
+            data: { status: 'COMPLETED', completedAt: new Date() },
+          });
+          await AuditService.log({
+            userId: params.processedBy,
+            action: 'ADMIN_ACTION',
+            entityType: 'DataDeletionRequest',
+            entityId: params.requestId,
+            metadata: { action: 'DATA_DELETION_COMPLETED', deletedUserId: userId, ...manifest },
+          });
+        },
+      ],
+    ];
+
+    for (const [stage, run] of stages) {
+      try {
+        await run();
+      } catch (err) {
+        // The request stays IN_PROGRESS: the recovery returns it to APPROVED
+        // after 24 hours and the next run repeats every stage.
+        log.error('gdpr', 'deletion_stage_failed', { requestId: params.requestId, stage }, err);
+        throw err;
+      }
     }
-
-    // 5c) H103 session kill — bump passwordChangedAt (the F6 field): every
-    //     session and bearer token issued before this moment dies at the next
-    //     check, and the native app goes silent with its tokens gone.
-    const [deviceTokens, pushSubs] = await Promise.all([
-      prisma.deviceToken.deleteMany({ where: { userId } }),
-      prisma.pushSubscription.deleteMany({ where: { userId } }),
-    ]);
-    manifest.deviceTokensDeleted = deviceTokens.count + pushSubs.count;
-    // D-g: every DeviceSession row revoked and the version bumped.
-    await revokeAllSessions(userId, 'deletion');
-
-    // 6) User identity — tombstone (row retained for booking/payment FK
-    //    integrity under the 6-year tax/legal hold). This also anonymises the
-    //    author of any retained reviews/messages.
-    await prisma.user.update({
-      where: { id: userId },
-      data: {
-        email: `deleted+${userId}@deleted.invalid`,
-        name: 'Deleted user',
-        phone: null,
-        image: null,
-        passwordHash: null,
-        isDeleted: true,
-        deletedAt: new Date(),
-        accountStatus: 'DEACTIVATED',
-        passwordChangedAt: new Date(),
-      },
-    });
-
-    await prisma.dataRetentionLog.create({
-      data: {
-        entityType: 'User',
-        entityId: userId,
-        action: 'ANONYMISED',
-        reason: 'user_request',
-        performedBy: params.processedBy,
-        metadata: { requestId: params.requestId, ...manifest },
-      },
-    });
-
-    await prisma.dataDeletionRequest.update({
-      where: { id: params.requestId },
-      data: { status: 'COMPLETED', completedAt: new Date() },
-    });
-
-    await AuditService.log({
-      userId: params.processedBy,
-      action: 'ADMIN_ACTION',
-      entityType: 'DataDeletionRequest',
-      entityId: params.requestId,
-      metadata: { action: 'DATA_DELETION_COMPLETED', deletedUserId: userId, ...manifest },
-    });
 
     return { success: true, manifest };
   }

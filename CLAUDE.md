@@ -296,7 +296,7 @@ test runs against staging or production.
 
 ## Database integration tests
 
-Run all seven database suites locally with `npm run test:integration` (one file
+Run all nine database suites locally with `npm run test:integration` (one file
 at a time, every suite flag set). Never run them in parallel against one
 database: the money ledger's S1 and S2 refuse while another suite's booking
 exists (RENA-105). CI runs each suite as its own sequential step.

@@ -18,6 +18,9 @@ export interface HandlerResult {
 // session sweep's counts onto the [Scheduler] summary line. Counts only.
 export interface ComplianceHandlerResult extends HandlerResult {
   sessionSweep?: { bridgeCodes: number; sessions: number; handoffCodes: number } | { failed: true };
+  // B7.3 gate fix: the jobs that failed on the day's last attempt. Present on
+  // every tick until a clean run writes the day marker, so the heartbeat sees it.
+  failed?: string[];
 }
 
 export interface SchedulerSummary {
@@ -297,42 +300,126 @@ async function processBackgroundJobs(): Promise<HandlerResult> {
 }
 
 const COMPLIANCE_MARKER_KEY = 'last_compliance_run_date';
+const COMPLIANCE_ATTEMPT_KEY = 'last_compliance_attempt';
+const COMPLIANCE_RETRY_MS = 60 * 60 * 1000;
 
-// The compliance / retention batch (DBS + RTW destruction, RTW expiry alerts
-// and auto-suspension, analytics anonymisation, DPA expiry) is daily-cadence,
-// but this orchestrator fires every 5 minutes. Day-guard it with an atomic
-// compare-and-swap on a PlatformConfig marker: flip the marker to today's UTC
-// date only if it isn't already today. Postgres re-evaluates the updateMany
-// WHERE against the committed row under its lock, so of two overlapping cron
-// ticks exactly one gets count===1 and runs the batch — no double-run.
+interface ComplianceAttempt {
+  attemptedAt?: string;
+  failed?: string[];
+}
+
+function parseAttempt(value: string | undefined): ComplianceAttempt {
+  try {
+    const v = value ? (JSON.parse(value) as ComplianceAttempt) : {};
+    return v && typeof v === 'object' ? v : {};
+  } catch {
+    return {};
+  }
+}
+
+// The compliance / retention batch (document destruction, RTW expiry, the
+// retention matrix, analytics anonymisation, deletion sweeps) is daily, but
+// this orchestrator fires every 5 minutes.
 //
-// The marker row is seeded (create-only) by seed-reference-data.ts, which runs
-// before the server starts, so it always exists when a cron tick fires. If it
-// were somehow absent the CAS matches nothing and the batch simply skips (fails
-// safe) until the next deploy re-seeds it.
-async function processComplianceJobsDaily(): Promise<ComplianceHandlerResult> {
+// B7.3 gate fix (finding a, James-ruled): the day marker is written only
+// AFTER runAllJobs returns with every job reporting success. Before the fix
+// the marker was flipped before the run, so a failing job never reached the
+// heartbeat and was not retried that day. Now:
+//   1. the attempt marker is claimed atomically (compare-and-swap on a
+//      PlatformConfig row: not attempted within the last hour), so of two
+//      overlapping ticks exactly one runs the batch and a failing batch is
+//      retried at most once an hour;
+//   2. on success the day marker takes today's date and the attempt marker is
+//      cleared; on any failure the day marker is NOT written, the failed job
+//      names are stored on the attempt marker and reported as
+//      compliance.failed on this and every following tick until a clean run,
+//      so releaseSchedulerLease records a failed run and
+//      /api/health/scheduler turns failing.
+// Admin run_all_jobs bypasses both markers (logged where it runs).
+// Both rows are seeded create-only; a missing row is created here (create-
+// only too) so a fresh database cannot silently skip the batch forever.
+export async function processComplianceJobsDaily(): Promise<ComplianceHandlerResult> {
   const { prisma } = await import('@/lib/db/prisma');
-  const today = new Date().toISOString().slice(0, 10); // UTC yyyy-mm-dd
+  const now = new Date();
+  const today = now.toISOString().slice(0, 10); // UTC yyyy-mm-dd
 
-  const claim = await prisma.platformConfig.updateMany({
-    where: { key: COMPLIANCE_MARKER_KEY, value: { not: today } },
-    data: { value: today },
-  });
+  const [dayRow, attemptRow] = await Promise.all([
+    prisma.platformConfig.findUnique({ where: { key: COMPLIANCE_MARKER_KEY } }),
+    prisma.platformConfig.findUnique({ where: { key: COMPLIANCE_ATTEMPT_KEY } }),
+  ]);
+  if (!attemptRow) {
+    await prisma.platformConfig
+      .create({ data: { key: COMPLIANCE_ATTEMPT_KEY, value: '{}' } })
+      .catch(() => undefined);
+  }
+  const previous = parseAttempt(attemptRow?.value);
+  const carried = previous.failed?.length ? { failed: previous.failed } : {};
 
-  if (claim.count === 0) {
-    return { processed: 0 }; // already ran today (or marker missing → safe skip)
+  if (dayRow?.value === today) {
+    return { processed: 0, ...carried }; // ran clean today
+  }
+  const retryAfter = previous.attemptedAt
+    ? new Date(Date.parse(previous.attemptedAt) + COMPLIANCE_RETRY_MS)
+    : null;
+  if (retryAfter && retryAfter.getTime() > now.getTime()) {
+    return { processed: 0, ...carried }; // attempted within the hour; wait
   }
 
-  const results = await ComplianceSchedulerService.runAllJobs();
+  // Atomic claim of the attempt: the WHERE re-reads the committed value under
+  // the row lock, so two overlapping ticks cannot both pass.
+  const claimValue = JSON.stringify({
+    attemptedAt: now.toISOString(),
+    failed: previous.failed ?? [],
+  });
+  const claim = await prisma.platformConfig.updateMany({
+    where: { key: COMPLIANCE_ATTEMPT_KEY, value: attemptRow?.value ?? '{}' },
+    data: { value: claimValue },
+  });
+  if (claim.count === 0) {
+    return { processed: 0, ...carried }; // another tick claimed it
+  }
+
+  let results: Awaited<ReturnType<typeof ComplianceSchedulerService.runAllJobs>>;
+  try {
+    results = await ComplianceSchedulerService.runAllJobs();
+  } catch (err) {
+    // A throw inside the batch is a failure of the batch, not a skipped day.
+    log.error('scheduler', 'compliance_batch_threw', {}, err);
+    await prisma.platformConfig.updateMany({
+      where: { key: COMPLIANCE_ATTEMPT_KEY, value: claimValue },
+      data: { value: JSON.stringify({ attemptedAt: now.toISOString(), failed: ['batch'] }) },
+    });
+    return { processed: 0, failed: ['batch'] };
+  }
+  const failed = results.filter((r) => !r.success).map((r) => r.job);
+  if (failed.length === 0) {
+    await prisma.$transaction([
+      prisma.platformConfig.updateMany({
+        where: { key: COMPLIANCE_MARKER_KEY },
+        data: { value: today },
+      }),
+      prisma.platformConfig.updateMany({
+        where: { key: COMPLIANCE_ATTEMPT_KEY },
+        data: { value: '{}' },
+      }),
+    ]);
+  } else {
+    log.error('scheduler', 'compliance_jobs_failed', { jobs: failed.join(',') });
+    await prisma.platformConfig.updateMany({
+      where: { key: COMPLIANCE_ATTEMPT_KEY, value: claimValue },
+      data: { value: JSON.stringify({ attemptedAt: now.toISOString(), failed }) },
+    });
+  }
   const sweep = results.find((r) => r.job === 'sweepSessionRows');
-  if (!sweep) return { processed: results.length };
-  const d = sweep.details as { bridgeCodes: number; sessions: number; handoffCodes: number };
-  return {
-    processed: results.length,
-    sessionSweep: sweep.success
+  const out: ComplianceHandlerResult = { processed: results.length };
+  if (failed.length) out.failed = failed;
+  if (sweep) {
+    const d = sweep.details as { bridgeCodes: number; sessions: number; handoffCodes: number };
+    out.sessionSweep = sweep.success
       ? { bridgeCodes: d.bridgeCodes, sessions: d.sessions, handoffCodes: d.handoffCodes }
-      : { failed: true },
-  };
+      : { failed: true };
+  }
+  return out;
 }
 
 // M4 safety net: stranded PAID bookings (webhook received but crashed before

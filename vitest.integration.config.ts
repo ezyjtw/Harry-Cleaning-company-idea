@@ -18,6 +18,8 @@ export const INTEGRATION_FLAGS = [
   'BOOKING_LIFECYCLE_INTEGRATION',
   'MONEY_LEDGER_INTEGRATION',
   'GDPR_RETENTION_INTEGRATION',
+  'RETENTION_INTEGRATION',
+  'DELETION_INTEGRATION',
 ] as const;
 
 // Spread, not mergeConfig: mergeConfig concatenates include lists, which

@@ -1683,6 +1683,24 @@ export async function sendAdminApplicationWarningUndelivered(data: {
   return sendEmail(notificationEmail, subject, html);
 }
 
+// ─── Deletion SLA backlog (B7.5, RENA-065) ─────────────────
+
+/** One mail per daily compliance run while any open deletion request is
+ *  21 days or older. Counts, the oldest age and request ids only: no
+ *  address, no name. Same recipient as the other operational alerts. */
+export async function sendAdminDeletionBacklog(data: {
+  total: number;
+  overdue: number;
+  oldestAgeDays: number;
+  ids: string[];
+}): Promise<boolean> {
+  const notificationEmail = process.env.RESEND_NOTIFICATION_EMAIL;
+  if (!notificationEmail) return false;
+  const { buildAdminDeletionBacklog } = await import('./email-templates');
+  const { subject, html } = buildAdminDeletionBacklog(data);
+  return sendEmail(notificationEmail, subject, html);
+}
+
 // ─── Dispute early-warning (B1.3) ──────────────────────────
 
 /** Admin alert on charge.dispute.created — same recipient as signup

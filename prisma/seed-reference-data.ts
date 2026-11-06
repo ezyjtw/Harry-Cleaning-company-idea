@@ -205,6 +205,21 @@ async function main() {
     },
   });
 
+  // 5a) B7.3 compliance attempt marker — create-only. Holds JSON
+  // { attemptedAt, failed[] }: the last attempt time (retry once an hour) and
+  // the jobs that failed on it, carried onto every tick's summary until a
+  // clean run writes the day marker. '{}' means no attempt recorded.
+  await prisma.platformConfig.upsert({
+    where: { key: 'last_compliance_attempt' },
+    update: {},
+    create: {
+      key: 'last_compliance_attempt',
+      value: '{}',
+      description:
+        'Last attempt of the daily compliance batch and the jobs that failed on it (B7.3 gate).',
+    },
+  });
+
   // 5b) R9 HQ markers — create-only, same CAS-guard pattern as the compliance
   // marker. hq_api_amber_pct is a VALUE James can edit (amber threshold for the
   // HQ API room, percent of a provider's documented limit), so update:{} keeps

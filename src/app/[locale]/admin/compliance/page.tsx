@@ -10,6 +10,34 @@ interface DeletionRequest {
   reason: string | null;
   requestedAt: string;
   processedBy: string | null;
+  // B7.5 (RENA-065): age in days, the SLA chip and the attention flag ride the row.
+  ageDays: number;
+  slaChip: 'none' | 'due_soon' | 'overdue';
+  recoveries: number;
+  needsAttention: boolean;
+}
+
+function SlaChip({ r }: { r: DeletionRequest }) {
+  if (r.slaChip === 'none' && !r.needsAttention) return null;
+  return (
+    <span className="ml-2 inline-flex items-center gap-2">
+      {r.slaChip === 'overdue' && (
+        <span className="inline-flex items-center rounded-full bg-danger/10 px-2 py-0.5 text-xs font-medium text-danger">
+          Overdue
+        </span>
+      )}
+      {r.slaChip === 'due_soon' && (
+        <span className="inline-flex items-center rounded-full bg-warning/10 px-2 py-0.5 text-xs font-medium text-warning">
+          Due soon
+        </span>
+      )}
+      {r.needsAttention && (
+        <span className="inline-flex items-center rounded-full bg-danger/10 px-2 py-0.5 text-xs font-medium text-danger">
+          Needs attention ({r.recoveries} recoveries)
+        </span>
+      )}
+    </span>
+  );
 }
 
 interface SarRow {
@@ -285,7 +313,9 @@ export default function AdminCompliancePage() {
                   {r.reason && <p className="mt-2 text-sm text-ink-2">Reason: {r.reason}</p>}
                 </div>
                 <span className="text-xs text-ink-3">
-                  Requested {new Date(r.requestedAt).toLocaleDateString('en-GB')}
+                  Requested {new Date(r.requestedAt).toLocaleDateString('en-GB')} ({r.ageDays}{' '}
+                  {r.ageDays === 1 ? 'day' : 'days'} ago)
+                  <SlaChip r={r} />
                 </span>
               </div>
 
